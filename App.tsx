@@ -19,7 +19,6 @@ function App() {
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <AppContent />
-          <Text>Whoop Whoop Hi Ashley! Good luck at Nutcracker!</Text>
     </SafeAreaProvider>
   );
 }
@@ -29,10 +28,7 @@ function AppContent() {
 
   return (
     <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
+      <Text>Welcome To Budget Buddy</Text>
     </View>
           
   );
@@ -41,6 +37,9 @@ function AppContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff'
   },
 });
 
