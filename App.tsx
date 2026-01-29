@@ -123,7 +123,7 @@ function EditBudgetButton({id, amount}: {id: string, amount: number}){
     );
 }
 
-function HistoryScreen ({navigation}: {navigation: any}){;
+function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
     return (<View style={styles.container}>
         <Text style={[styles.customFont]}>History Screen</Text>
