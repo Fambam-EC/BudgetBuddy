@@ -10,7 +10,7 @@ const compileNodeModules = [
 ].map((moduleName) => path.resolve(appDirectory, `node_modules/${moduleName}`));
 
 const babelLoaderConfiguration = {
-  test: /\.(js|jsx|ts|tsx)$/, // Updated to include .jsx
+  test: /\.(js|jsx|ts|tsx|mjs)$/, // Updated to include .jsx
   // Add every directory that needs to be compiled by Babel during the build.
   include: [
     path.resolve(__dirname, "index.web.js"), // Entry to your application
@@ -61,6 +61,28 @@ const tsLoaderConfiguration = {
   },
 };
 
+const javascriptRules = {
+  test: /\.m?js/,
+  type: "javascript/auto",
+}
+
+const fullySpecifiedRules = {
+  test: /\.m?js/,
+  resolve: {
+    fullySpecified: false,
+  }
+};
+
+const jsonRules = {
+  test: /\.json$/,
+  type: 'asset/resource'
+}
+
+const cssLoaderConfiguration = {
+  test: /\.css$/i,
+  use: ['style-loader', 'css-loader'],
+};
+
 module.exports = {
   entry: {
     app: path.join(__dirname, "index.web.js"),
@@ -69,7 +91,7 @@ module.exports = {
     filename: "rnw.bundle.js",
   },
   resolve: {
-    extensions: [".web.tsx", ".web.ts", ".tsx", ".ts", ".web.js", ".js", ".native"],
+    extensions: [".web.tsx", ".web.ts", ".tsx", ".ts", ".web.js", ".js", ".mjs"],
     alias: {
       "react-native$": "react-native-web",
     },
@@ -80,6 +102,10 @@ module.exports = {
       imageLoaderConfiguration,
       svgLoaderConfiguration,
       tsLoaderConfiguration,
+      javascriptRules,
+      fullySpecifiedRules,
+      jsonRules,
+      cssLoaderConfiguration
     ],
   },
   plugins: [
