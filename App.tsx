@@ -134,7 +134,7 @@ function HistoryScreen ({navigation}: {navigation: any}){
 }
 
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budgetAmountRemaining?: number, budgetedTotal?: number, navigation: any}){
     return (
       <View style={[styles.center, styles.rowPadding, styles.titlePadding]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
@@ -142,7 +142,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: ${totalIncomeAmount}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budgeted Total: ${budgetedTotal}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: ${budgetAmountRemaining}</Text>
-            <HistoryButton/>
+            <HistoryButton navigation={navigation}/>
       </View>
     );
 }
@@ -250,7 +250,9 @@ function BudgetComponent({navigation}: {navigation: any}){
     return (
     <View style={styles.loginButton}>
         <BudgetHeader
-            budgetAmountRemaining={budgetRemaining} budgetedTotal={totalBudgetAmount} />
+            budgetAmountRemaining={budgetRemaining} 
+            budgetedTotal={totalBudgetAmount}
+            navigation={navigation} />
         <TableHeader />
         <FlatList
             data={budgetData}
@@ -273,8 +275,8 @@ function BudgetComponent({navigation}: {navigation: any}){
       </View>);
 }
 
-function HistoryButton(){
-    const navigation = useNavigation();
+function HistoryButton({navigation}: {navigation: any}){
+    //const navigation = useNavigation();
     return (<View>
             <Pressable onPress={() => navigation.navigate('History')}>
               <Text style={[styles.customFont, styles.headerFontSize]}>Go To History</Text>
@@ -282,7 +284,7 @@ function HistoryButton(){
             </View>);
 }
 
-function TableWrapper({item}) {
+function TableWrapper({item} : {item: any}) {
     return (<View>{item}</View>);
 }
 
