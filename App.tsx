@@ -125,7 +125,7 @@ function EditBudgetButton({id, amount}: {id: string, amount: number}){
 
 function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
-    return (<View style={styles.container}>
+    return (<View>
         <Text style={[styles.customFont]}>History Screen</Text>
         <Pressable onPress={() => navigation.navigate('Budget Buddy')}>
           <Text style={styles.customFont}>Back To Home</Text>
@@ -136,12 +136,13 @@ function HistoryScreen ({navigation}: {navigation: any}){
 
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
     return (
-      <View style={[styles.container, styles. rowPadding, styles.titlePadding]}>
-        <Text style={styles.customFont}>{todaysDate.toDateString()}</Text>
-        <Text style={styles.customFont}> {todaysDate.toISOString().split('T')[0]}</Text>
-        <Text style={styles.customFont}>Total Income: ${totalIncomeAmount}</Text>
-        <Text style={styles.customFont}>Budgeted Total: ${budgetedTotal}</Text>
-        <Text style={styles.customFont}>Remaining: ${budgetAmountRemaining}</Text>
+      <View style={[styles.center, styles.rowPadding, styles.titlePadding]}>
+        <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: ${totalIncomeAmount}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Budgeted Total: ${budgetedTotal}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: ${budgetAmountRemaining}</Text>
+            <HistoryButton/>
       </View>
     );
 }
@@ -177,7 +178,7 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
   return (
     <View style={[styles.container]}>
             {isAddingItem && (
-        <View style={[styles.rowBorder, styles.rowPadding]}>
+        <View style={[styles.rowBorder, styles.rowPadding, styles.budgetContainer]}>
           <TextInput
             placeholder="New Budget Item Description"
             value={budgetDescription}
@@ -198,14 +199,14 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
             style={[styles.rowContent]}
           />
           <Pressable
-          style={[styles.rowContent, styles.rowBorder, styles.center ]}
+          style={[styles.rowContent, styles.center ]}
             onPress={() => {
               console.log("Adding new budget item:", newBudgetItem);
               addBudgetItem(newBudgetItem);
               setIsAddingItem(false);
               setNewBudgetItem({id: '', description: '', budget: 0, amount: 0, date: ''});
             }}>
-            <Text style={[styles.customFont]}>Submit Add</Text>
+            <Text style={[styles.boldText, styles.budgetHeader]}>+</Text>
               </Pressable>
     </View>       
       )}
@@ -247,8 +248,9 @@ function BudgetComponent({navigation}: {navigation: any}){
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
-      <View>
-        <BudgetHeader budgetAmountRemaining={budgetRemaining} budgetedTotal={totalBudgetAmount} />
+    <View style={styles.loginButton}>
+        <BudgetHeader
+            budgetAmountRemaining={budgetRemaining} budgetedTotal={totalBudgetAmount} />
         <TableHeader />
         <FlatList
             data={budgetData}
@@ -262,21 +264,32 @@ function BudgetComponent({navigation}: {navigation: any}){
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            extraData={[budgetData, FooterComponent]}
+            //extraData={[budgetData, FooterComponent]}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
               const itemWithId = { ...newItem, id: (budgetData.length + 1).toString() };
               setBudgetData([...budgetData, itemWithId]);
             }} />}
             />
-            <Pressable onPress={() => navigation.navigate('History')}>
-              <Text style={styles.customFont}>Go To History</Text>
-            </Pressable>
       </View>);
 }
 
-function TableHeader(){ 
+function HistoryButton(){
+    const navigation = useNavigation();
+    return (<View>
+            <Pressable onPress={() => navigation.navigate('History')}>
+              <Text style={[styles.customFont, styles.headerFontSize]}>Go To History</Text>
+            </Pressable>
+            </View>);
+}
+
+function TableWrapper({item}) {
+    return (<View>{item}</View>);
+}
+
+function TableHeader(){
   return (<View style={[styles.rowContainer, styles.rowPadding]}>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
+          <Text
+          style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
@@ -291,7 +304,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center'
     },
     rowContainer:{
-      flex: 1,
       flexDirection: 'row',
       padding: 10,
       justifyContent: 'center',
@@ -346,7 +358,11 @@ const styles = StyleSheet.create({
       alignItems: 'center', justifyContent: 'center'
     },
     customFont:{
-      fontFamily: 'OpenSans-Regular'
+      fontFamily: 'OpenSans-Regular',
+      fontSize: 12
+    },
+    headerFontSize:{
+      fontSize: 18
     }
 });
 export default App;
