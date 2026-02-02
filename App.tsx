@@ -78,6 +78,7 @@ const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount}:
   const toggleEdit = () => {
       setIsEditing(!isEditing);
   }
+
   return (
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
     <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
@@ -135,14 +136,36 @@ function HistoryScreen ({navigation}: {navigation: any}){
 
 
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budgetAmountRemaining?: number, budgetedTotal?: number, navigation: any}){
+  const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
+  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
     return (
-      <View style={[styles.center, styles.rowPadding, styles.titlePadding]}>
+      <View style={[styles.center, styles.rowPadding]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: ${totalIncomeAmount}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Budgeted Total: ${budgetedTotal}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: ${budgetAmountRemaining}</Text>
-            <HistoryButton navigation={navigation}/>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: ${totalSetBudgetAmount}
+          <Pressable onPress={() => setIsEditingTotal(!isEditingTotal)}
+        ><View><Text style={[styles.customFont, styles.headerPadding, styles.headerFontSize]}>Edit</Text></View></Pressable>
+        </Text>
+        {isEditingTotal && (<TextInput 
+        placeholder="New Amount"
+        keyboardType={'number-pad'}
+        value={totalSetBudgetAmount.toString()}
+        onChangeText={(amount) => setTotalBudgetAmount(Number(amount))}
+        onSubmitEditing={() => {
+          setTotalBudgetAmount(Number(totalSetBudgetAmount))
+          setPotentialSurplus(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0))
+          setIsEditingTotal(false)
+        }}
+        />
+        )}
+
+        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: ${budgetedTotal}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: ${budgetAmountRemaining}</Text>
+        <View style={[styles.budgetContainer, styles.center]}>
+        <Text style={[styles.customFont, styles.headerFontSize
+        ]}>Potential Surplus: $</Text><Text style={[styles.flexEnd, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>   
+        </View>
       </View>
     );
 }
@@ -212,7 +235,6 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
       <Pressable onPress={() => toggleAddItem()}>
         <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Add Budget Item</Text>
       </Pressable>
-
     </View>   
   );
 }
@@ -248,6 +270,7 @@ function BudgetComponent({navigation}: {navigation: any}){
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
     <View style={styles.loginButton}>
+      <HistoryButton navigation={navigation}/>
         <BudgetHeader
             budgetAmountRemaining={budgetRemaining} 
             budgetedTotal={totalBudgetAmount}
@@ -276,9 +299,9 @@ function BudgetComponent({navigation}: {navigation: any}){
 
 function HistoryButton({navigation}: {navigation: any}){
     //const navigation = useNavigation();
-    return (<View>
+    return (<View style={styles.flexEnd}>
             <Pressable onPress={() => navigation.navigate('History')}>
-              <Text style={[styles.customFont, styles.headerFontSize]}>Go To History</Text>
+              <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Go To History</Text>
             </Pressable>
             </View>);
 }
@@ -374,6 +397,12 @@ const styles = StyleSheet.create({
     },
     row:{
       flexDirection: 'row'
+    },
+    headerPadding: {
+      paddingStart: 10
+    },
+    flexEnd:{
+      alignItems: 'flex-end'
     }
 });
 export default App;
