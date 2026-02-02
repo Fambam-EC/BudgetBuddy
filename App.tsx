@@ -63,8 +63,8 @@ type BudgetData = {
 };
 
 type RootStackParamList = {
-  'Budget Buddy': undefined,
-  History: undefined
+  'Budget Buddy': any,
+  History: any
 }
 
 const todaysDate = new Date();
@@ -127,7 +127,7 @@ function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
     return (<View>
         <Text style={[styles.customFont]}>History Screen</Text>
-        <Pressable onPress={() => navigation.navigate('Budget Buddy')}>
+        <Pressable onPress={() => navigation.popTo('Budget Buddy')}>
           <Text style={styles.customFont}>Back To Home</Text>
         </Pressable>
     </View>);
@@ -176,32 +176,31 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
     });
   }, [budgetDescription, budgetAmount, budgetDate]);
   return (
-    <View style={[styles.container]}>
+    <View style={[styles.loginButton, styles.center]}>
             {isAddingItem && (
-        <View style={[styles.rowBorder, styles.rowPadding, styles.budgetContainer]}>
+        <View style={[styles.rowBorder, styles.rowPadding, styles.row]}>
           <TextInput
-            placeholder="New Budget Item Description"
+            placeholder="Description"
             value={budgetDescription}
             onChangeText={(text) => setBudgetDescription(text)}
-            style={[styles.rowContent]}
+            style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
           <TextInput
-            placeholder="Budget Amount"
+            placeholder="Amount"
             keyboardType="numeric"
             value={budgetAmount.toString() }
             onChangeText={(text) => setBudgetAmount(Number(text))}
-            style={[styles.rowContent]}
+            style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
           <TextInput
             placeholder="Due Date (YYYY-MM-DD)"
             value={budgetDate}
             onChangeText={(text) => setBudgetDate(text)}
-            style={[styles.rowContent]}
+            style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
           <Pressable
-          style={[styles.rowContent, styles.center ]}
+          style={[styles.rowContent, styles.center, styles.zeroWidthForPadding]}
             onPress={() => {
-              console.log("Adding new budget item:", newBudgetItem);
               addBudgetItem(newBudgetItem);
               setIsAddingItem(false);
               setNewBudgetItem({id: '', description: '', budget: 0, amount: 0, date: ''});
@@ -365,6 +364,16 @@ const styles = StyleSheet.create({
     },
     headerFontSize:{
       fontSize: 18
+    },
+    zeroWidthForPadding:{
+      width: 84,
+      flex: 1
+    },
+    rowColumn:{
+      flexDirection: 'column'
+    },
+    row:{
+      flexDirection: 'row'
     }
 });
 export default App;
