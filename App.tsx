@@ -43,15 +43,6 @@ function App() {
   );
 }
 
-function AppContent() {
-  return (
-    <View style={styles.container}>
-      <Text>Budget Buddy!</Text>
-    </View>
-  );
-}
-
-
 type BudgetData = {
     id: string;
     description: string;
@@ -116,26 +107,6 @@ const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount, 
   </View>
 )};
 
-const BudgetItemTest = ({id, description, budget, amount, date}: BudgetData) => (
-  <View style={[styles.rowPadding, styles.budgetContainer, styles.rowBorder, styles.rowContainer]}>
-    <Text style={[styles.budgetHeader, styles.rowContent]}>{description}</Text>
-    <Text style={styles.rowContent}>{budget}</Text>
-    <Text style={styles.rowContent}>{amount}</Text>
-    <Text style={styles.rowContent}>{date}</Text>
-    <Button title="Edit"/>
-  </View>
-);
-
-function EditBudgetButton({id, amount}: {id: string, amount: number}){
-    const [budgetAmountUsed, setBudgetAmountUsed] = useState<number>(amount);
-    const handleEditBudget = () => {
-      setBudgetAmountUsed(amount + 1)
-    };
-    return (
-        <Button title={`${budgetAmountUsed}`} onPress={handleEditBudget}/>
-    );
-}
-
 function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
     return (<View>
@@ -178,15 +149,18 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budg
     );
 }
 
-const renderItem = ({item}: {item: BudgetData}) => (
-  <BudgetItem
-    id={item.id}
-    description={item.description}
-    budget={item.budget}
-    amount={item.amount}
-    date={item.date}
-  />  
-);
+
+function TableHeader(){
+  return (<View style={[styles.rowContainer, styles.rowPadding]}>
+          <Text
+          style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Add Amount</Text>
+  </View>);
+}
+
 function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => void}){
   const [newBudgetItem, setNewBudgetItem] = useState<BudgetData>({id: '', description: '', budget: 0, amount: 0, date: ''});
   const [budgetDescription, setBudgetDescription] = useState<string>('');
@@ -196,7 +170,6 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
   const toggleAddItem = () => {
       setIsAddingItem(!isAddingItem);
   }
-  const updatedItem = () => {};
   React.useEffect(() => {
     setNewBudgetItem({
       id: '',
@@ -285,8 +258,6 @@ function BudgetComponent({navigation}: {navigation: any}){
       setBudgetData(updatedItem); 
   };
 
-
-
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
@@ -330,17 +301,6 @@ function HistoryButton({navigation}: {navigation: any}){
 
 function TableWrapper({item} : {item: any}) {
     return (<View>{item}</View>);
-}
-
-function TableHeader(){
-  return (<View style={[styles.rowContainer, styles.rowPadding]}>
-          <Text
-          style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Add Amount</Text>
-  </View>);
 }
 
 const styles = StyleSheet.create({
