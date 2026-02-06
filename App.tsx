@@ -60,6 +60,7 @@ type BudgetData = {
     date: string;
     onPress?(): void;
     addAmount?: (amount: number) => void;
+    adjustBudgetAmount?: (amount: number) => void;
 };
 
 type RootStackParamList = {
@@ -72,9 +73,10 @@ let totalIncomeAmount = 4800;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount}: BudgetData) => { 
+const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount, adjustBudgetAmount}: BudgetData) => { 
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
+  const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
   const toggleEdit = () => {
       setIsEditing(!isEditing);
   }
@@ -82,13 +84,23 @@ const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount}:
   return (
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
     <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
-    <Text style={[styles.rowContent, styles.customFont]}>{budget}</Text>
+    {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
+    <TextInput
+      style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
+      value={editableBudget.toString()}
+      placeholder={editableBudget.toString()}
+      onChangeText={(text) => setEditableBudgetAmount(Number(text))}
+      onSubmitEditing={() => {
+        console.log(editableBudget)
+        adjustBudgetAmount && adjustBudgetAmount(Number(editableBudget))
+      }}
+      />
     <Text style={[styles.rowContent, styles.customFont]}>{amount}</Text>
     <Text style={[styles.rowContent, styles.customFont]}>{new Date(date).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit' }).replace("/", "-")}</Text>
     <Pressable style={styles.rowContent} onPress={() => { 
       toggleEdit()
-      }}>
-      <Text style={[styles.rowContent, styles.customFont]}>Edit</Text>
+      }}>{!isEditing &&
+      <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>}
       {isEditing && (
       <TextInput placeholder={`${amount.toString()}`}
       keyboardType="numeric"
@@ -143,11 +155,8 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budg
       <View style={[styles.center, styles.rowPadding]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: ${totalSetBudgetAmount}
-          <Pressable onPress={() => setIsEditingTotal(!isEditingTotal)}
-        ><View><Text style={[styles.customFont, styles.headerPadding, styles.headerFontSize]}>Edit</Text></View></Pressable>
-        </Text>
-        {isEditingTotal && (<TextInput 
+        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput 
+        style={[styles.zeroWidthForPadding, styles.headerFontSize]}
         placeholder="New Amount"
         keyboardType={'number-pad'}
         value={totalSetBudgetAmount.toString()}
@@ -157,14 +166,13 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budg
           setPotentialSurplus(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0))
           setIsEditingTotal(false)
         }}
-        />
-        )}
-
-        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: ${budgetedTotal}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: ${budgetAmountRemaining}</Text>
+        /></View>
+        </Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.budgetContainer, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
-        ]}>Potential Surplus: $</Text><Text style={[styles.flexEnd, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>   
+        ]}>Potential Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>   
         </View>
       </View>
     );
@@ -256,6 +264,7 @@ function BudgetComponent({navigation}: {navigation: any}){
   { id: '13', description: 'Student Loans', budget: 300, amount: 0.0, date: '2025-12-28' }
 ];
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
+
   const updateBudgetAmountUsed = (id: string, newAmount: number) => {
       const updatedItem = budgetData.map(item => {
           if(item.id === id){
@@ -265,6 +274,18 @@ function BudgetComponent({navigation}: {navigation: any}){
       });
       setBudgetData(updatedItem);   
   };
+
+  const updateBudgetAmount = (id: string, newAmount: number) => {
+    const updatedItem = budgetData.map(item => {
+          if(item.id === id){
+              return {...item, budget: newAmount};
+          }
+          return item;
+      });
+      setBudgetData(updatedItem); 
+  };
+
+
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
@@ -284,7 +305,8 @@ function BudgetComponent({navigation}: {navigation: any}){
               budget={item.budget}
               amount={item.amount}
               date={item.date}
-              addAmount={(amount: number) => updateBudgetAmountUsed(item.id, amount) }
+              addAmount={(amount: number) => updateBudgetAmountUsed(item.id, amount)}
+              adjustBudgetAmount={(amount: number) => updateBudgetAmount(item.id, amount)} 
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
@@ -317,7 +339,7 @@ function TableHeader(){
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Edit</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Add Amount</Text>
   </View>);
 }
 
@@ -403,6 +425,10 @@ const styles = StyleSheet.create({
     },
     flexEnd:{
       alignItems: 'flex-end'
+    },
+    bigCross:{
+      fontSize: 16,
+      fontWeight: 'bold'
     }
 });
 export default App;
