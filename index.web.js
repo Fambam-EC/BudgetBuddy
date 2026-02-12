@@ -3,6 +3,8 @@ import {name} from './app.json';
 import App from './App';
 import './App.css';
 
+window.process = { env: {} };
+
 AppRegistry.registerComponent(name, () => App);
 AppRegistry.runApplication(name, {
   initialProps: {},

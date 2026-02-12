@@ -19,8 +19,32 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, {
+  SharedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
+  const styleAnimation = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: drag.value + 50 }],
+    };
+  });
+  return (
+    <Reanimated.View style={[styleAnimation, styles.center]}>
+      <Pressable style={[styles.rightAction, styles.center]}
+      onPress={() => {
+        callDelete(itemId)
+        }
+        }>
+        <Text style={[styles.center]}>Delete?</Text></Pressable>
+    </Reanimated.View>
+  );
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -35,10 +59,12 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
     <SafeAreaProvider>
+      <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <NavigationContainer>
-        <RootStack />
+        <TableWrapper item={<RootStack/>}/>
       </NavigationContainer>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
@@ -49,7 +75,7 @@ type BudgetData = {
     budget: number;
     amount: number;
     date: string;
-    onPress?(): void;
+    onDeleteConfirm?: (id: string) => void;
     addAmount?: (amount: number) => void;
     adjustBudgetAmount?: (amount: number) => void;
 };
@@ -64,15 +90,53 @@ let totalIncomeAmount = 4800;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount, adjustBudgetAmount}: BudgetData) => { 
+const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount}: BudgetData) => { 
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
   const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
+  const [deleteId, setDeleteId] = useState<string>('')
   const toggleEdit = () => {
       setIsEditing(!isEditing);
   }
-
+  const callDeleteWithId = (itemId: string) => {
+    onDeleteConfirm && onDeleteConfirm(id)
+  } 
   return (
+      <ReanimatedSwipeable
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
+        >
+  <Pressable id={id} onLongPress={() => {
+  setIsDeleting(!isDeleting); 
+  }}>{
+    isDeleting && (
+      <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
+        <View style={[styles.flex, styles.center]}>
+        <Text>Delete Entry?</Text>
+        <Text>(Hold)</Text>
+        </View>
+        <Pressable 
+        style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
+        disabled={isButtonDisabled}
+        onLongPress={() => {
+        setIsDeleting(!isDeleting)
+        setIsButtonDisabled(!isButtonDisabled)}}>
+          <Text>No</Text></Pressable>
+        <Pressable 
+        style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
+        onLongPress={() => {
+          onDeleteConfirm && onDeleteConfirm(id)
+          setIsDeleting(!isDeleting)
+        }}
+        >
+          <Text>Yes</Text></Pressable>
+      </View>
+    )
+  }
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
     <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
     {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
@@ -82,7 +146,6 @@ const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount, 
       placeholder={editableBudget.toString()}
       onChangeText={(text) => setEditableBudgetAmount(Number(text))}
       onSubmitEditing={() => {
-        console.log(editableBudget)
         adjustBudgetAmount && adjustBudgetAmount(Number(editableBudget))
       }}
       />
@@ -105,6 +168,8 @@ const BudgetItem = ({id, description, budget, amount, date, onPress, addAmount, 
       )}
     </Pressable>
   </View>
+  </Pressable>
+  </ReanimatedSwipeable>
 )};
 
 function HistoryScreen ({navigation}: {navigation: any}){
@@ -139,7 +204,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budg
         }}
         /></View>
         </Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.budgetContainer, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
@@ -258,6 +323,11 @@ function BudgetComponent({navigation}: {navigation: any}){
       setBudgetData(updatedItem); 
   };
 
+const removeBudgetItem = (id: string) => {
+  const updatedItem = budgetData.filter(item => item.id !== id)
+  setBudgetData(updatedItem);
+};
+
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
@@ -277,7 +347,8 @@ function BudgetComponent({navigation}: {navigation: any}){
               amount={item.amount}
               date={item.date}
               addAmount={(amount: number) => updateBudgetAmountUsed(item.id, amount)}
-              adjustBudgetAmount={(amount: number) => updateBudgetAmount(item.id, amount)} 
+              adjustBudgetAmount={(amount: number) => updateBudgetAmount(item.id, amount)}
+              onDeleteConfirm={(id: string) => removeBudgetItem(item.id)} 
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
@@ -300,8 +371,9 @@ function HistoryButton({navigation}: {navigation: any}){
 }
 
 function TableWrapper({item} : {item: any}) {
-    return (<View>{item}</View>);
+    return (<View id='TableWrapper' style={styles.flex}>{item}</View>);
 }
+
 
 const styles = StyleSheet.create({
     container:{
@@ -389,6 +461,18 @@ const styles = StyleSheet.create({
     bigCross:{
       fontSize: 16,
       fontWeight: 'bold'
-    }
+    },
+    flex:{
+      flex: 1,
+    },
+  rightAction: { width: 50, height: 48, backgroundColor: 'red', borderRadius: 10 },
+  separator: {
+    width: '100%',
+    borderTopWidth: 1,
+  },
+  swipeable: {
+    height: 50,
+    alignItems: 'center',
+  }
 });
 export default App;
