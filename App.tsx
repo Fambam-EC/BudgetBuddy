@@ -41,7 +41,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
         callDelete(itemId)
         }
         }>
-        <Text style={[styles.center]}>Delete?</Text></Pressable>
+        <Text style={[styles.center, styles.flex]}>Delete?</Text></Pressable>
     </Reanimated.View>
   );
 }
@@ -58,8 +58,8 @@ function RootStack(){
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView>
+          <SafeAreaProvider>
+          <GestureHandlerRootView style={styles.flex}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <NavigationContainer>
         <TableWrapper item={<RootStack/>}/>
@@ -110,8 +110,8 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         rightThreshold={40}
         renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
         >
-  <Pressable id={id} onLongPress={() => {
-  setIsDeleting(!isDeleting); 
+          <Pressable style={styles.flex} id={id} onLongPress={() => {
+  setIsDeleting(!isDeleting);
   }}>{
     isDeleting && (
       <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
@@ -137,7 +137,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       </View>
     )
   }
-  <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
+  <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, styles.flex]}>
     <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
     {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
     <TextInput
@@ -188,7 +188,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budg
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
     return (
-      <View style={[styles.center, styles.rowPadding]}>
+      <View style={[styles.center, styles.rowPadding, styles.flex]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput 
