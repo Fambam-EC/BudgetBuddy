@@ -10,7 +10,8 @@ import {
   StatusBar,
   Alert,
   Button,
-  Pressable
+  Pressable,
+  ScrollView
 } from "react-native";
 
 
@@ -59,9 +60,9 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
           <SafeAreaProvider>
-          <GestureHandlerRootView style={styles.flex}>
+          <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NavigationContainer>
+          <NavigationContainer>
         <TableWrapper item={<RootStack/>}/>
       </NavigationContainer>
       </GestureHandlerRootView>
@@ -182,13 +183,16 @@ function HistoryScreen ({navigation}: {navigation: any}){
     </View>);
 }
 
+          function BudgetHeaderTest(){
+              return (<View><Text>This is text</Text></View>);
+          }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budgetAmountRemaining?: number, budgetedTotal?: number, navigation: any}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
     return (
-      <View style={[styles.center, styles.rowPadding, styles.flex]}>
+            <View style={[styles.container]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput 
@@ -331,12 +335,13 @@ const removeBudgetItem = (id: string) => {
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
-    <View style={styles.loginButton}>
+    <View>
       <HistoryButton navigation={navigation}/>
-        <BudgetHeader
-            budgetAmountRemaining={budgetRemaining} 
-            budgetedTotal={totalBudgetAmount}
-            navigation={navigation} />
+            <View style={{flex: 1, minHeight: '20', margin: 50}}>
+            <BudgetHeader
+                budgetAmountRemaining={budgetRemaining}
+                budgetedTotal={totalBudgetAmount}/>
+            </View>
         <TableHeader />
         <FlatList
             data={budgetData}
@@ -363,7 +368,7 @@ const removeBudgetItem = (id: string) => {
 
 function HistoryButton({navigation}: {navigation: any}){
     //const navigation = useNavigation();
-    return (<View style={styles.flexEnd}>
+    return (<View style={[styles.flexEnd]}>
             <Pressable onPress={() => navigation.navigate('History')}>
               <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Go To History</Text>
             </Pressable>
