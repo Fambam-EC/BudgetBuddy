@@ -187,7 +187,7 @@ function HistoryScreen ({navigation}: {navigation: any}){
               return (<View><Text>This is text</Text></View>);
           }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, navigation}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
@@ -336,14 +336,13 @@ const removeBudgetItem = (id: string) => {
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
             <View style={{flex: 1}}>
-            <HistoryButton style={{flex: 0}} navigation={navigation}/>
-            <View style={{flex: 0, minHeight: '20', margin: 50}}>
+            <HistoryButton navigation={navigation}/>
+            <View style={{flex: 1, minHeight: '20', margin: 50}}>
             <BudgetHeader
-            style={{flex: 0}}
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}/>
             </View>
-            <TableHeader style={{flex: 0}} />
+            <TableHeader />
         <FlatList
             data={budgetData}
             renderItem={({item}) => <BudgetItem
