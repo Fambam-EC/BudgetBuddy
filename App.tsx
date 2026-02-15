@@ -335,14 +335,15 @@ const removeBudgetItem = (id: string) => {
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
-    <View>
-      <HistoryButton navigation={navigation}/>
-            <View style={{flex: 1, minHeight: '20', margin: 50}}>
+            <View style={{flex: 1}}>
+            <HistoryButton style={{flex: 0}} navigation={navigation}/>
+            <View style={{flex: 0, minHeight: '20', margin: 50}}>
             <BudgetHeader
+            style={{flex: 0}}
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}/>
             </View>
-        <TableHeader />
+            <TableHeader style={{flex: 0}} />
         <FlatList
             data={budgetData}
             renderItem={({item}) => <BudgetItem
