@@ -337,7 +337,7 @@ const removeBudgetItem = (id: string) => {
     return (
             <View style={{flex: 1}}>
             <HistoryButton navigation={navigation}/>
-            <View style={{flex: 1, minHeight: 150}}>
+            <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}/>
