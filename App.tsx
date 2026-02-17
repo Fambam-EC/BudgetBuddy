@@ -337,7 +337,7 @@ const removeBudgetItem = (id: string) => {
     return (
             <View style={{flex: 1}}>
             <HistoryButton navigation={navigation}/>
-            <View style={{flex: 1, minHeight: '20', margin: 50}}>
+            <View style={{flex: 1, minHeight: 150}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}/>
@@ -359,7 +359,8 @@ const removeBudgetItem = (id: string) => {
             numColumns={1}
             //extraData={[budgetData, FooterComponent]}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
-              const itemWithId = { ...newItem, id: (budgetData.length + 1).toString() };
+              const largestExistingId = budgetData.reduce((maxId, item) => Math.max(maxId, parseInt(item.id)), 0);
+              const itemWithId = { ...newItem, id: (largestExistingId + 1).toString() };
               setBudgetData([...budgetData, itemWithId]);
             }} />}
             />
