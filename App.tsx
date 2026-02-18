@@ -14,7 +14,7 @@ import {
   ScrollView
 } from "react-native";
 
-
+import DatePicker from './Helpers/DatePicker';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -42,7 +42,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
         callDelete(itemId)
         }
         }>
-        <Text style={[styles.center, styles.flex]}>Delete?</Text></Pressable>
+        <Text style={[styles.center]}>Delete?</Text></Pressable>
     </Reanimated.View>
   );
 }
@@ -91,7 +91,7 @@ let totalIncomeAmount = 4800;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount}: BudgetData) => { 
+const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount}: BudgetData) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
   const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
@@ -103,7 +103,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   }
   const callDeleteWithId = (itemId: string) => {
     onDeleteConfirm && onDeleteConfirm(id)
-  } 
+  }
   return (
       <ReanimatedSwipeable
         friction={2}
@@ -120,14 +120,14 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         <Text>Delete Entry?</Text>
         <Text>(Hold)</Text>
         </View>
-        <Pressable 
+        <Pressable
         style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
         disabled={isButtonDisabled}
         onLongPress={() => {
         setIsDeleting(!isDeleting)
         setIsButtonDisabled(!isButtonDisabled)}}>
           <Text>No</Text></Pressable>
-        <Pressable 
+        <Pressable
         style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
         onLongPress={() => {
           onDeleteConfirm && onDeleteConfirm(id)
@@ -152,14 +152,14 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       />
     <Text style={[styles.rowContent, styles.customFont]}>{amount}</Text>
     <Text style={[styles.rowContent, styles.customFont]}>{new Date(date).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit' }).replace("/", "-")}</Text>
-    <Pressable style={styles.rowContent} onPress={() => { 
+    <Pressable style={styles.rowContent} onPress={() => {
       toggleEdit()
       }}>{!isEditing &&
       <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>}
       {isEditing && (
       <TextInput placeholder={`${amount.toString()}`}
       keyboardType="numeric"
-      autoFocus={true} 
+      autoFocus={true}
       onChangeText={(text) => setAmountAdded(Number(text))}
       onSubmitEditing={() => {
       addAmount && addAmount(amountAdded)
@@ -175,11 +175,18 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
 
 function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
+  const [date, setDate] = useState<Date>(new Date());
     return (<View>
         <Text style={[styles.customFont]}>History Screen</Text>
         <Pressable onPress={() => navigation.popTo('Budget Buddy')}>
           <Text style={styles.customFont}>Back To Home</Text>
         </Pressable>
+        <DatePicker
+        value={date}
+        onChange={(selectedDate: Date) => {
+          setDate(selectedDate || new Date());
+        }}
+        />
     </View>);
 }
 
@@ -195,7 +202,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
             <View style={[styles.container]}>
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput 
+        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput
         style={[styles.zeroWidthForPadding, styles.headerFontSize]}
         placeholder="New Amount"
         keyboardType={'number-pad'}
@@ -212,7 +219,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.budgetContainer, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
-        ]}>Potential Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>   
+        ]}>Potential Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
         </View>
       </View>
     );
@@ -280,12 +287,12 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
             }}>
             <Text style={[styles.boldText, styles.budgetHeader]}>+</Text>
               </Pressable>
-    </View>       
+    </View>
       )}
       <Pressable onPress={() => toggleAddItem()}>
         <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Add Budget Item</Text>
       </Pressable>
-    </View>   
+    </View>
   );
 }
 function BudgetComponent({navigation}: {navigation: any}){
@@ -314,7 +321,7 @@ function BudgetComponent({navigation}: {navigation: any}){
           }
           return item;
       });
-      setBudgetData(updatedItem);   
+      setBudgetData(updatedItem);
   };
 
   const updateBudgetAmount = (id: string, newAmount: number) => {
@@ -324,7 +331,7 @@ function BudgetComponent({navigation}: {navigation: any}){
           }
           return item;
       });
-      setBudgetData(updatedItem); 
+      setBudgetData(updatedItem);
   };
 
 const removeBudgetItem = (id: string) => {
@@ -353,7 +360,7 @@ const removeBudgetItem = (id: string) => {
               date={item.date}
               addAmount={(amount: number) => updateBudgetAmountUsed(item.id, amount)}
               adjustBudgetAmount={(amount: number) => updateBudgetAmount(item.id, amount)}
-              onDeleteConfirm={(id: string) => removeBudgetItem(item.id)} 
+              onDeleteConfirm={(id: string) => removeBudgetItem(item.id)}
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
