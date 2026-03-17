@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,9 +11,10 @@ import {
   Alert,
   Button,
   Pressable,
-  ScrollView
+  ScrollView,
+  TextComponent
 } from "react-native";
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatePicker from './Helpers/DatePicker';
 import {
   SafeAreaProvider,
@@ -46,6 +47,10 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
     </Reanimated.View>
   );
 }
+
+const title_key = '@title_key'; 
+
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -95,7 +100,8 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
   const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [dueDate, setDueDate] = useState<string>(date);
+  const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
   const [deleteId, setDeleteId] = useState<string>('')
   const toggleEdit = () => {
@@ -111,33 +117,6 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         rightThreshold={40}
         renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
         >
-          <Pressable style={styles.flex} id={id} onLongPress={() => {
-  setIsDeleting(!isDeleting);
-  }}>{
-    isDeleting && (
-      <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer]}>
-        <View style={[styles.flex, styles.center]}>
-        <Text>Delete Entry?</Text>
-        <Text>(Hold)</Text>
-        </View>
-        <Pressable
-        style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
-        disabled={isButtonDisabled}
-        onLongPress={() => {
-        setIsDeleting(!isDeleting)
-        setIsButtonDisabled(!isButtonDisabled)}}>
-          <Text>No</Text></Pressable>
-        <Pressable
-        style={[styles.flex, styles.center, styles.rowBorder, styles.rowPadding]}
-        onLongPress={() => {
-          onDeleteConfirm && onDeleteConfirm(id)
-          setIsDeleting(!isDeleting)
-        }}
-        >
-          <Text>Yes</Text></Pressable>
-      </View>
-    )
-  }
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, styles.flex]}>
     <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
     {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
@@ -145,31 +124,57 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
       value={editableBudget.toString()}
       placeholder={editableBudget.toString()}
-      onChangeText={(text) => setEditableBudgetAmount(Number(text))}
+      keyboardType={'numeric'}
+      onChangeText={(text) => {
+        setEditableBudgetAmount(Number(text))
+      }}
       onSubmitEditing={() => {
         adjustBudgetAmount && adjustBudgetAmount(Number(editableBudget))
       }}
       />
-    <Text style={[styles.rowContent, styles.customFont]}>{amount}</Text>
-    <Text style={[styles.rowContent, styles.customFont]}>{new Date(date).toLocaleDateString("en-US", { month: '2-digit', day: '2-digit' }).replace("/", "-")}</Text>
+    <View style={[styles.flex, styles.center]}>
+      <Text style={[styles.customFont]}>{amount}</Text>
+    </View>
+    <Pressable 
+      style={styles.rowContent}
+      onLongPress={() => {
+      setIsEditingDueDate(true)
+      }
+    }>{isEditingDueDate && (
+      <View style={styles.rowContent}>
+        <DatePicker
+          value={new Date(date)}
+          onChange={(selectedDate: Date) => {
+            setDueDate(selectedDate.toISOString().split('T')[0])
+            setIsEditingDueDate(false)
+          }}
+        />
+      </View>
+    )}{ !isEditingDueDate && (
+      <View style={styles.rowContent}>
+    <Text style={[styles.rowContent, styles.customFont]}>{new Date(dueDate)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
+      </View>
+    )}
+    </Pressable>
     <Pressable style={styles.rowContent} onPress={() => {
       toggleEdit()
       }}>{!isEditing &&
       <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>}
       {isEditing && (
-      <TextInput placeholder={`${amount.toString()}`}
-      keyboardType="numeric"
+      <TextInput
+      style={{textAlign: 'center'}}
+      keyboardType={'numeric'}
       autoFocus={true}
       onChangeText={(text) => setAmountAdded(Number(text))}
       onSubmitEditing={() => {
       addAmount && addAmount(amountAdded)
       toggleEdit()
       setAmountAdded(0)
-      }}/>
+        }
+      }/>
       )}
     </Pressable>
   </View>
-  </Pressable>
   </ReanimatedSwipeable>
 )};
 
@@ -190,6 +195,15 @@ function HistoryScreen ({navigation}: {navigation: any}){
     </View>);
 }
 
+async function GetBudgetTitle(){
+  return await AsyncStorage.getItem(title_key).then((value) => {
+    return value
+  })
+  .catch(error => {
+    return error
+  })
+}
+
           function BudgetHeaderTest(){
               return (<View><Text>This is text</Text></View>);
           }
@@ -197,11 +211,51 @@ function HistoryScreen ({navigation}: {navigation: any}){
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [budgetTitle, setBudgetTitle] = useState<string>('');
+  const getBudgetTitle = (): string => {
+    var title = '';
+    AsyncStorage.getItem(title_key).then((value) => {
+      if(value){
+        console.log(value)
+        return value;
+      }
+    });
+    return title;
+  }
+  useEffect(()=> {
+    const getTitle = async () => {
+      try{
+        const result = await GetBudgetTitle()
+        if (result){
+          setBudgetTitle(result)
+        }
+      }
+      catch (error){
+        console.log(error)
+      }
+    };
+    getTitle();
+  }, [])
+
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
+
+  const updateBudgetTitle = (text: string) => {
+    AsyncStorage.setItem(title_key, text)
+    setBudgetTitle(text);
+  }
+
     return (
-            <View style={[styles.container]}>
+        <View style={[styles.container]}>
+        <TextInput
+        style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}
+        value={budgetTitle}
+        onChangeText={(text) => {
+          setBudgetTitle(text)
+        }
+      }
+        onSubmitEditing={() => updateBudgetTitle(budgetTitle)}
+        />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}> {todaysDate.toISOString().split('T')[0]}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput
         style={[styles.zeroWidthForPadding, styles.headerFontSize]}
         placeholder="New Amount"
@@ -216,10 +270,10 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
         /></View>
         </Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining To Pay: $ {budgetAmountRemaining?.toFixed(2)}</Text>
-        <View style={[styles.budgetContainer, styles.center]}>
+        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
+        <View style={[styles.row, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
-        ]}>Potential Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
+        ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
         </View>
       </View>
     );
@@ -241,10 +295,18 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
   const [newBudgetItem, setNewBudgetItem] = useState<BudgetData>({id: '', description: '', budget: 0, amount: 0, date: ''});
   const [budgetDescription, setBudgetDescription] = useState<string>('');
   const [budgetDate, setBudgetDate] = useState<string>('');
+  const [budgetSetDate, setBudgetSetDate] = useState<Date>(new Date());
   const [budgetAmount, setBudgetAmount] = useState<number>(0);
   const [isAddingItem, setIsAddingItem] = useState<boolean>(false);
+  const [showError, setShowError] = useState<boolean>(false);
   const toggleAddItem = () => {
       setIsAddingItem(!isAddingItem);
+  }
+
+  const isInvalidEntry = () => {
+    if(budgetDescription.trim() === '' || budgetAmount <= 0 || !budgetSetDate){
+      return true;
+    }
   }
   React.useEffect(() => {
     setNewBudgetItem({
@@ -252,11 +314,11 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
       description: budgetDescription,
       budget: budgetAmount,
       amount: 0,
-      date: budgetDate
+      date: budgetSetDate.toISOString().split('T')[0]
     });
-  }, [budgetDescription, budgetAmount, budgetDate]);
+  }, [budgetDescription, budgetAmount, budgetSetDate]);
   return (
-    <View style={[styles.loginButton, styles.center]}>
+    <View>
             {isAddingItem && (
         <View style={[styles.rowBorder, styles.rowPadding, styles.row]}>
           <TextInput
@@ -272,26 +334,48 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
             onChangeText={(text) => setBudgetAmount(Number(text))}
             style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
-          <TextInput
+          {/* <TextInput
             placeholder="Due Date (YYYY-MM-DD)"
             value={budgetDate}
             onChangeText={(text) => setBudgetDate(text)}
             style={[styles.rowContent, styles.zeroWidthForPadding]}
+          /> */}
+          <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
+          <DatePicker
+            value={budgetSetDate}
+            selectedDate={budgetSetDate}
+            onChange={(selectedDate: Date) => {
+              let utcDate = selectedDate.toUTCString();
+              setBudgetSetDate(new Date(utcDate));
+            }}
           />
+          </View>
           <Pressable
           style={[styles.rowContent, styles.center, styles.zeroWidthForPadding]}
             onPress={() => {
+              if(isInvalidEntry()){
+                setShowError(true);
+                return;
+              }
+              setShowError(false);
               addBudgetItem(newBudgetItem);
               setIsAddingItem(false);
-              setNewBudgetItem({id: '', description: '', budget: 0, amount: 0, date: ''});
+              setNewBudgetItem({id: '', description: '', budget: 0, amount: 0, date: new Date(budgetSetDate).toISOString().split('T')[0]});
             }}>
-            <Text style={[styles.boldText, styles.budgetHeader]}>+</Text>
+            <Text style={[styles.boldText, styles.budgetHeader]}>Add</Text>
               </Pressable>
     </View>
       )}
+      {showError && isAddingItem && (
+        <View style={[styles.rowBorder, styles.rowPadding, styles.center]}>
+          <Text style={[styles.customFont, styles.boldText, styles.errorText]}>Invalid Entry</Text>
+        </View>
+      )}
+      <View style={[styles.center]}>
       <Pressable onPress={() => toggleAddItem()}>
         <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Add Budget Item</Text>
       </Pressable>
+      </View>
     </View>
   );
 }
@@ -302,7 +386,6 @@ function BudgetComponent({navigation}: {navigation: any}){
   { id: '2', description: 'Cell Phone', budget: 100, amount: 0.0, date: '2025-12-28' },
   { id: '3', description: 'Mortgage', budget: 590, amount: 0.0, date: '2025-12-28' },
   { id: '4', description: 'Escrow', budget: 375, amount: 0.00, date: '2025-12-28' },
-  { id: '5', description: 'Kia Payment', budget: 299.68, amount: 0.00, date: '2025-12-28' },
   { id: '6', description: 'Energy', budget: 300, amount: 0.0, date: '2025-12-17' },
   { id: '7', description: 'Extras', budget: 705, amount: 0.0, date: '2025-12-28' },
   { id: '8', description: 'Fun', budget: 300, amount: 0.0, date: '2025-12-26' },
@@ -486,6 +569,9 @@ const styles = StyleSheet.create({
   swipeable: {
     height: 50,
     alignItems: 'center',
+  },
+  errorText: {
+    color: 'red',
   }
 });
 export default App;
