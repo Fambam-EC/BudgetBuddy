@@ -49,8 +49,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
 }
 
 const title_key = '@title_key'; 
-
-
+const budget_items_key = '@budget_items_key';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -84,6 +83,7 @@ type BudgetData = {
     onDeleteConfirm?: (id: string) => void;
     addAmount?: (amount: number) => void;
     adjustBudgetAmount?: (amount: number) => void;
+    updateBudgetDescription?: (description: string) => void;
 };
 
 type RootStackParamList = {
@@ -92,18 +92,18 @@ type RootStackParamList = {
 }
 
 const todaysDate = new Date();
-let totalIncomeAmount = 4800;
+let totalIncomeAmount = 2000;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount}: BudgetData) => {
+const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription}: BudgetData) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
   const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
   const [dueDate, setDueDate] = useState<string>(date);
   const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
-  const [deleteId, setDeleteId] = useState<string>('')
+  const [budgetDescription, setBudgetDescription] = useState<string>(description);
   const toggleEdit = () => {
       setIsEditing(!isEditing);
   }
@@ -118,7 +118,17 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
         >
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, styles.flex]}>
-    <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text>
+    {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
+    <TextInput
+      style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
+      value={budgetDescription}
+      onChangeText={(text) => {
+        setBudgetDescription(text)
+      }}
+      onSubmitEditing={() =>{
+        updateBudgetDescription && updateBudgetDescription(budgetDescription)
+      }}
+     />
     {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
     <TextInput
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
@@ -132,16 +142,16 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         adjustBudgetAmount && adjustBudgetAmount(Number(editableBudget))
       }}
       />
-    <View style={[styles.flex, styles.center]}>
+    <View style={[styles.flex, styles.center, styles.zeroWidthForPadding]}>
       <Text style={[styles.customFont]}>{amount}</Text>
     </View>
     <Pressable 
-      style={styles.rowContent}
+      style={[styles.rowContent, styles.zeroWidthForPadding]}
       onLongPress={() => {
       setIsEditingDueDate(true)
       }
     }>{isEditingDueDate && (
-      <View style={styles.rowContent}>
+      <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
         <DatePicker
           value={new Date(date)}
           onChange={(selectedDate: Date) => {
@@ -186,12 +196,7 @@ function HistoryScreen ({navigation}: {navigation: any}){
         <Pressable onPress={() => navigation.popTo('Budget Buddy')}>
           <Text style={styles.customFont}>Back To Home</Text>
         </Pressable>
-        <DatePicker
-        value={date}
-        onChange={(selectedDate: Date) => {
-          setDate(selectedDate || new Date());
-        }}
-        />
+
     </View>);
 }
 
@@ -204,24 +209,49 @@ async function GetBudgetTitle(){
   })
 }
 
-          function BudgetHeaderTest(){
-              return (<View><Text>This is text</Text></View>);
-          }
+async function GetBudgetItemsFromStorage(){
+  return await AsyncStorage.getItem(budget_items_key)
+  .then((value) =>{
+    console.log(value)
+    return value
+  })
+  .catch((error) =>{
+    console.log(error)
+  })
+}
+
+
+async function GetBudgetItems() {
+  try{
+    await AsyncStorage.getItem(budget_items_key)
+      .then(value =>{
+        if (value){
+        return JSON.parse(value);
+        }
+        else return []
+      })
+  } catch(error){
+    console.log(error)
+    return []
+  }
+}
+
+async function SaveBudgetItems(budgetItems: BudgetData[]){
+  try{
+    const budgetItemsResponse = JSON.stringify(budgetItems)
+    console.log("Saving Budget Items")
+    console.log(budgetItemsResponse)
+    await AsyncStorage.setItem(budget_items_key, budgetItemsResponse)
+  }catch (error) {
+    console.log(error)
+  }
+}
 
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [budgetTitle, setBudgetTitle] = useState<string>('');
-  const getBudgetTitle = (): string => {
-    var title = '';
-    AsyncStorage.getItem(title_key).then((value) => {
-      if(value){
-        console.log(value)
-        return value;
-      }
-    });
-    return title;
-  }
+
   useEffect(()=> {
     const getTitle = async () => {
       try{
@@ -245,10 +275,11 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
   }
 
     return (
-        <View style={[styles.container]}>
+        <View style={[styles.container, styles.tableHeaderPadding]}>
         <TextInput
         style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}
         value={budgetTitle}
+        placeholder="Click to Update Title"
         onChangeText={(text) => {
           setBudgetTitle(text)
         }
@@ -258,9 +289,9 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput
         style={[styles.zeroWidthForPadding, styles.headerFontSize]}
-        placeholder="New Amount"
+        placeholder="Total Income"
         keyboardType={'number-pad'}
-        value={totalSetBudgetAmount.toString()}
+        value={totalSetBudgetAmount.toFixed(2).toString()}
         onChangeText={(amount) => setTotalBudgetAmount(Number(amount))}
         onSubmitEditing={() => {
           setTotalBudgetAmount(Number(totalSetBudgetAmount))
@@ -281,7 +312,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRema
 
 
 function TableHeader(){
-  return (<View style={[styles.rowContainer, styles.rowPadding]}>
+  return (<View style={[styles.rowContainer, styles.rowPadding, styles.tableHeaderPadding]}>
           <Text
           style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
@@ -381,21 +412,27 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
 }
 function BudgetComponent({navigation}: {navigation: any}){
   // TODO : Fetch budget data from API or local storage
-   const budgetDataItems = [
-  { id: '1', description: 'Internet', budget: 84.35, amount: 0.0, date: '2025-12-20' },
-  { id: '2', description: 'Cell Phone', budget: 100, amount: 0.0, date: '2025-12-28' },
-  { id: '3', description: 'Mortgage', budget: 590, amount: 0.0, date: '2025-12-28' },
-  { id: '4', description: 'Escrow', budget: 375, amount: 0.00, date: '2025-12-28' },
-  { id: '6', description: 'Energy', budget: 300, amount: 0.0, date: '2025-12-17' },
-  { id: '7', description: 'Extras', budget: 705, amount: 0.0, date: '2025-12-28' },
-  { id: '8', description: 'Fun', budget: 300, amount: 0.0, date: '2025-12-26' },
-  { id: '9', description: 'Gas', budget: 300, amount: 0.0, date: '2025-12-28' },
-  { id: '10', description: 'Groceries', budget: 300, amount: 0.0, date: '2025-12-27' },
-  { id: '11', description: 'Misc', budget: 300, amount: 0.0, date: '2025-12-27' },
-  { id: '12', description: 'Savings', budget: 300, amount: 0.0, date: '2025-12-26' },
-  { id: '13', description: 'Student Loans', budget: 300, amount: 0.0, date: '2025-12-28' }
-];
-  const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
+  let budgetDataItems: BudgetData[] = [], currentBudgetData
+
+ 
+
+  useEffect(() => {
+    const getCurrentBudget = async () =>{
+      try {
+        const result = await AsyncStorage.getItem(budget_items_key)
+        if (result){
+          console.log("Get Current Budget - ",result)
+          const items = JSON.parse(result) as BudgetData[]
+          return setBudgetData(items)
+        }
+      }
+      catch (error) {
+        console.log(error)
+      }
+    }; getCurrentBudget()
+  }, [])
+
+ const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
 
   const updateBudgetAmountUsed = (id: string, newAmount: number) => {
       const updatedItem = budgetData.map(item => {
@@ -405,6 +442,7 @@ function BudgetComponent({navigation}: {navigation: any}){
           return item;
       });
       setBudgetData(updatedItem);
+      SaveBudgetItems(updatedItem);
   };
 
   const updateBudgetAmount = (id: string, newAmount: number) => {
@@ -415,12 +453,34 @@ function BudgetComponent({navigation}: {navigation: any}){
           return item;
       });
       setBudgetData(updatedItem);
+      SaveBudgetItems(updatedItem);
   };
 
+  const updateBudgetDescription = (id: string, newDescription: string) =>{
+    const updatedItem = budgetData.map(item => {
+      if (item.id === id){
+        return {...item, description: newDescription};
+      }
+      return item;
+    });
+    setBudgetData(updatedItem);
+    SaveBudgetItems(updatedItem);
+  };
+  
+
 const removeBudgetItem = (id: string) => {
-  const updatedItem = budgetData.filter(item => item.id !== id)
-  setBudgetData(updatedItem);
+  const updatedBudget = budgetData.filter(item => item.id !== id)
+  setBudgetData(updatedBudget);
+  SaveBudgetItems(updatedBudget);
 };
+
+const addBudgetItem = (budgetItem: BudgetData) =>{
+  const largestExistingId = budgetData.reduce((maxId, item) => Math.max(maxId, parseInt(item.id)), 0);
+    const itemWithId = { ...budgetItem, id: (largestExistingId + 1).toString() };
+              let budgetDataWithAddedItem = budgetData.concat(itemWithId)
+              setBudgetData(budgetDataWithAddedItem);
+              SaveBudgetItems(budgetDataWithAddedItem);              
+}
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
@@ -441,19 +501,29 @@ const removeBudgetItem = (id: string) => {
               budget={item.budget}
               amount={item.amount}
               date={item.date}
-              addAmount={(amount: number) => updateBudgetAmountUsed(item.id, amount)}
-              adjustBudgetAmount={(amount: number) => updateBudgetAmount(item.id, amount)}
-              onDeleteConfirm={(id: string) => removeBudgetItem(item.id)}
+              addAmount={(amount: number) => {
+                updateBudgetAmountUsed(item.id, amount)
+              }}
+              adjustBudgetAmount={(amount: number) => {updateBudgetAmount(item.id, amount)}}
+              onDeleteConfirm={(id: string) => {
+                removeBudgetItem(item.id)
+              }}
+              updateBudgetDescription={(description: string) => {
+                updateBudgetDescription(item.id, description)
+              }}
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
             //extraData={[budgetData, FooterComponent]}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
-              const largestExistingId = budgetData.reduce((maxId, item) => Math.max(maxId, parseInt(item.id)), 0);
-              const itemWithId = { ...newItem, id: (largestExistingId + 1).toString() };
-              setBudgetData([...budgetData, itemWithId]);
+              addBudgetItem(newItem)
             }} />}
-            />
+            /><View style={[styles.container, styles.rowPadding]}>
+              <Pressable 
+                onPress={() => SaveBudgetItems(budgetData)}>
+                <Text>Close and Move to History</Text>
+              </Pressable>
+            </View>
       </View>);
 }
 
@@ -539,7 +609,7 @@ const styles = StyleSheet.create({
       fontSize: 18
     },
     zeroWidthForPadding:{
-      width: 84,
+      width: 61,
       flex: 1
     },
     rowColumn:{
@@ -572,6 +642,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
+  },
+  tableHeaderPadding:{
+    marginTop: 15
   }
 });
 export default App;
