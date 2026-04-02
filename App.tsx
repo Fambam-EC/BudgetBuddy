@@ -193,7 +193,7 @@ function HistoryScreen ({navigation}: {navigation: any}){
   const [date, setDate] = useState<Date>(new Date());
     return (<View>
         <Text style={[styles.customFont]}>History Screen</Text>
-        <Pressable onPress={() => navigation.popTo('Budget Buddy')}>
+        <Pressable onPress={() => navigation.navigate('Budget Buddy')}>
           <Text style={styles.customFont}>Back To Home</Text>
         </Pressable>
 
@@ -221,30 +221,43 @@ async function GetBudgetItemsFromStorage(){
 }
 
 
-async function GetBudgetItems() {
+async function GetBudgetItems(): Promise<BudgetData[]> {
   try{
-    await AsyncStorage.getItem(budget_items_key)
+    return await AsyncStorage.getItem(budget_items_key)
       .then(value =>{
         if (value){
-        return JSON.parse(value);
+        return JSON.parse(value) as BudgetData[];
         }
         else return []
       })
   } catch(error){
     console.log(error)
-    return []
+    return [];
   }
 }
 
 async function SaveBudgetItems(budgetItems: BudgetData[]){
-  try{
+  try {
     const budgetItemsResponse = JSON.stringify(budgetItems)
-    console.log("Saving Budget Items")
-    console.log(budgetItemsResponse)
     await AsyncStorage.setItem(budget_items_key, budgetItemsResponse)
-  }catch (error) {
+  } catch (error) {
     console.log(error)
   }
+}
+
+async function SaveBudgetItemToHistoryPage() {
+try{
+    console.log("Beginning save of budget item to history page...")
+    const currentBudgetItems = await GetBudgetItems();
+    const budgetTitle = await GetBudgetTitle();
+    console.log(`"Saving ${budgetTitle} to history page..."`)
+    console.log("Current Budget Items: ", currentBudgetItems)
+
+}
+catch(error){ 
+  console.error(error)
+  Alert.alert("Error", "Failed to save budget item to history.");
+}
 }
 
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
@@ -318,7 +331,7 @@ function TableHeader(){
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
-    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Add Amount</Text>
+    <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Add</Text>
   </View>);
 }
 
@@ -419,11 +432,9 @@ function BudgetComponent({navigation}: {navigation: any}){
   useEffect(() => {
     const getCurrentBudget = async () =>{
       try {
-        const result = await AsyncStorage.getItem(budget_items_key)
+        const result = await GetBudgetItems()
         if (result){
-          console.log("Get Current Budget - ",result)
-          const items = JSON.parse(result) as BudgetData[]
-          return setBudgetData(items)
+          return setBudgetData(result)
         }
       }
       catch (error) {
@@ -520,7 +531,9 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             }} />}
             /><View style={[styles.container, styles.rowPadding]}>
               <Pressable 
-                onPress={() => SaveBudgetItems(budgetData)}>
+                onPress={() => {
+                  SaveBudgetItemToHistoryPage()
+                  }}>
                 <Text>Close and Move to History</Text>
               </Pressable>
             </View>
