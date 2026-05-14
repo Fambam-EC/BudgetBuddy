@@ -84,11 +84,34 @@ type BudgetData = {
     addAmount?: (amount: number) => void;
     adjustBudgetAmount?: (amount: number) => void;
     updateBudgetDescription?: (description: string) => void;
+    updateDueDate?: (date: Date) => void;
 };
 
+type HistoryItemList = {
+  id: string;
+  items: HistoryItemModel[];
+}
+type HistoryItemModel = {
+  id: string;
+  description: string;
+  budget: number;
+  amount: number;
+  date: string;
+}
 type RootStackParamList = {
   'Budget Buddy': any,
   History: any
+}
+
+const HistoryItem = ({description, budget, amount, date}: HistoryItemModel) => {
+  return (
+    <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex]}>
+      <Text style={[styles.rowContent, styles.customFont]}>{description}</Text>
+      <Text style={[styles.rowContent, styles.customFont]}>{budget.toFixed(2)}</Text>
+      <Text style={[styles.rowContent, styles.customFont]}>{amount.toFixed(2)}</Text>
+      <Text style={[styles.rowContent, styles.customFont]}>{new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
+    </View>
+  );
 }
 
 const todaysDate = new Date();
@@ -96,11 +119,11 @@ let totalIncomeAmount = 2000;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription}: BudgetData) => {
+const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateDueDate}: BudgetData) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<number>(0);
   const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
-  const [dueDate, setDueDate] = useState<string>(date);
+  const [dueDate, setDueDate] = useState<Date>(new Date(date));
   const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
   const [budgetDescription, setBudgetDescription] = useState<string>(description);
@@ -110,6 +133,11 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   const callDeleteWithId = (itemId: string) => {
     onDeleteConfirm && onDeleteConfirm(id)
   }
+
+  const callAdjustDueDate = (newDate: Date) => {
+    updateDueDate && updateDueDate(newDate)
+  }
+
   return (
       <ReanimatedSwipeable
         friction={2}
@@ -153,16 +181,18 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     }>{isEditingDueDate && (
       <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
         <DatePicker
-          value={new Date(date)}
+          value={dueDate}
+          selectedDate={dueDate}
           onChange={(selectedDate: Date) => {
-            setDueDate(selectedDate.toISOString().split('T')[0])
+            setDueDate(selectedDate)
+            callAdjustDueDate(selectedDate)
             setIsEditingDueDate(false)
           }}
         />
       </View>
     )}{ !isEditingDueDate && (
       <View style={styles.rowContent}>
-    <Text style={[styles.rowContent, styles.customFont]}>{new Date(dueDate)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
+    <Text style={[styles.rowContent, styles.customFont]}>{dueDate?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date().toDateString()}</Text>
       </View>
     )}
     </Pressable>
@@ -188,15 +218,95 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   </ReanimatedSwipeable>
 )};
 
+function HistoryComponent(){
+  const [historyItems, setHistoryItems] = useState<HistoryItemModel[]>([]);
+  const [historyItemTitle, setHistoryItemTitle] = useState<string>('');
+  const [expandHistoryItem, setExpandHistoryItem] = useState<boolean>(false);
+  const [expandedHistoryItemId, setExpandedHistoryItemId] = useState<string>('');
+  const [historyItemsWithId, setHistoryItemsWithId] = useState<HistoryItemList[]>([]);
+  const toggleExpandHistoryItem = (id: string) => {
+      setExpandedHistoryItemId(id === expandedHistoryItemId ? '' : id);
+  };
+
+  const callDeleteHistoryItemWithId = async (id: string) => {
+    try {
+      console.log({id})
+      await AsyncStorage.removeItem(`${id}`);
+      setHistoryItemsWithId(historyItemsWithId.filter(item => item.id !== id));
+    }
+    catch (error) {
+      console.log(error)
+    }
+  }
+
+  const renderHistoryItem = ({item}: {item: HistoryItemList}) => {
+    console.log(item, "is the item being rendered in renderHistoryItem")
+    const isExpanded = item.id === expandedHistoryItemId;
+    return (
+      <ReanimatedSwipeable
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        renderRightActions={(progress, drag) => (RightAction(progress, drag, item.id, () => callDeleteHistoryItemWithId(item.id)))}
+        >
+      <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex, styles.rowColumn]}>
+        <Pressable onPress={() => toggleExpandHistoryItem(item.id)}>
+          <Text style={[styles.rowContent, styles.customFont]}>{item.id}</Text>
+        </Pressable>
+        {isExpanded && (
+          <View><FlatList
+            data={item.items}
+            renderItem={({item}) => <HistoryItem
+              id={item.id}
+              description={item.description}
+              budget={item.budget}
+              amount={item.amount}
+              date={item.date}
+                  /> }
+            keyExtractor={item => item.id}
+            numColumns={1}
+            /></View>
+        )}
+      </View>
+      </ReanimatedSwipeable>
+    );
+  }
+  useEffect(() => {
+    const getHistoryItems = async () => {
+      try {
+        const result = await GetBudgetHistoryItemsFromStorage()
+
+        if (result != null){
+          var object = Object.entries(result).map(([key, value]) => ({
+            id: key,
+            items: JSON.parse(value as string) as HistoryItemModel[]
+          }));
+          setHistoryItemsWithId(object)
+        }
+      }
+      catch (error) {
+        console.log(error)
+      }
+    }; getHistoryItems()
+  }, [])
+return (<View style={[styles.flex]}>
+  <View style={styles.center}>
+  <Text>Budget History</Text>
+  </View>
+  <FlatList
+            data={historyItemsWithId}
+            renderItem={renderHistoryItem}
+            keyExtractor={item => item.id}
+            numColumns={1}
+            />
+    </View>);
+}
+
 function HistoryScreen ({navigation}: {navigation: any}){
   const homeString: string = 'Home';
   const [date, setDate] = useState<Date>(new Date());
-    return (<View>
-        <Text style={[styles.customFont]}>History Screen</Text>
-        <Pressable onPress={() => navigation.navigate('Budget Buddy')}>
-          <Text style={styles.customFont}>Back To Home</Text>
-        </Pressable>
-
+    return (<View id='HistoryScreen'>
+        <HistoryComponent/>
     </View>);
 }
 
@@ -209,10 +319,18 @@ async function GetBudgetTitle(){
   })
 }
 
-async function GetBudgetItemsFromStorage(){
-  return await AsyncStorage.getItem(budget_items_key)
+async function ClearBudgetTitle(){
+  return await AsyncStorage.removeItem(title_key);
+}
+
+async function GetBudgetHistoryItemsFromStorage(){
+  
+  const historyItemPrefix = 'HI'
+  const allKeys = await AsyncStorage.getAllKeys();
+  const historyKeys = allKeys.filter(key => key.startsWith(historyItemPrefix));
+  
+  return await AsyncStorage.getMany(historyKeys)
   .then((value) =>{
-    console.log(value)
     return value
   })
   .catch((error) =>{
@@ -245,59 +363,51 @@ async function SaveBudgetItems(budgetItems: BudgetData[]){
   }
 }
 
-async function SaveBudgetItemToHistoryPage() {
+async function SaveBudgetItemToHistoryPage(): Promise<boolean> {
 try{
     console.log("Beginning save of budget item to history page...")
     const currentBudgetItems = await GetBudgetItems();
     const budgetTitle = await GetBudgetTitle();
     console.log(`"Saving ${budgetTitle} to history page..."`)
     console.log("Current Budget Items: ", currentBudgetItems)
-
+    await AsyncStorage.setItem(`HI${budgetTitle}`, JSON.stringify(currentBudgetItems));
+    return true
 }
 catch(error){ 
   console.error(error)
   Alert.alert("Error", "Failed to save budget item to history.");
-}
+  return false;
+  }
 }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal}: {budgetAmountRemaining?: number, budgetedTotal?: number}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle}: {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
-  const [budgetTitle, setBudgetTitle] = useState<string>('');
-
-  useEffect(()=> {
-    const getTitle = async () => {
-      try{
-        const result = await GetBudgetTitle()
-        if (result){
-          setBudgetTitle(result)
-        }
-      }
-      catch (error){
-        console.log(error)
-      }
-    };
-    getTitle();
-  }, [])
-
+  const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
 
   const updateBudgetTitle = (text: string) => {
     AsyncStorage.setItem(title_key, text)
-    setBudgetTitle(text);
   }
+
+  useEffect(() => {
+      setSavedTitle(currentBudgetTitle)}
+      , [currentBudgetTitle])
 
     return (
         <View style={[styles.container, styles.tableHeaderPadding]}>
         <TextInput
         style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}
-        value={budgetTitle}
+        value={savedTitle}
         placeholder="Click to Update Title"
         onChangeText={(text) => {
-          setBudgetTitle(text)
+          setSavedTitle(text);
+        }}
+        onSubmitEditing={() => {
+          updateBudgetTitle(savedTitle)
+          setSavedTitle(savedTitle)
         }
       }
-        onSubmitEditing={() => updateBudgetTitle(budgetTitle)}
         />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput
@@ -427,12 +537,15 @@ function BudgetComponent({navigation}: {navigation: any}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
 
- 
+  const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
 
-  useEffect(() => {
-    const getCurrentBudget = async () =>{
+  const [budgetTitle, setBudgetTitle] = useState<string>('');
+  const [budgetDueDate, setBudgetDueDate] = useState<Date>(new Date());
+
+  const getCurrentBudget = async () =>{
       try {
         const result = await GetBudgetItems()
+        console.log(result, "Resutls ") 
         if (result){
           return setBudgetData(result)
         }
@@ -440,11 +553,43 @@ function BudgetComponent({navigation}: {navigation: any}){
       catch (error) {
         console.log(error)
       }
-    }; getCurrentBudget()
-  }, [])
+    };
 
- const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
+  useEffect(() => {
+    getCurrentBudget();
+    const getTitle = async () => {
+      try{
+        const result = await GetBudgetTitle()
+        console.log(result, "is the result retrieved in getTitle useEffect")
+        if (result){
+          setBudgetTitle(result)
+        }
+      }
+      catch (error){
+        console.log(error)
+      }
+    };
+    getTitle();
+  }, []);
 
+  const clearBudgetItems = () => {
+    const emptyBudgetData: BudgetData[] = budgetData.map(item => {
+      const itemDate = new Date(item.date);
+      const oneMonthLater = new Date(itemDate.setMonth(itemDate.getMonth() + 1));
+      return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]} as BudgetData;
+    });
+    console.log(emptyBudgetData, "is the empty budget data that is being set after clearing budget items")
+    setBudgetData(emptyBudgetData);
+    SaveBudgetItems(emptyBudgetData);
+    setBudgetTitle('');
+    GetBudgetItems().then(result => {
+
+      console.log("Results from GetBudgetItems after clearing budget items: ", result)
+      setBudgetData(result);
+    });
+    Alert.alert("Budget Closed", "Your current budget has been closed to history and a new one has been created.")
+    
+  }
   const updateBudgetAmountUsed = (id: string, newAmount: number) => {
       const updatedItem = budgetData.map(item => {
           if(item.id === id){
@@ -478,6 +623,16 @@ function BudgetComponent({navigation}: {navigation: any}){
     SaveBudgetItems(updatedItem);
   };
   
+const updateBudgetDueDate = (id: string, newDate: Date) => {
+  const updatedItem = budgetData.map(item => {
+    if (item.id === id){
+      return {...item, date: newDate.toISOString().split('T')[0]};
+    }
+    return item;
+  });
+  setBudgetData(updatedItem);
+  SaveBudgetItems(updatedItem);
+}
 
 const removeBudgetItem = (id: string) => {
   const updatedBudget = budgetData.filter(item => item.id !== id)
@@ -501,7 +656,9 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
-                budgetedTotal={totalBudgetAmount}/>
+                budgetedTotal={totalBudgetAmount}
+                currentBudgetTitle={budgetTitle}
+                />
             </View>
             <TableHeader />
         <FlatList
@@ -522,10 +679,13 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               updateBudgetDescription={(description: string) => {
                 updateBudgetDescription(item.id, description)
               }}
+              updateDueDate={(date: Date) => {
+                updateBudgetDueDate(item.id, date)
+              }}
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            //extraData={[budgetData, FooterComponent]}
+            //extraData={budgetData}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
               addBudgetItem(newItem)
             }} />}
@@ -533,6 +693,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               <Pressable 
                 onPress={() => {
                   SaveBudgetItemToHistoryPage()
+                  clearBudgetItems()
                   }}>
                 <Text>Close and Move to History</Text>
               </Pressable>
