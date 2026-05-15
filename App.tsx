@@ -138,6 +138,11 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     updateDueDate && updateDueDate(newDate)
   }
 
+  useEffect(() => {
+    setDueDate(new Date(date))
+  }, [date])
+  
+
   return (
       <ReanimatedSwipeable
         friction={2}
@@ -178,13 +183,15 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       onLongPress={() => {
       setIsEditingDueDate(true)
       }
-    }>{isEditingDueDate && (
+    }>{
+        isEditingDueDate && (
       <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
         <DatePicker
           value={dueDate}
           selectedDate={dueDate}
           onChange={(selectedDate: Date) => {
-            setDueDate(selectedDate)
+            let utcDate = selectedDate.toUTCString();
+            setDueDate(new Date(utcDate))
             callAdjustDueDate(selectedDate)
             setIsEditingDueDate(false)
           }}
@@ -576,17 +583,12 @@ function BudgetComponent({navigation}: {navigation: any}){
     const emptyBudgetData: BudgetData[] = budgetData.map(item => {
       const itemDate = new Date(item.date);
       const oneMonthLater = new Date(itemDate.setMonth(itemDate.getMonth() + 1));
-      return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]} as BudgetData;
+      return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]};
     });
     console.log(emptyBudgetData, "is the empty budget data that is being set after clearing budget items")
-    setBudgetData(emptyBudgetData);
     SaveBudgetItems(emptyBudgetData);
+    setBudgetData(emptyBudgetData);
     setBudgetTitle('');
-    GetBudgetItems().then(result => {
-
-      console.log("Results from GetBudgetItems after clearing budget items: ", result)
-      setBudgetData(result);
-    });
     Alert.alert("Budget Closed", "Your current budget has been closed to history and a new one has been created.")
     
   }
@@ -685,7 +687,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            //extraData={budgetData}
+            //extraData={[budgetData]}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
               addBudgetItem(newItem)
             }} />}
