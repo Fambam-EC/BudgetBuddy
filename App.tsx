@@ -417,8 +417,9 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
       }
         />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $ <View style={styles.center}><TextInput
-        style={[styles.zeroWidthForPadding, styles.headerFontSize]}
+        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $
+            <TextInput
+            style={[styles.zeroWidthForPadding, styles.headerFontSize]}
         placeholder="Total Income"
         keyboardType={'number-pad'}
         value={totalSetBudgetAmount.toFixed(2).toString()}
@@ -428,7 +429,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
           setPotentialSurplus(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0))
           setIsEditingTotal(false)
         }}
-        /></View>
+        />
         </Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
