@@ -241,7 +241,6 @@ function HistoryComponent(){
 
   const callDeleteHistoryItemWithId = async (id: string) => {
     try {
-      console.log({id})
       await AsyncStorage.removeItem(`${id}`);
       setHistoryItemsWithId(historyItemsWithId.filter(item => item.id !== id));
     }
@@ -303,7 +302,7 @@ function HistoryComponent(){
       }
     }; getHistoryItems()
   }, [])
-return (<View style={[styles.flex]}>
+return (<View style={styles.flex}>
   <View style={styles.center}>
   <Text>Budget History</Text>
   </View>
@@ -316,10 +315,10 @@ return (<View style={[styles.flex]}>
     </View>);
 }
 
-function HistoryScreen ({navigation}: {navigation: any}){
-  const homeString: string = 'Home';
-  const [date, setDate] = useState<Date>(new Date());
-    return (<View id='HistoryScreen'>
+          function HistoryScreen ({navigation}: {navigation: any}){
+              const homeString: string = 'Home';
+              const [date, setDate] = useState<Date>(new Date());
+              return (<View id='HistoryScreen' style={[styles.flex]}>
         <HistoryComponent/>
     </View>);
 }
@@ -661,6 +660,7 @@ function BudgetComponent({navigation}: {navigation: any}){
   
   useEffect(() => {
     function checkIfShowCloseButton(){
+    console.log(`${budgetTitle} is the Budget Title`)
     if (budgetData.length > 0 && budgetTitle && budgetTitle.trim()){
       console.log(budgetData.length, budgetTitle, "are the conditions being checked to show close button" )
       setShowCloseButton(true);
@@ -732,6 +732,14 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
 
 const removeBudgetItem = (id: string) => {
   const updatedBudget = budgetData.filter(item => item.id !== id)
+  const removedItem = budgetData.filter(item => item.id == id)
+    saveCurrentTransaction({
+      id: `remove${Date.now()}`,
+      description: `${removedItem.description}`,
+      amount: removedItem.budget,
+      date: new Date().toISOString(),
+      info: `"${removedItem.description}" amount $${removedItem.budget} removed.`
+    })
   setBudgetData(updatedBudget);
   SaveBudgetItems(updatedBudget);
 };
