@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, use } from "react";
 import {
   StyleSheet,
   Text,
@@ -50,6 +50,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
 
 const title_key = '@title_key'; 
 const budget_items_key = '@budget_items_key';
+const transaction_items_key = '@transaction_items_key';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -106,10 +107,10 @@ type RootStackParamList = {
 const HistoryItem = ({description, budget, amount, date}: HistoryItemModel) => {
   return (
     <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex]}>
-      <Text style={[styles.rowContent, styles.customFont]}>{description}</Text>
-      <Text style={[styles.rowContent, styles.customFont]}>{budget.toFixed(2)}</Text>
-      <Text style={[styles.rowContent, styles.customFont]}>{amount.toFixed(2)}</Text>
-      <Text style={[styles.rowContent, styles.customFont]}>{new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
+      <Text style={[styles.flex, styles.customFont]}>{description}</Text>
+      <Text style={[styles.flex, styles.customFont]}>{budget.toFixed(2)}</Text>
+      <Text style={[styles.flex, styles.customFont]}>{amount.toFixed(2)}</Text>
+      <Text style={[styles.flex, styles.customFont]}>{new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
     </View>
   );
 }
@@ -142,6 +143,9 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     setDueDate(new Date(date))
   }, [date])
   
+  const saveTransaction = (newTransaction: TransactionData) => {
+    SaveTransactionItem(newTransaction);
+  };
 
   return (
       <ReanimatedSwipeable
@@ -247,8 +251,8 @@ function HistoryComponent(){
   }
 
   const renderHistoryItem = ({item}: {item: HistoryItemList}) => {
-    console.log(item, "is the item being rendered in renderHistoryItem")
     const isExpanded = item.id === expandedHistoryItemId;
+    const trimmedTitle = item.id.substring(2); // Remove 'HI' prefix
     return (
       <ReanimatedSwipeable
         friction={2}
@@ -256,12 +260,13 @@ function HistoryComponent(){
         rightThreshold={40}
         renderRightActions={(progress, drag) => (RightAction(progress, drag, item.id, () => callDeleteHistoryItemWithId(item.id)))}
         >
-      <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex, styles.rowColumn]}>
         <Pressable onPress={() => toggleExpandHistoryItem(item.id)}>
-          <Text style={[styles.rowContent, styles.customFont]}>{item.id}</Text>
-        </Pressable>
+      <View style={[styles.rowPadding, styles.rowBorder, styles.flex]}>
+        { !isExpanded && (
+          <View style={[styles.center]}><Text>{trimmedTitle}</Text></View>
+        )}
         {isExpanded && (
-          <View><FlatList
+          <FlatList
             data={item.items}
             renderItem={({item}) => <HistoryItem
               id={item.id}
@@ -272,9 +277,11 @@ function HistoryComponent(){
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            /></View>
+            ListHeaderComponent={() => <View style={[styles.center]}><Text>{trimmedTitle}</Text></View> }
+            />
         )}
       </View>
+      </Pressable>
       </ReanimatedSwipeable>
     );
   }
@@ -387,6 +394,35 @@ catch(error){
   }
 }
 
+async function SaveTransactionItem(newTransaction: TransactionData): Promise<boolean> {
+  try {
+    const currentTransactions = await AsyncStorage.getItem(transaction_items_key)
+    let transactions: TransactionData[] = [];
+    if (currentTransactions){
+      transactions = JSON.parse(currentTransactions) as TransactionData[];
+    }
+    // Assuming newTransaction is the transaction you want to add
+    transactions.push(newTransaction);
+    await AsyncStorage.setItem(transaction_items_key, JSON.stringify(transactions));
+    return true;
+  } catch (error) {
+    console.error(error);
+    Alert.alert("Error", "Failed to save transaction item.");
+    return false;
+  }
+}
+
+async function ClearTransactionData(){
+  try {
+    await AsyncStorage.removeItem(transaction_items_key);
+    return true;
+  } catch (error) {
+    console.error(error);
+    Alert.alert("Error", "Failed to clear transaction data.");
+    return false;
+  }
+}
+
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle}: {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
@@ -398,7 +434,9 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
   }
 
   useEffect(() => {
-      setSavedTitle(currentBudgetTitle)}
+      setSavedTitle(currentBudgetTitle)
+      console.log(currentBudgetTitle, "is the current budget title in useEffect in BudgetHeader")
+    }
       , [currentBudgetTitle])
 
     return (
@@ -435,7 +473,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.row, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
-        ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus > 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
+        ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus >= 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
         </View>
       </View>
     );
@@ -541,14 +579,24 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
     </View>
   );
 }
+
+type TransactionData = {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  info: string;
+}
+
 function BudgetComponent({navigation}: {navigation: any}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
-
+  
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
-
+  const [transactionData, setTransactionData] = useState<TransactionData[]>([]);
   const [budgetTitle, setBudgetTitle] = useState<string>('');
-  const [budgetDueDate, setBudgetDueDate] = useState<Date>(new Date());
+  const [showTransactions, setShowTransactions] = useState<boolean>(false);
+  const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
 
   const getCurrentBudget = async () =>{
       try {
@@ -563,12 +611,39 @@ function BudgetComponent({navigation}: {navigation: any}){
       }
     };
 
-  useEffect(() => {
-    getCurrentBudget();
-    const getTitle = async () => {
+  const getCurrentTransactions = async () => {
+    try {
+      const result = await AsyncStorage.getItem(transaction_items_key)
+      if (result){
+        setTransactionData(JSON.parse(result) as TransactionData[])
+      }
+    }
+    catch (error) {
+      console.log(error)
+    }
+  }
+
+  const clearCurrentTransactions = async () => {
+    try {
+      await ClearTransactionData();
+      setTransactionData([]);
+    }
+    catch (error) {
+      console.log(error)
+    }
+  }
+  
+  const saveCurrentTransaction = async (newTransaction: TransactionData) => {
+    try {
+      await SaveTransactionItem(newTransaction);
+      getCurrentTransactions();
+    } catch (error) {
+      console.log(error)
+    }
+  }
+  const getTitle = async () => {
       try{
         const result = await GetBudgetTitle()
-        console.log(result, "is the result retrieved in getTitle useEffect")
         if (result){
           setBudgetTitle(result)
         }
@@ -577,8 +652,26 @@ function BudgetComponent({navigation}: {navigation: any}){
         console.log(error)
       }
     };
+
+  useEffect(() => {
+    getCurrentBudget();
+    getCurrentTransactions();
     getTitle();
   }, []);
+  
+  useEffect(() => {
+    function checkIfShowCloseButton(){
+    if (budgetData.length > 0 && budgetTitle && budgetTitle.trim()){
+      console.log(budgetData.length, budgetTitle, "are the conditions being checked to show close button" )
+      setShowCloseButton(true);
+    }
+    else {
+      console.log(budgetData.length, budgetTitle, "are the conditions being checked to show close button" )
+      setShowCloseButton(false);
+    }
+  } 
+  checkIfShowCloseButton();
+}, [budgetTitle, budgetData])
 
   const clearBudgetItems = () => {
     const emptyBudgetData: BudgetData[] = budgetData.map(item => {
@@ -643,10 +736,19 @@ const removeBudgetItem = (id: string) => {
   SaveBudgetItems(updatedBudget);
 };
 
+
+
 const addBudgetItem = (budgetItem: BudgetData) =>{
   const largestExistingId = budgetData.reduce((maxId, item) => Math.max(maxId, parseInt(item.id)), 0);
     const itemWithId = { ...budgetItem, id: (largestExistingId + 1).toString() };
               let budgetDataWithAddedItem = budgetData.concat(itemWithId)
+              saveCurrentTransaction({
+                id: `${Date.now()}`,
+                description: `${budgetItem.description}`,
+                amount: budgetItem.budget,
+                date: new Date().toISOString(),
+                info: `"${budgetItem.description}" amount $${budgetItem.budget} added.`
+              })
               setBudgetData(budgetDataWithAddedItem);
               SaveBudgetItems(budgetDataWithAddedItem);              
 }
@@ -688,19 +790,40 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            //extraData={[budgetData]}
+            //extraData={[budgetData, budgetTitle]}
             ListFooterComponent={<FooterComponent addBudgetItem={(newItem: BudgetData) => {
               addBudgetItem(newItem)
             }} />}
-            /><View style={[styles.container, styles.rowPadding]}>
-              <Pressable 
-                onPress={() => {
-                  SaveBudgetItemToHistoryPage()
-                  clearBudgetItems()
-                  }}>
+            />
+            {
+              transactionData.length > 0 && (
+                <View style={[styles.rowPadding, styles.rowBorder, styles.center]}>
+                  <Pressable onPress={() => setShowTransactions(!showTransactions)}>
+                    <Text>Show Transactions</Text>
+                  </Pressable>
+                  {showTransactions && (
+                    <View>
+                      {transactionData.map((transaction) => (
+                        <Text key={transaction.id}>{transaction.info}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )
+            }
+            { showCloseButton && (
+              <View style={[styles.rowPadding, styles.rowBorder, styles.center]}>
+                <Pressable 
+                  onPress={() => {
+                    SaveBudgetItemToHistoryPage()
+                    clearBudgetItems()
+                    clearCurrentTransactions()
+                    }}>
+
                 <Text>Close and Move to History</Text>
               </Pressable>
-            </View>
+            </View>)}
+            
       </View>);
 }
 
