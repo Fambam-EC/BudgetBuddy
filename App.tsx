@@ -64,6 +64,7 @@ function RootStack(){
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
+    <View style={[styles.backgroundColor]}>
           <SafeAreaProvider>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
@@ -72,6 +73,7 @@ function App() {
       </NavigationContainer>
       </GestureHandlerRootView>
     </SafeAreaProvider>
+    </View>
   );
 }
 
@@ -984,6 +986,10 @@ const styles = StyleSheet.create({
   },
   tableHeaderPadding:{
     marginTop: 15
+  },
+  backgroundColor: {
+    flex: 1,
+    backgroundColor: '#32CD32'
   }
 });
 export default App;
