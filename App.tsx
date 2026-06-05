@@ -422,7 +422,8 @@ async function ClearTransactionData(){
   }
 }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle}: {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction}: 
+  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
@@ -450,6 +451,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
         onSubmitEditing={() => {
           updateBudgetTitle(savedTitle)
           setSavedTitle(savedTitle)
+          getTitleFunction && getTitleFunction()
         }
       }
         />
@@ -587,7 +589,7 @@ type TransactionData = {
   info: string;
 }
 
-function BudgetComponent({navigation}: {navigation: any}){
+function BudgetComponent({navigation} : {navigation: any}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
   
@@ -644,7 +646,9 @@ function BudgetComponent({navigation}: {navigation: any}){
       try{
         const result = await GetBudgetTitle()
         if (result){
+          console.log(result)
           setBudgetTitle(result)
+          
         }
       }
       catch (error){
@@ -657,16 +661,13 @@ function BudgetComponent({navigation}: {navigation: any}){
     getCurrentTransactions();
     getTitle();
   }, []);
-  
+
   useEffect(() => {
     function checkIfShowCloseButton(){
-    console.log(`${budgetTitle} is the Budget Title`)
-    if (budgetData.length > 0 && budgetTitle && budgetTitle.trim()){
-      console.log(budgetData.length, budgetTitle, "are the conditions being checked to show close button" )
+    if (budgetData.length > 0 && budgetTitle && budgetTitle.trim().length > 0){
       setShowCloseButton(true);
     }
     else {
-      console.log(budgetData.length, budgetTitle, "are the conditions being checked to show close button" )
       setShowCloseButton(false);
     }
   } 
@@ -693,6 +694,13 @@ function BudgetComponent({navigation}: {navigation: any}){
           }
           return item;
       });
+      saveCurrentTransaction({
+        id: `updateAmount${Date.now()}`,
+        description: `${updatedItem.find(item => item.id === id)?.description} amount updated`,
+        amount: newAmount,
+        date: new Date().toISOString(),
+        info: `"${updatedItem.find(item => item.id === id)?.description}" amount updated by $${newAmount}.`
+      })
       setBudgetData(updatedItem);
       SaveBudgetItems(updatedItem);
   };
@@ -704,17 +712,32 @@ function BudgetComponent({navigation}: {navigation: any}){
           }
           return item;
       });
+      saveCurrentTransaction({
+        id: `adjustBudgetAmount${Date.now()}`,
+        description: `${updatedItem.find(item => item.id === id)?.description} budget amount updated`,
+        amount: 0,
+        date: new Date().toISOString(),
+        info: `"${updatedItem.find(item => item.id === id)?.description}" budget amount updated to $${newAmount}.`
+      })
       setBudgetData(updatedItem);
       SaveBudgetItems(updatedItem);
   };
 
   const updateBudgetDescription = (id: string, newDescription: string) =>{
+    const oldDescription = budgetData.find(item => item.id === id)?.description;
     const updatedItem = budgetData.map(item => {
       if (item.id === id){
         return {...item, description: newDescription};
       }
       return item;
     });
+    saveCurrentTransaction({
+      id: `updateDescription${Date.now()}`,
+      description: `${updatedItem.find(item => item.id === id)?.description} description updated`,
+      amount: 0,
+      date: new Date().toISOString(),
+      info: `"${oldDescription}" description updated to "${newDescription}".`
+    })
     setBudgetData(updatedItem);
     SaveBudgetItems(updatedItem);
   };
@@ -726,20 +749,27 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
     }
     return item;
   });
+  saveCurrentTransaction({
+    id: `updateDate${Date.now()}`,
+    description: `${updatedItem.find(item => item.id === id)?.description} due date updated`,
+    amount: 0,
+    date: new Date().toISOString(),
+    info: `"${updatedItem.find(item => item.id === id)?.description}" due date updated to ${newDate.toISOString().split('T')[0]}.`
+  })
   setBudgetData(updatedItem);
   SaveBudgetItems(updatedItem);
 }
 
 const removeBudgetItem = (id: string) => {
-  const updatedBudget = budgetData.filter(item => item.id !== id)
-  const removedItem = budgetData.filter(item => item.id == id)
-    saveCurrentTransaction({
+  const removedItem = budgetData.find(item => item.id === id);
+      saveCurrentTransaction({
       id: `remove${Date.now()}`,
-      description: `${removedItem.description}`,
-      amount: removedItem.budget,
+      description: `${removedItem?.description}`,
+      amount: Number(removedItem?.budget),
       date: new Date().toISOString(),
-      info: `"${removedItem.description}" amount $${removedItem.budget} removed.`
+      info: `"${removedItem?.description}" amount $${removedItem?.budget} removed.`
     })
+  const updatedBudget = budgetData.filter(item => item.id !== id)
   setBudgetData(updatedBudget);
   SaveBudgetItems(updatedBudget);
 };
@@ -771,6 +801,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}
                 currentBudgetTitle={budgetTitle}
+                getTitleFunction={getTitle}
                 />
             </View>
             <TableHeader />
