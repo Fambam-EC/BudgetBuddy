@@ -66,7 +66,7 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
           <SafeAreaProvider>
-            <SafeAreaView style={styles.flex}>
+            <SafeAreaView style={[styles.flex, styles.backgroundColor]}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
