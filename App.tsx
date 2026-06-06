@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatePicker from './Helpers/DatePicker';
 import {
   SafeAreaProvider,
+  SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
@@ -56,24 +57,24 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootStack(){
   return(<Stack.Navigator initialRouteName="Budget Buddy">
-      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"} }} component={BudgetComponent} />
-      <Stack.Screen name="History" component={HistoryScreen} />
+      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}} component={BudgetComponent} />
+      <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}} component={HistoryScreen} />
     </Stack.Navigator>)
 }
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
-    <View style={[styles.backgroundColor]}>
           <SafeAreaProvider>
+            <SafeAreaView style={styles.flex}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
         <TableWrapper item={<RootStack/>}/>
       </NavigationContainer>
       </GestureHandlerRootView>
+      </SafeAreaView>
     </SafeAreaProvider>
-    </View>
   );
 }
 
@@ -320,7 +321,7 @@ return (<View style={styles.flex}>
           function HistoryScreen ({navigation}: {navigation: any}){
               const homeString: string = 'Home';
               const [date, setDate] = useState<Date>(new Date());
-              return (<View id='HistoryScreen' style={[styles.flex]}>
+              return (<View id='HistoryScreen' style={[styles.flex, styles.backgroundColor]}>
         <HistoryComponent/>
     </View>);
 }
@@ -380,11 +381,8 @@ async function SaveBudgetItems(budgetItems: BudgetData[]){
 
 async function SaveBudgetItemToHistoryPage(): Promise<boolean> {
 try{
-    console.log("Beginning save of budget item to history page...")
     const currentBudgetItems = await GetBudgetItems();
     const budgetTitle = await GetBudgetTitle();
-    console.log(`"Saving ${budgetTitle} to history page..."`)
-    console.log("Current Budget Items: ", currentBudgetItems)
     await AsyncStorage.setItem(`HI${budgetTitle}`, JSON.stringify(currentBudgetItems));
     return true
 }
@@ -437,7 +435,6 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
 
   useEffect(() => {
       setSavedTitle(currentBudgetTitle)
-      console.log(currentBudgetTitle, "is the current budget title in useEffect in BudgetHeader")
     }
       , [currentBudgetTitle])
 
@@ -604,7 +601,6 @@ function BudgetComponent({navigation} : {navigation: any}){
   const getCurrentBudget = async () =>{
       try {
         const result = await GetBudgetItems()
-        console.log(result, "Resutls ") 
         if (result){
           return setBudgetData(result)
         }
@@ -648,7 +644,6 @@ function BudgetComponent({navigation} : {navigation: any}){
       try{
         const result = await GetBudgetTitle()
         if (result){
-          console.log(result)
           setBudgetTitle(result)
           
         }
@@ -682,7 +677,6 @@ function BudgetComponent({navigation} : {navigation: any}){
       const oneMonthLater = new Date(itemDate.setMonth(itemDate.getMonth() + 1));
       return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]};
     });
-    console.log(emptyBudgetData, "is the empty budget data that is being set after clearing budget items")
     SaveBudgetItems(emptyBudgetData);
     setBudgetData(emptyBudgetData);
     setBudgetTitle('');
@@ -796,7 +790,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
-            <View style={{flex: 1}}>
+            <View style={[styles.flex, styles.backgroundColor]}>
             <HistoryButton navigation={navigation}/>
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
@@ -988,8 +982,7 @@ const styles = StyleSheet.create({
     marginTop: 15
   },
   backgroundColor: {
-    flex: 1,
-    backgroundColor: '#32CD32'
+    backgroundColor: '#F0F8FF'
   }
 });
 export default App;
