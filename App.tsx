@@ -792,6 +792,19 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
     return (
             <View style={[styles.flex, styles.backgroundColor]}>
             <HistoryButton navigation={navigation}/>
+            <Pressable
+            onPress={async () => {
+              console.log("Database Called")
+              // Call the database function here
+              await fetch('https://onset-theatrics-subway.ngrok-free.dev/api/users', 
+                {method: 'GET',
+                   headers: {
+        'Content-Type': 'application/json',
+        'bypass-tunnel-reminder': 'true'
+      }
+                }).then(response => console.log(response))
+            }}
+            ><Text>Call DB</Text></Pressable>
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
