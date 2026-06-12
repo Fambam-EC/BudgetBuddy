@@ -802,7 +802,10 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
         'Content-Type': 'application/json',
         'bypass-tunnel-reminder': 'true'
       }
-                }).then(response => console.log(response))
+              }).then(response => {
+                  var userArray = response.json()
+                  console.log(typeof(userArray), userArray)
+              })
             }}
             ><Text>Call DB</Text></Pressable>
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
