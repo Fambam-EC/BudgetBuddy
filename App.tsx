@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, use } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,17 +9,16 @@ import {
   useColorScheme,
   StatusBar,
   Alert,
-  Button,
   Pressable,
-  ScrollView,
-  TextComponent
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatePicker from './Helpers/DatePicker';
 import {
   SafeAreaProvider,
   SafeAreaView,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -28,7 +27,7 @@ import Reanimated, {
   SharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
@@ -55,22 +54,123 @@ const transaction_items_key = '@transaction_items_key';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function RootStack(){
+function RootStack({logout}: {logout: () => void}) {
   return(<Stack.Navigator initialRouteName="Budget Buddy">
-      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}} component={BudgetComponent} />
+      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
+        {props => <BudgetComponent {...props} onLogout={logout} />}
+      </Stack.Screen>
       <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}} component={HistoryScreen} />
     </Stack.Navigator>)
 }
 
+function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+
+  const handleLogin = () => {
+
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    authorized(true);
+    // Add authentication API call logic here
+    Alert.alert('Success', `Logging in with: ${email}`);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.innerContainer}
+      >
+        {/* Header Section */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Sign in to your account</Text>
+        </View>
+
+        {/* Form Inputs */}
+        <View style={styles.formContainer}>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#999"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                placeholderTextColor="#999"
+                secureTextEntry={secureTextEntry}
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setSecureTextEntry(!secureTextEntry)}
+                style={styles.eyeButton}
+              >
+                <Text style={styles.eyeText}>
+                  {secureTextEntry ? 'Show' : 'Hide'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.forgotPassword}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Log In</Text>
+          </TouchableOpacity>
+
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity>
+              <Text style={styles.signUpText}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const submitLogin = async (email: string, password: string) => {};
+
+interface LogoutProps {
+  onLogout: () => void;
+}
+
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   return (
           <SafeAreaProvider>
             <SafeAreaView style={[styles.flex, styles.backgroundColor]}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
-        <TableWrapper item={<RootStack/>}/>
+        { !isAuthenticated && <LoginScreen authorized={setIsAuthenticated}/> }
+       { isAuthenticated && <RootStack logout={() => setIsAuthenticated(false)} />}
       </NavigationContainer>
       </GestureHandlerRootView>
       </SafeAreaView>
@@ -588,7 +688,7 @@ type TransactionData = {
   info: string;
 }
 
-function BudgetComponent({navigation} : {navigation: any}){
+function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: () => void}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
   
@@ -790,24 +890,11 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
-            <View style={[styles.flex, styles.backgroundColor]}>
-            <HistoryButton navigation={navigation}/>
-            <Pressable
-            onPress={async () => {
-              console.log("Database Called")
-              // Call the database function here
-              await fetch('https://onset-theatrics-subway.ngrok-free.dev/api/users', 
-                {method: 'GET',
-                   headers: {
-        'Content-Type': 'application/json',
-        'bypass-tunnel-reminder': 'true'
-      }
-              }).then(response => {
-                  var userArray = response.json()
-                  console.log(typeof(userArray), userArray)
-              })
-            }}
-            ><Text>Call DB</Text></Pressable>
+            <View style={[styles.flex, styles.backgroundColor]}>  
+            <View style={[styles.flex, styles.row, styles.flexBetween]}>
+              <LogOutButton onLogout={onLogout}/>         
+              <HistoryButton navigation={navigation}/>
+            </View>
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
@@ -887,8 +974,12 @@ function HistoryButton({navigation}: {navigation: any}){
             </View>);
 }
 
-function TableWrapper({item} : {item: any}) {
-    return (<View id='TableWrapper' style={styles.flex}>{item}</View>);
+function LogOutButton( {onLogout}: {onLogout: () => void}){
+  return (<View style={[styles.flexStart]}>
+    <Pressable onPress={onLogout}>
+      <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Log Out</Text>
+    </Pressable>
+  </View>);
 }
 
 
@@ -907,9 +998,6 @@ const styles = StyleSheet.create({
     rowContent:{
         flex:1,
         textAlign: 'center',
-    },
-    loginButton:{
-        flex:1,
     },
     titleMargin:{
         marginTop: 20,
@@ -975,6 +1063,12 @@ const styles = StyleSheet.create({
     flexEnd:{
       alignItems: 'flex-end'
     },
+    flexStart:{
+      alignItems: 'flex-start'
+    },
+    flexBetween:{
+      justifyContent: 'space-between'
+    },
     bigCross:{
       fontSize: 16,
       fontWeight: 'bold'
@@ -999,6 +1093,112 @@ const styles = StyleSheet.create({
   },
   backgroundColor: {
     backgroundColor: '#F0F8FF'
+  },
+
+  innerContainer: {
+    flex: 1,
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666666',
+  },
+  formContainer: {
+    marginVertical: 20,
+  },
+  inputWrapper: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  input: {
+    height: 50,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  passwordInput: {
+    flex: 1,
+    height: 50,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  eyeButton: {
+    paddingHorizontal: 16,
+  },
+  eyeText: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+  },
+  forgotText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actionContainer: {
+    marginBottom: 20,
+  },
+  loginButton: {
+    height: 52,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  signUpText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
   }
 });
 export default App;
