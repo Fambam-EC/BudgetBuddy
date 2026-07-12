@@ -7,19 +7,13 @@ const app = express();
 
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngrok-free.dev/','http://192.168.0.146:8080/'],
+  origin: ['http://localhost:8080', 'https://onset-theatrics-subway.ngrok-free.dev','http://192.168.0.146:8080'],
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   
   // 3. Define allowed request headers from the client
   allowedHeaders: ['Access-Control-Allow-Origin','Content-Type', 'bypass-tunnel-reminder', '*'],
-  
-  // 4. Allow the browser to exchange cookies or authorization headers
-  credentials: false,
-  
-  // 5. Provide a fallback status code for legacy browsers dealing with OPTIONS requests
-  optionsSuccessStatus: 200 
 };
 
 app.use(cors(corsOptions));
