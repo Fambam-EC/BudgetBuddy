@@ -8,12 +8,13 @@ const app = express();
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
   origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngronk-free.dev/'],
+
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   
   // 3. Define allowed request headers from the client
-  allowedHeaders: ['Content-Type', 'bypass-tunnel-reminder'],
+  allowedHeaders: ['Access-Control-Allow-Origin','Content-Type', 'bypass-tunnel-reminder', '*'],
   
   // 4. Allow the browser to exchange cookies or authorization headers
   credentials: false,
@@ -22,7 +23,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 
 };
 
-app.use(cors(corsOptions));
+app.use(cors());
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool
@@ -30,12 +31,15 @@ const pool = new Pool({
   user: 'postgres',
   host: '0.0.0.0',
   password: 'superuser',
+  database: 'budgetbuddy',
   port: 5432,
 });
 
 // Route endpoint to write data
 app.post('/api/users', async (req, res) => {
   try {
+    console.log(pool)
+    console.log(req)
     const result = await pool.query(
       `SELECT * FROM users`);
     res.status(201).json(result.rows);
@@ -47,9 +51,10 @@ app.post('/api/users', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try {
+    console.log(req)
     const result = await pool.query(
       `SELECT * FROM users`);
-    res.status(201).json(result.rows);
+    return res.status(201).json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database write failed' });
