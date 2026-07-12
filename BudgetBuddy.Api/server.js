@@ -7,7 +7,7 @@ const app = express();
 
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngork-free.dev/'],
+  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngronk-free.dev/'],
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
