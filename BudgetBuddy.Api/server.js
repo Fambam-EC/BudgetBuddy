@@ -7,8 +7,7 @@ const app = express();
 
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngronk-free.dev/'],
-
+  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngrok-free.dev/','http://192.168.0.146:8080/'],
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -23,7 +22,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 
 };
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool
