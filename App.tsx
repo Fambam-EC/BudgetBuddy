@@ -90,7 +90,23 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
         </View>
+        {/* Test Get User*/}
+        <View style={styles.container}>
+          <Text style={styles.customFont}>Test Get User</Text>
+          <Pressable style={styles.loginButton} onPress={async () => {
+            // Add logic to get user
+            var result = await fetch(`https://onset-theatrics-subway.ngork-free.dev/api/users`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            })
 
+            console.log(result)
+          }}>
+            <Text style={styles.customFont}>Get User</Text>
+          </Pressable>
+        </View>
         {/* Form Inputs */}
         <View style={styles.formContainer}>
           <View style={styles.inputWrapper}>

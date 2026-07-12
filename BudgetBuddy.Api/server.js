@@ -7,7 +7,7 @@ const app = express();
 
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['http://localhost:3000', 'http://localhost:8080', 'https://spotty-duck-98.loca.lt'],
+  origin: ['http://localhost:8080/', 'https://onset-theatrics-subway.ngork-free.dev/'],
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
