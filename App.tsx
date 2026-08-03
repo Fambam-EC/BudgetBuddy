@@ -14,7 +14,9 @@ import {
   Platform,
   TouchableOpacity
 } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { storage }from './Helpers/storage';
+
 import DatePicker from './Helpers/DatePicker';
 import {
   SafeAreaProvider,
@@ -360,7 +362,7 @@ function HistoryComponent(){
 
   const callDeleteHistoryItemWithId = async (id: string) => {
     try {
-      await AsyncStorage.removeItem(`${id}`);
+      storage.remove(`${id}`);
       setHistoryItemsWithId(historyItemsWithId.filter(item => item.id !== id));
     }
     catch (error) {
@@ -409,9 +411,10 @@ function HistoryComponent(){
         const result = await GetBudgetHistoryItemsFromStorage()
 
         if (result != null){
+          console.log(result)
           var object = Object.entries(result).map(([key, value]) => ({
-            id: key,
-            items: JSON.parse(value as string) as HistoryItemModel[]
+            id: value.id,
+            items: value.items as HistoryItemModel[]
           }));
           setHistoryItemsWithId(object)
         }
@@ -443,43 +446,35 @@ return (<View style={styles.flex}>
 }
 
 async function GetBudgetTitle(){
-  return await AsyncStorage.getItem(title_key).then((value) => {
-    return value
-  })
-  .catch(error => {
-    return error
-  })
+  return storage.getString(title_key) || '';
 }
 
 async function ClearBudgetTitle(){
-  return await AsyncStorage.removeItem(title_key);
+  return storage.remove(title_key);
 }
 
 async function GetBudgetHistoryItemsFromStorage(){
   
   const historyItemPrefix = 'HI'
-  const allKeys = await AsyncStorage.getAllKeys();
+  const allKeys = storage.getAllKeys();
   const historyKeys = allKeys.filter(key => key.startsWith(historyItemPrefix));
-  
-  return await AsyncStorage.getMany(historyKeys)
-  .then((value) =>{
-    return value
-  })
-  .catch((error) =>{
-    console.log(error)
-  })
+  console.log(historyKeys)
+  return historyKeys.map(item => {
+    const value = storage.getString(item);
+    return { id: item, items: value ? JSON.parse(value) : [] };
+  });
 }
 
 
 async function GetBudgetItems(): Promise<BudgetData[]> {
   try{
-    return await AsyncStorage.getItem(budget_items_key)
-      .then(value =>{
-        if (value){
-        return JSON.parse(value) as BudgetData[];
-        }
-        else return []
-      })
+    let budgetItem = storage.getString(budget_items_key)
+      if (budgetItem){
+        return JSON.parse(budgetItem) as BudgetData[];
+      }
+      else {
+        return [];
+      }
   } catch(error){
     console.log(error)
     return [];
@@ -489,7 +484,7 @@ async function GetBudgetItems(): Promise<BudgetData[]> {
 async function SaveBudgetItems(budgetItems: BudgetData[]){
   try {
     const budgetItemsResponse = JSON.stringify(budgetItems)
-    await AsyncStorage.setItem(budget_items_key, budgetItemsResponse)
+    storage.set(budget_items_key, budgetItemsResponse)
   } catch (error) {
     console.log(error)
   }
@@ -499,7 +494,7 @@ async function SaveBudgetItemToHistoryPage(): Promise<boolean> {
 try{
     const currentBudgetItems = await GetBudgetItems();
     const budgetTitle = await GetBudgetTitle();
-    await AsyncStorage.setItem(`HI${budgetTitle}`, JSON.stringify(currentBudgetItems));
+    await storage.set(`HI${budgetTitle}`, JSON.stringify(currentBudgetItems));
     return true
 }
 catch(error){ 
@@ -511,14 +506,14 @@ catch(error){
 
 async function SaveTransactionItem(newTransaction: TransactionData): Promise<boolean> {
   try {
-    const currentTransactions = await AsyncStorage.getItem(transaction_items_key)
+    const currentTransactions = await storage.getString(transaction_items_key)
     let transactions: TransactionData[] = [];
     if (currentTransactions){
       transactions = JSON.parse(currentTransactions) as TransactionData[];
     }
     // Assuming newTransaction is the transaction you want to add
     transactions.push(newTransaction);
-    await AsyncStorage.setItem(transaction_items_key, JSON.stringify(transactions));
+    await storage.set(transaction_items_key, JSON.stringify(transactions));
     return true;
   } catch (error) {
     console.error(error);
@@ -529,7 +524,7 @@ async function SaveTransactionItem(newTransaction: TransactionData): Promise<boo
 
 async function ClearTransactionData(){
   try {
-    await AsyncStorage.removeItem(transaction_items_key);
+    storage.remove(transaction_items_key);
     return true;
   } catch (error) {
     console.error(error);
@@ -546,7 +541,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
 
   const updateBudgetTitle = (text: string) => {
-    AsyncStorage.setItem(title_key, text)
+    storage.set(title_key, text)
   }
 
   useEffect(() => {
@@ -728,7 +723,7 @@ function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: ()
 
   const getCurrentTransactions = async () => {
     try {
-      const result = await AsyncStorage.getItem(transaction_items_key)
+      const result = storage.getString(transaction_items_key)
       if (result){
         setTransactionData(JSON.parse(result) as TransactionData[])
       }
