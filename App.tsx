@@ -53,7 +53,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
 const title_key = '@title_key'; 
 const budget_items_key = '@budget_items_key';
 const transaction_items_key = '@transaction_items_key';
-
+const api_url = "https://onset-theatrics-subway.ngrok-free.dev"
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootStack({logout}: {logout: () => void}) {
@@ -65,11 +65,111 @@ function RootStack({logout}: {logout: () => void}) {
     </Stack.Navigator>)
 }
 
+function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSignUp = () => {
+    if (!email || !password) {
+      Alert.alert('Missing information', 'Please enter your email and password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert(
+        'Invalid password',
+        'Password must be at least 6 characters.'
+      );
+      return;
+    }
+
+
+    // Connect your signup API here
+    console.log('Signing up:', { email, password });
+     var result = fetch(`${api_url}/register`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password,
+      }),
+    });
+    console.log(result, "Result Part")
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.logo}>
+          <Text style={styles.logoText}>A</Text>
+        </View>
+
+        <Text style={styles.title}>Create account</Text>
+        <Text style={styles.subtitle}>
+          Sign up to get started with your account.
+        </Text>
+
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="you@example.com"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Enter your password"
+            placeholderTextColor="#9CA3AF"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.showButton}>
+              {showPassword ? 'Hide' : 'Show'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.signUpButton}
+          onPress={handleSignUp}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.signUpText}>Sign up</Text>
+        </TouchableOpacity>
+
+        <View style={styles.loginContainer}>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <TouchableOpacity onPress={isActiveToggle}>
+            <Text style={styles.loginLink}>Log in</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
-
+  const [signUpScreenActive, setSignUpScreenActive] = useState(false);
+  const [userResult, setUserResult] = useState("");
   const handleLogin = () => {
 
     if (!email || !password) {
@@ -83,10 +183,12 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      { !signUpScreenActive  && 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.innerContainer}
       >
+
         {/* Header Section */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Welcome Back</Text>
@@ -97,16 +199,16 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
           <Text style={styles.customFont}>Test Get User</Text>
           <Pressable style={styles.loginButton} onPress={async () => {
             // Add logic to get user
-            var result = await fetch(`https://onset-theatrics-subway.ngork-free.dev/api/users`, {
+            var result = await fetch(`${api_url}/api/users`, {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin':'*'
               }
-            })
-
-            console.log(result)
+            }).then(response => setUserResult(response.toString()))
           }}>
             <Text style={styles.customFont}>Get User</Text>
+            <Text>{userResult}</Text>
           </Pressable>
         </View>
         {/* Form Inputs */}
@@ -162,12 +264,15 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
 
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => setSignUpScreenActive(true)}>
               <Text style={styles.signUpText}>Sign Up</Text>
             </TouchableOpacity>
+            
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </View>    
+        
+      </KeyboardAvoidingView>}
+      {signUpScreenActive  && <SignUpScreen isActiveToggle={() => setSignUpScreenActive(false)}/>}
     </SafeAreaView>
   );
 }
@@ -1210,6 +1315,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '600',
-  }
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  showButton: {
+    color: '#2563EB',
+    fontWeight: '600',
+    padding: 4,
+  },
+  signUpButton: {
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  loginText: {
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  loginLink: {
+    color: '#2563EB',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 export default App;

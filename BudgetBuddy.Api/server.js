@@ -1,13 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const app = express();
 
 const corsOptions = {
   // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['http://localhost:8080', 'https://onset-theatrics-subway.ngrok-free.dev','http://192.168.0.146:8080'],
+  origin: ['*','http://localhost:8080', 'https://onset-theatrics-subway.ngrok-free.dev*','http://192.168.0.146:8080'],
   
   // 2. Control which HTTP methods are permitted
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -31,8 +32,6 @@ const pool = new Pool({
 // Route endpoint to write data
 app.post('/api/users', async (req, res) => {
   try {
-    console.log(pool)
-    console.log(req)
     const result = await pool.query(
       `SELECT * FROM users`);
     res.status(201).json(result.rows);
@@ -51,6 +50,25 @@ app.get('/api/users', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database write failed' });
+  }
+});
+
+app.post('/register', async (req, res) => {
+  try{
+    const { email, password } = req.body;
+    if (!email || !password){
+      return(res.status(400))
+    }
+    console.log(email, password)
+    
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+    
+    await pool.query('INSERT INTO users (email, password_hash) VALUES ($1, $2)', [email, hash]);
+        return res.status(201).json({ message: "Registered" });
+    
+  }
+  catch (err){
+    return res.status(500).json({ error: "Error" });
   }
 });
 app.listen(3000, () => console.log('Server running on port 3000'));
