@@ -715,6 +715,7 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
   const [budgetAmount, setBudgetAmount] = useState<number>(0);
   const [isAddingItem, setIsAddingItem] = useState<boolean>(false);
   const [showError, setShowError] = useState<boolean>(false);
+  const [showEditDate, setShowEditDate]  = useState<boolean>(false);
   const toggleAddItem = () => {
       setIsAddingItem(!isAddingItem);
   }
@@ -757,14 +758,32 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
             style={[styles.rowContent, styles.zeroWidthForPadding]}
           /> */}
           <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
-          <DatePicker
+            {Platform.OS === "android" && (
+              <View>
+                <Pressable onPress={() => setShowEditDate(!showEditDate)}>
+                  <Text>Edit Date</Text>
+                  <Text>{budgetSetDate.toLocaleDateString()}</Text>
+                </Pressable>
+                {showEditDate && (<DatePicker
+                  value={budgetSetDate}
+                  selectedDate={budgetSetDate}
+                  onChange={(selectedDate: Date) => {
+                    let utcDate = selectedDate.toUTCString();
+                    setShowEditDate(!showEditDate);
+                    setBudgetSetDate(new Date(utcDate));
+                  }}
+                />)}
+                </View>
+                
+            )}
+          {Platform.OS !== "android" && (<DatePicker
             value={budgetSetDate}
             selectedDate={budgetSetDate}
             onChange={(selectedDate: Date) => {
               let utcDate = selectedDate.toUTCString();
               setBudgetSetDate(new Date(utcDate));
             }}
-          />
+          />)}
           </View>
           <Pressable
           style={[styles.rowContent, styles.center, styles.zeroWidthForPadding]}
