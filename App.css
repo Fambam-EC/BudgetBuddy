@@ -1,15 +1,19 @@
 @font-face {
   font-family: "OpenSans-Regular";
-  src: local("OpenSans-Regular"), url("./assets/fonts/OpenSans-Regular.ttf") format("truetype");
+  src: local("OpenSans-Regular"), url("./assets/fonts/OpenSans-Regular.ttf") format("ttf");
   font-weight: normal;
 }
 @font-face {
   font-family: "OpenSans-Italic";
-  src: local("OpenSans-Italic"), url("./assets/fonts/OpenSans-Italic.ttf") format("truetype");
+  src: local("OpenSans-Italic"), url("./assets/fonts/OpenSans-Italic.ttf") format("ttf");
   font-weight: normal;
 }
 @font-face {
     font-family: "OpenSans-Bold";
-    src: local("OpenSans-Bold"), url("./assets/fonts/OpenSans-Bold.ttf") format("truetype");
+    src: local("OpenSans-Bold"), url("./assets/fonts/OpenSans-Bold.ttf") format("ttf");
     font-weight: normal;
 }
+
+
+
+/* TODO: Add other icons fonts here */

@@ -31,6 +31,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import BudgetShareComponent from './Components/BudgetShareComponent';
+import BudgetInvitationComponent from './Components/BudgetInvitationComponent';
+
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -832,6 +835,7 @@ function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: ()
   const [budgetTitle, setBudgetTitle] = useState<string>('');
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
+  const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
 
   const getCurrentBudget = async () =>{
       try {
@@ -1026,9 +1030,20 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
     return (
             <View style={[styles.flex, styles.backgroundColor]}>  
-            <View style={[styles.flex, styles.row, styles.flexBetween]}>
-              <LogOutButton onLogout={onLogout}/>         
-              <HistoryButton navigation={navigation}/>
+            <View style={styles.flexStart}>
+              <Pressable onPress={() => setShowMenuButtons(!showMenuButtons)}>
+                <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>
+                  {showMenuButtons ? 'Close' : 'Menu'}
+                  </Text>
+              </Pressable>
+              {showMenuButtons && (
+                <View style={{flexDirection: 'column'}}>
+                  <LogOutButton onLogout={onLogout}/>         
+                  <HistoryButton navigation={navigation}/>
+                  <BudgetShareComponent/>
+                  <BudgetInvitationComponent/>
+                </View>
+              )}
             </View>
             <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
@@ -1102,7 +1117,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
 
 function HistoryButton({navigation}: {navigation: any}){
     //const navigation = useNavigation();
-    return (<View style={[styles.flexEnd]}>
+    return (<View style={[styles.flexStart]}>
             <Pressable onPress={() => navigation.navigate('History')}>
               <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Go To History</Text>
             </Pressable>

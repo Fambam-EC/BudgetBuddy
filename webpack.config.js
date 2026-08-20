@@ -6,7 +6,7 @@ const appDirectory = path.resolve(__dirname);
 const { presets, plugins } = require(`${appDirectory}/babel.config.js`);
 const compileNodeModules = [
   // Add every react-native package that needs compiling
-  'react-native-gesture-handler',
+  'react-native-gesture-handler'
 ].map((moduleName) => path.resolve(appDirectory, `node_modules/${moduleName}`));
 
 const babelLoaderConfiguration = {
@@ -16,6 +16,7 @@ const babelLoaderConfiguration = {
     path.resolve(__dirname, "index.web.js"), // Entry to your application
     path.resolve(__dirname, "App.tsx"), 
     path.resolve(__dirname, "component"),
+    path.resolve(__dirname, "Components"),
     ...compileNodeModules,
   ],
   use: {
@@ -83,6 +84,28 @@ const cssLoaderConfiguration = {
   use: ['style-loader', 'css-loader'],
 };
 
+const iconLoaderConfiguration = {
+  test: /\.ttf$/,
+  use: {
+    loader: 'url-loader',
+    },
+    include: path.resolve(__dirname, 'node_modules/react-native-vector-icons'),
+};
+
+const localAssetsLoaderConfiguration = {
+  test: /\.(ttf|eot|woff|woff2)$/,
+  use: {
+    loader: 'url-loader',
+  },
+    include: path.resolve(__dirname, 'assets/fonts')
+};
+
+const jsIconLoaderConfiguration = {
+  test: /\.js$/,
+  exclude: /node_modules\/(?!(react-native-elements|react-native-vector-icons)\/).*/,
+  loader: 'babel-loader'
+};
+
 module.exports = {
   entry: {
     app: path.join(__dirname, "index.web.js"),
@@ -105,7 +128,10 @@ module.exports = {
       javascriptRules,
       fullySpecifiedRules,
       jsonRules,
-      cssLoaderConfiguration
+      cssLoaderConfiguration,
+      iconLoaderConfiguration,
+      localAssetsLoaderConfiguration,
+      jsIconLoaderConfiguration
     ],
   },
   plugins: [
