@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import { RefreshIcon } from '@hugeicons/core-free-icons';
+
 
 function BudgetInvitationComponent() {
   return (
@@ -11,8 +12,9 @@ function BudgetInvitationComponent() {
         // Handle press event
         console.log('Check pressed');
       }}>
-        <Icon name="refresh" size={20} color="#17b53c" />
-        <Ionicons name="american-football" size={20} color="#17b53c" />
+        <HugeiconsIcon
+        icon={RefreshIcon}
+        />
       </Pressable>
       </Text>
     </View>
