@@ -1,16 +1,31 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { TextInput } from 'react-native-gesture-handler';
+import EmailValidator from '../Helpers/EmailValidator';
+import { useBudget }  from '../Helpers/BudgetDataContext';
 
 function ShareBudgetComponent() {
     const [modalVisible, setModalVisible] = React.useState(false);
+    const [isSendEnabled, setIsSendEnabled] = React.useState(false);
+    
+    const handleValidationResponse = (data: boolean) => {
+        setIsSendEnabled(data)
+    } 
+    const { budgetId } = useBudget();
+    
+    const sendShareBudget = () => {
+        // Handle share budget action here
+        // Send share budget to DB via POST /share
+        console.log("BudgetId - ", budgetId);
+        setModalVisible(false);
+    }
+
     return(
         <View style={[styles.flexStart]}>
             <Pressable onPress={() => {
                 // Handle share budget action here
                 setModalVisible(true);
             }}>
-                <Text style={[ styles.rowBorder, styles.rowPadding, styles.boldText, styles.customFont]}>Share Budget</Text>
+                <Text style={[styles.rowBorder, styles.rowPadding, styles.boldText, styles.customFont]}>Share Budget</Text>
             </Pressable>
             <Modal
                 animationType="slide"
@@ -23,10 +38,7 @@ function ShareBudgetComponent() {
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
                         <Text style={styles.modalText}>Send Invite To Share Budget</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter email address"
-                        />
+                        <EmailValidator setIsValidEmail={handleValidationResponse} />
                         <View style={styles.buttonContainer}>
                         <Pressable
                             style={[styles.button, styles.buttonClose]}
@@ -34,10 +46,15 @@ function ShareBudgetComponent() {
                         >
                             <Text style={styles.textStyle}>Close</Text>
                         </Pressable>
-                        <Pressable style={[styles.button, styles.buttonClose]} onPress={() => {
+                        <Pressable 
+                            style={[styles.button, styles.buttonClose]} 
+                            onPress={() => {
                             // Handle share budget action here
+                            // Send share budget to DB via POST /share
+                            sendShareBudget();
                             setModalVisible(false);
-                        }}>
+                            }}
+                            disabled={!isSendEnabled}>
                             <Text style={styles.textStyle}>Share</Text>
                         </Pressable>
                         </View>
@@ -47,6 +64,8 @@ function ShareBudgetComponent() {
         </View>
         );
 };
+
+
 
     const styles = StyleSheet.create({
         flexStart: {

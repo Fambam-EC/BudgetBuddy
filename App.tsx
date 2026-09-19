@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, createContext } from "react";
 import {
   StyleSheet,
   Text,
@@ -33,7 +33,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BudgetShareComponent from './Components/BudgetShareComponent';
 import BudgetInvitationComponent from './Components/BudgetInvitationComponent';
-
+import { BudgetProvider } from "./Helpers/BudgetDataContext";
+import {v4 as UUID} from 'uuid';
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -302,6 +303,11 @@ function App() {
       </SafeAreaView>
     </SafeAreaProvider>
   );
+}
+
+type BudgetDataList = {
+  budgetId: string;
+  budgetItems: BudgetData[];
 }
 
 type BudgetData = {
@@ -829,8 +835,8 @@ type TransactionData = {
 function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: () => void}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
-  
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
+  const [budgetId, setBudgetId] = useState<string>("Id_from_DB_for_Budget");
   const [transactionData, setTransactionData] = useState<TransactionData[]>([]);
   const [budgetTitle, setBudgetTitle] = useState<string>('');
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
@@ -1040,7 +1046,9 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 <View style={{flexDirection: 'column'}}>
                   <LogOutButton onLogout={onLogout}/>         
                   <HistoryButton navigation={navigation}/>
+                  <BudgetProvider budgetId={budgetId}>
                   <BudgetShareComponent/>
+                  </BudgetProvider>
                   <BudgetInvitationComponent/>
                 </View>
               )}

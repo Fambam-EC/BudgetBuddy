@@ -17,6 +17,8 @@ const corsOptions = {
   allowedHeaders: ['Access-Control-Allow-Origin','Content-Type', 'bypass-tunnel-reminder', '*'],
 };
 
+const SALT_ROUNDS = 10;
+
 app.use(cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
@@ -69,6 +71,20 @@ app.post('/register', async (req, res) => {
   }
   catch (err){
     return res.status(500).json({ error: "Error" });
+  }
+});
+
+app.post('/share', async (req, res) => {
+  try{
+    const { email, budgetId } = req.body;
+    if (!email || !budgetId){
+      return res.status(400)
+    }
+    const sql = 'INSERT INTO budgetInvitations (email, budgetId) VALUES ($1, $2)';
+    await pool.query(sql, [email, budgetId])
+  }
+  catch(err){
+    return res.status(503).json({ error: "Error"})
   }
 });
 app.listen(3000, () => console.log('Server running on port 3000'));

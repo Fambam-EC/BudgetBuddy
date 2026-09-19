@@ -17,6 +17,8 @@ const babelLoaderConfiguration = {
     path.resolve(__dirname, "App.tsx"), 
     path.resolve(__dirname, "component"),
     path.resolve(__dirname, "Components"),
+    path.resolve(__dirname, "Helpers/EmailValidator.tsx"),
+    path.resolve(__dirname, "Helpers/BudgetDataContext.tsx"),
     ...compileNodeModules,
   ],
   use: {
