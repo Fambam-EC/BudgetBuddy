@@ -8,20 +8,47 @@ require('dotenv').config();
 
 const app = express();
 
+const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const defaultCorsOrigins = [
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://192.168.0.146:8080',
+  'https://onset-theatrics-subway.ngrok-free.dev',
+];
+
 const corsOptions = {
-  // 1. Specify allowed origins (can be a string, array, or function)
-  origin: ['*','http://localhost:8080', 'https://onset-theatrics-subway.ngrok-free.dev*','http://192.168.0.146:8080'],
-  
-  // 2. Control which HTTP methods are permitted
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  
-  // 3. Define allowed request headers from the client
-  allowedHeaders: ['Access-Control-Allow-Origin','Content-Type', 'bypass-tunnel-reminder', '*'],
+  origin(origin, callback) {
+    // Native clients do not send an Origin header; browser clients do.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed =
+      [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
+      /^https:\/\/[a-z0-9-]+\.ngrok-free\.dev$/i.test(origin);
+
+    return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Accept',
+    'Content-Type',
+    'bypass-tunnel-reminder',
+    'Access-Control-Allow-Origin',
+  ],
+  optionsSuccessStatus: 204,
 };
 
 const SALT_ROUNDS = 10;
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool

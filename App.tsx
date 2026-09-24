@@ -932,7 +932,12 @@ async function SaveTransactionItem(newTransaction: TransactionData): Promise<boo
     const currentTransactions = await storage.getString(transaction_items_key)
     let transactions: TransactionData[] = [];
     if (currentTransactions){
-      transactions = JSON.parse(currentTransactions) as TransactionData[];
+      transactions = (JSON.parse(currentTransactions) as Partial<TransactionData>[]).map(
+        (transaction) => ({
+          ...transaction,
+          userEmail: transaction.userEmail || 'Unknown user',
+        } as TransactionData),
+      );
     }
     // Assuming newTransaction is the transaction you want to add
     transactions.push(newTransaction);
@@ -956,8 +961,8 @@ async function ClearTransactionData(){
   }
 }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction}: 
-  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange}: 
+  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
@@ -982,8 +987,10 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
           setSavedTitle(text);
         }}
         onSubmitEditing={() => {
+          const previousTitle = currentBudgetTitle;
           updateBudgetTitle(savedTitle)
           setSavedTitle(savedTitle)
+          onTitleChange && onTitleChange(savedTitle, previousTitle)
           getTitleFunction && getTitleFunction()
         }
       }
@@ -1139,6 +1146,7 @@ type TransactionData = {
   amount: number;
   date: string;
   info: string;
+  userEmail: string;
 }
 
 function BudgetComponent({navigation, onLogout, userEmail} : {
@@ -1278,7 +1286,12 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     try {
       const result = storage.getString(transaction_items_key)
       if (result){
-        setTransactionData(JSON.parse(result) as TransactionData[])
+        setTransactionData(
+          (JSON.parse(result) as Partial<TransactionData>[]).map((transaction) => ({
+            ...transaction,
+            userEmail: transaction.userEmail || 'Unknown user',
+          } as TransactionData)),
+        )
       }
     }
     catch (error) {
@@ -1303,6 +1316,19 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     } catch (error) {
       console.log(error)
     }
+  }
+
+  const recordBudgetTitleChange = (newTitle: string, previousTitle: string) => {
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle || trimmedTitle === previousTitle.trim()) return;
+    saveCurrentTransaction({
+      id: `updateBudgetTitle${Date.now()}`,
+      description: 'Budget title updated',
+      amount: 0,
+      date: new Date().toISOString(),
+      info: `Budget title changed from "${previousTitle}" to "${trimmedTitle}".`,
+      userEmail,
+    });
   }
   const getTitle = async () => {
       try{
@@ -1363,7 +1389,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         description: `${updatedItem.find(item => item.id === id)?.description} amount updated`,
         amount: newAmount,
         date: new Date().toISOString(),
-        info: `"${updatedItem.find(item => item.id === id)?.description}" amount updated by $${newAmount}.`
+        info: `"${updatedItem.find(item => item.id === id)?.description}" amount updated by $${newAmount}.`,
+        userEmail,
       })
       setBudgetData(updatedItem);
       SaveBudgetItems(updatedItem);
@@ -1381,7 +1408,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         description: `${updatedItem.find(item => item.id === id)?.description} budget amount updated`,
         amount: 0,
         date: new Date().toISOString(),
-        info: `"${updatedItem.find(item => item.id === id)?.description}" budget amount updated to $${newAmount}.`
+        info: `"${updatedItem.find(item => item.id === id)?.description}" budget amount updated to $${newAmount}.`,
+        userEmail,
       })
       setBudgetData(updatedItem);
       SaveBudgetItems(updatedItem);
@@ -1400,7 +1428,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       description: `${updatedItem.find(item => item.id === id)?.description} description updated`,
       amount: 0,
       date: new Date().toISOString(),
-      info: `"${oldDescription}" description updated to "${newDescription}".`
+      info: `"${oldDescription}" description updated to "${newDescription}".`,
+      userEmail,
     })
     setBudgetData(updatedItem);
     SaveBudgetItems(updatedItem);
@@ -1418,7 +1447,8 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
     description: `${updatedItem.find(item => item.id === id)?.description} due date updated`,
     amount: 0,
     date: new Date().toISOString(),
-    info: `"${updatedItem.find(item => item.id === id)?.description}" due date updated to ${newDate.toISOString().split('T')[0]}.`
+    info: `"${updatedItem.find(item => item.id === id)?.description}" due date updated to ${newDate.toISOString().split('T')[0]}.`,
+    userEmail,
   })
   setBudgetData(updatedItem);
   SaveBudgetItems(updatedItem);
@@ -1431,7 +1461,8 @@ const removeBudgetItem = (id: string) => {
       description: `${removedItem?.description}`,
       amount: Number(removedItem?.budget),
       date: new Date().toISOString(),
-      info: `"${removedItem?.description}" amount $${removedItem?.budget} removed.`
+      info: `"${removedItem?.description}" amount $${removedItem?.budget} removed.`,
+      userEmail,
     })
   const updatedBudget = budgetData.filter(item => item.id !== id)
   setBudgetData(updatedBudget);
@@ -1449,7 +1480,8 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 description: `${budgetItem.description}`,
                 amount: budgetItem.budget,
                 date: new Date().toISOString(),
-                info: `"${budgetItem.description}" amount $${budgetItem.budget} added.`
+                info: `"${budgetItem.description}" amount $${budgetItem.budget} added.`,
+                userEmail,
               })
               setBudgetData(budgetDataWithAddedItem);
               SaveBudgetItems(budgetDataWithAddedItem);              
@@ -1489,6 +1521,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 budgetedTotal={totalBudgetAmount}
                 currentBudgetTitle={budgetTitle}
                 getTitleFunction={getTitle}
+                onTitleChange={recordBudgetTitleChange}
                 />
             </View>
             <TableHeader />
@@ -1530,7 +1563,12 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   {showTransactions && (
                     <View>
                       {transactionData.map((transaction) => (
-                        <Text key={transaction.id}>{transaction.info}</Text>
+                        <View key={transaction.id}>
+                          <Text>{transaction.info}</Text>
+                                <Text key={`${transaction.id}-user`} style={styles.transactionUser}>
+                                  By: {transaction.userEmail}
+                                </Text>
+                        </View>
                       ))}
                     </View>
                   )}
@@ -1675,6 +1713,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
+  },
+  transactionUser: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 2,
   },
   tableHeaderPadding:{
     marginTop: 15
