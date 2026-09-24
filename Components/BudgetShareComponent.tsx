@@ -1,22 +1,44 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmailValidator from '../Helpers/EmailValidator';
 import { useBudget }  from '../Helpers/BudgetDataContext';
 
-function ShareBudgetComponent() {
+type ShareBudgetProps = {
+    budget: {
+        budgetId: string;
+        name: string;
+    };
+};
+
+function ShareBudgetComponent({ budget }: ShareBudgetProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
     const [isSendEnabled, setIsSendEnabled] = React.useState(false);
+    const [inviteEmail, setInviteEmail] = React.useState('');
     
     const handleValidationResponse = (data: boolean) => {
         setIsSendEnabled(data)
     } 
     const { budgetId } = useBudget();
     
-    const sendShareBudget = () => {
-        // Handle share budget action here
-        // Send share budget to DB via POST /share
-        console.log("BudgetId - ", budgetId);
-        setModalVisible(false);
+    const sendShareBudget = async () => {
+        try {
+            const response = await fetch('https://onset-theatrics-subway.ngrok-free.dev/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: inviteEmail, budgetId, budgetName: budget.name }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Unable to share this budget.');
+            }
+            Alert.alert('Budget shared', 'The invitation was sent successfully.');
+            setModalVisible(false);
+        } catch (error) {
+            Alert.alert(
+                'Unable to share budget',
+                error instanceof Error ? error.message : 'Please try again later.',
+            );
+        }
     }
 
     return(
@@ -38,7 +60,10 @@ function ShareBudgetComponent() {
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
                         <Text style={styles.modalText}>Send Invite To Share Budget</Text>
-                        <EmailValidator setIsValidEmail={handleValidationResponse} />
+                        <EmailValidator
+                            setIsValidEmail={handleValidationResponse}
+                            onEmailChange={setInviteEmail}
+                        />
                         <View style={styles.buttonContainer}>
                         <Pressable
                             style={[styles.button, styles.buttonClose]}
@@ -48,12 +73,7 @@ function ShareBudgetComponent() {
                         </Pressable>
                         <Pressable 
                             style={[styles.button, styles.buttonClose]} 
-                            onPress={() => {
-                            // Handle share budget action here
-                            // Send share budget to DB via POST /share
-                            sendShareBudget();
-                            setModalVisible(false);
-                            }}
+                            onPress={sendShareBudget}
                             disabled={!isSendEnabled}>
                             <Text style={styles.textStyle}>Share</Text>
                         </Pressable>

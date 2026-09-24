@@ -3,9 +3,10 @@ import { View, TextInput, Text, StyleSheet } from 'react-native';
 
 type EmailValidatorProps = {
   setIsValidEmail: (data: boolean) => void;
+  onEmailChange?: (email: string) => void;
 };
 
-function EmailValidator({ setIsValidEmail }: EmailValidatorProps) {
+function EmailValidator({ setIsValidEmail, onEmailChange }: EmailValidatorProps) {
   const [email, setEmail] = useState('');
   const [isValid, setIsValid] = useState(true);
 
@@ -15,6 +16,7 @@ function EmailValidator({ setIsValidEmail }: EmailValidatorProps) {
     const valid = emailRegex.test(text);
 
     setEmail(text);
+    onEmailChange?.(text);
     // Test the input text and update validation state
     setIsValid(valid);
     setIsValidEmail(valid);

@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   Pressable,
+  Modal,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity
@@ -56,14 +57,16 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemI
 
 const title_key = '@title_key'; 
 const budget_items_key = '@budget_items_key';
+const budget_key = '@budget_key';
+const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const api_url = "https://onset-theatrics-subway.ngrok-free.dev"
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function RootStack({logout}: {logout: () => void}) {
+function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
   return(<Stack.Navigator initialRouteName="Budget Buddy">
       <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
-        {props => <BudgetComponent {...props} onLogout={logout} />}
+        {props => <BudgetComponent {...props} onLogout={logout} userEmail={userEmail} />}
       </Stack.Screen>
       <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}} component={HistoryScreen} />
     </Stack.Navigator>)
@@ -168,11 +171,103 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
   );
 }
 
-function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
+function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      Alert.alert('Missing information', 'Please enter your email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${api_url}/forgot-password`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({email: normalizedEmail}),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to send the reset email.');
+      }
+
+      Alert.alert(
+        'Check your email',
+        'If an account exists for that email, a password reset link has been sent.',
+        [{text: 'Back to login', onPress: onBack}],
+      );
+    } catch (error) {
+      Alert.alert(
+        'Unable to send reset email',
+        error instanceof Error
+          ? error.message
+          : 'Please try again later.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.innerContainer}
+    >
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>Reset password</Text>
+        <Text style={styles.subtitle}>
+          Enter your email and we&apos;ll send you a reset link.
+        </Text>
+      </View>
+
+      <View style={styles.formContainer}>
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Email Address</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your email"
+            placeholderTextColor="#999"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
+      </View>
+
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+          onPress={handleForgotPassword}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.loginButtonText}>
+            {isSubmitting ? 'Sending...' : 'Send reset link'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.backToLoginButton} onPress={onBack}>
+          <Text style={styles.forgotText}>Back to login</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function LoginScreen({ authorized }: { authorized: (auth: boolean, email: string) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
+  const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
   const [userResult, setUserResult] = useState("");
   const handleLogin = () => {
 
@@ -180,14 +275,14 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    authorized(true);
+    authorized(true, email.trim());
     // Add authentication API call logic here
     Alert.alert('Success', `Logging in with: ${email}`);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      { !signUpScreenActive  && 
+      { !signUpScreenActive && !forgotPasswordScreenActive &&
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.innerContainer}
@@ -255,7 +350,10 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={() => setForgotPasswordScreenActive(true)}
+          >
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
         </View>
@@ -277,6 +375,9 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean) => void }) {
         
       </KeyboardAvoidingView>}
       {signUpScreenActive  && <SignUpScreen isActiveToggle={() => setSignUpScreenActive(false)}/>}
+      {forgotPasswordScreenActive && (
+        <ForgotPasswordScreen onBack={() => setForgotPasswordScreenActive(false)} />
+      )}
     </SafeAreaView>
   );
 }
@@ -290,14 +391,30 @@ interface LogoutProps {
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   return (
           <SafeAreaProvider>
             <SafeAreaView style={[styles.flex, styles.backgroundColor]}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
-        { !isAuthenticated && <LoginScreen authorized={setIsAuthenticated}/> }
-       { isAuthenticated && <RootStack logout={() => setIsAuthenticated(false)} />}
+        { !isAuthenticated && (
+          <LoginScreen
+            authorized={(auth, email) => {
+              setIsAuthenticated(auth);
+              setUserEmail(email);
+            }}
+          />
+        ) }
+       { isAuthenticated && (
+         <RootStack
+           userEmail={userEmail}
+           logout={() => {
+             setIsAuthenticated(false);
+             setUserEmail('');
+           }}
+         />
+       )}
       </NavigationContainer>
       </GestureHandlerRootView>
       </SafeAreaView>
@@ -305,8 +422,10 @@ function App() {
   );
 }
 
-type BudgetDataList = {
+type Budget = {
   budgetId: string;
+  name: string;
+  ownerEmail: string;
   budgetItems: BudgetData[];
 }
 
@@ -325,6 +444,8 @@ type BudgetData = {
 
 type HistoryItemList = {
   id: string;
+  budgetId: string;
+  budgetName: string;
   items: HistoryItemModel[];
 }
 type HistoryItemModel = {
@@ -486,7 +607,7 @@ function HistoryComponent(){
 
   const renderHistoryItem = ({item}: {item: HistoryItemList}) => {
     const isExpanded = item.id === expandedHistoryItemId;
-    const trimmedTitle = item.id.substring(2); // Remove 'HI' prefix
+    const trimmedTitle = item.budgetName;
     return (
       <ReanimatedSwipeable
         friction={2}
@@ -528,6 +649,8 @@ function HistoryComponent(){
           console.log(result)
           var object = Object.entries(result).map(([key, value]) => ({
             id: value.id,
+            budgetId: value.budgetId,
+            budgetName: value.budgetName,
             items: value.items as HistoryItemModel[]
           }));
           setHistoryItemsWithId(object)
@@ -568,14 +691,18 @@ async function ClearBudgetTitle(){
 }
 
 async function GetBudgetHistoryItemsFromStorage(){
-  
-  const historyItemPrefix = 'HI'
+  const historyItemPrefix = 'HI:'
   const allKeys = storage.getAllKeys();
   const historyKeys = allKeys.filter(key => key.startsWith(historyItemPrefix));
-  console.log(historyKeys)
   return historyKeys.map(item => {
     const value = storage.getString(item);
-    return { id: item, items: value ? JSON.parse(value) : [] };
+    const parsed = value ? JSON.parse(value) : {};
+    return {
+      id: item,
+      budgetId: parsed.budgetId || item.substring(historyItemPrefix.length),
+      budgetName: parsed.budgetName || 'Budget history',
+      items: Array.isArray(parsed) ? parsed : (parsed.items || []),
+    };
   });
 }
 
@@ -595,6 +722,186 @@ async function GetBudgetItems(): Promise<BudgetData[]> {
   }
 }
 
+async function GetBudget(): Promise<Budget | null> {
+  try {
+    const storedBudget = storage.getString(budget_key);
+    if (storedBudget) {
+      return JSON.parse(storedBudget) as Budget;
+    }
+
+    const localBudgets = GetLocalBudgets();
+    if (localBudgets.length > 0) {
+      const firstBudget = localBudgets[0];
+      storage.set(budget_key, JSON.stringify(firstBudget));
+      storage.set(budget_items_key, JSON.stringify(firstBudget.budgetItems));
+      storage.set(title_key, firstBudget.name);
+      return firstBudget;
+    }
+
+    const [items, name] = await Promise.all([GetBudgetItems(), GetBudgetTitle()]);
+    return {
+      budgetId: UUID(),
+      name,
+      ownerEmail: '',
+      budgetItems: items,
+    };
+  } catch (error) {
+    console.error('Failed to load budget', error);
+    return null;
+  }
+}
+
+function GetLocalBudgets(): Budget[] {
+  try {
+    const storedBudgets = storage.getString(budgets_key);
+    if (storedBudgets) {
+      const parsed = JSON.parse(storedBudgets);
+      if (Array.isArray(parsed)) return parsed as Budget[];
+    }
+
+    const legacyBudget = storage.getString(budget_key);
+    if (legacyBudget) {
+      const budget = JSON.parse(legacyBudget) as Budget;
+      return [budget];
+    }
+  } catch (error) {
+    console.error('Failed to load local budgets', error);
+  }
+  return [];
+}
+
+function SaveLocalBudgets(budgets: Budget[]): void {
+  storage.set(budgets_key, JSON.stringify(budgets));
+}
+
+function UpsertLocalBudget(budget: Budget): Budget[] {
+  const budgets = GetLocalBudgets();
+  const index = budgets.findIndex((item) => item.budgetId === budget.budgetId);
+  if (index >= 0) {
+    budgets[index] = budget;
+  } else {
+    budgets.unshift(budget);
+  }
+  SaveLocalBudgets(budgets);
+  return budgets;
+}
+
+async function SaveBudget(budget: Budget): Promise<void> {
+  UpsertLocalBudget(budget);
+  storage.set(budget_key, JSON.stringify(budget));
+  storage.set(budget_items_key, JSON.stringify(budget.budgetItems));
+  storage.set(title_key, budget.name);
+
+  try {
+    const response = await fetch(`${api_url}/budgets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(budget),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.error || 'Unable to save budget');
+    }
+
+  } catch (error) {
+    console.error('Failed to save budget to server', error);
+  }
+}
+
+function BudgetSwitcher({
+  budgets,
+  activeBudgetId,
+  onSelect,
+  onRefresh,
+  onCreate,
+}: {
+  budgets: Budget[];
+  activeBudgetId: string;
+  onSelect: (budget: Budget) => void;
+  onRefresh: () => void;
+  onCreate: (name: string) => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newBudgetName, setNewBudgetName] = useState('');
+
+  return (
+    <View>
+      <Pressable
+        style={[styles.rowPadding, styles.rowBorder, styles.menuButton]}
+        onPress={() => {
+          onRefresh();
+          setVisible(true);
+        }}
+      >
+        <Text style={[styles.customFont, styles.boldText]}>Switch Budget</Text>
+      </Pressable>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={() => setVisible(false)}>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalText}>Choose a budget</Text>
+            <Pressable
+              style={[styles.rowPadding, styles.createBudgetButton]}
+              onPress={() => setIsCreating(true)}
+            >
+              <Text style={styles.createBudgetText}>+ Create new budget</Text>
+            </Pressable>
+            {isCreating && (
+              <View style={styles.createBudgetForm}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Budget name"
+                  placeholderTextColor="#9CA3AF"
+                  value={newBudgetName}
+                  onChangeText={setNewBudgetName}
+                  autoFocus
+                />
+                <Pressable
+                  style={styles.loginButton}
+                  onPress={() => {
+                    const name = newBudgetName.trim();
+                    if (!name) {
+                      Alert.alert('Missing name', 'Enter a name for the new budget.');
+                      return;
+                    }
+                    onCreate(name);
+                    setNewBudgetName('');
+                    setIsCreating(false);
+                    setVisible(false);
+                  }}
+                >
+                  <Text style={styles.loginButtonText}>Create budget</Text>
+                </Pressable>
+              </View>
+            )}
+            {budgets.length === 0 && <Text>No budgets available yet.</Text>}
+            {budgets.map((budget) => (
+              <Pressable
+                key={budget.budgetId}
+                style={[
+                  styles.rowPadding,
+                  styles.rowBorder,
+                  budget.budgetId === activeBudgetId && styles.activeBudgetOption,
+                ]}
+                onPress={() => {
+                  onSelect(budget);
+                  setVisible(false);
+                }}
+              >
+                <Text style={styles.customFont}>{budget.name}</Text>
+                <Text style={styles.budgetIdText}>{budget.budgetId}</Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.rowPadding} onPress={() => setVisible(false)}>
+              <Text style={styles.forgotText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 async function SaveBudgetItems(budgetItems: BudgetData[]){
   try {
     const budgetItemsResponse = JSON.stringify(budgetItems)
@@ -604,11 +911,13 @@ async function SaveBudgetItems(budgetItems: BudgetData[]){
   }
 }
 
-async function SaveBudgetItemToHistoryPage(): Promise<boolean> {
+async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
 try{
-    const currentBudgetItems = await GetBudgetItems();
-    const budgetTitle = await GetBudgetTitle();
-    await storage.set(`HI${budgetTitle}`, JSON.stringify(currentBudgetItems));
+    await storage.set(`HI:${budget.budgetId}`, JSON.stringify({
+      budgetId: budget.budgetId,
+      budgetName: budget.name,
+      items: budget.budgetItems,
+    }));
     return true
 }
 catch(error){ 
@@ -832,27 +1141,137 @@ type TransactionData = {
   info: string;
 }
 
-function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: () => void}){
+function BudgetComponent({navigation, onLogout, userEmail} : {
+  navigation: any;
+  onLogout: () => void;
+  userEmail: string;
+}){
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
-  const [budgetId, setBudgetId] = useState<string>("Id_from_DB_for_Budget");
+  const [budgetId, setBudgetId] = useState<string>('');
+  const [budgetOwnerEmail, setBudgetOwnerEmail] = useState<string>(userEmail);
   const [transactionData, setTransactionData] = useState<TransactionData[]>([]);
   const [budgetTitle, setBudgetTitle] = useState<string>('');
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
   const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
 
+  const budget: Budget = {
+    budgetId,
+    name: budgetTitle,
+    ownerEmail: budgetOwnerEmail,
+    budgetItems: budgetData,
+  };
+  const [availableBudgets, setAvailableBudgets] = useState<Budget[]>([]);
+
   const getCurrentBudget = async () =>{
       try {
-        const result = await GetBudgetItems()
-        if (result){
-          return setBudgetData(result)
+        const localBudgets = GetLocalBudgets();
+        if (localBudgets.length > 0) {
+          setAvailableBudgets(localBudgets);
+        }
+        const result = await GetBudget();
+        if (result) {
+          setBudgetId(result.budgetId || UUID());
+          setBudgetTitle(result.name || '');
+          setBudgetOwnerEmail(result.ownerEmail || userEmail);
+          setBudgetData(result.budgetItems || []);
         }
       }
       catch (error) {
         console.log(error)
       }
+    };
+
+    const loadAvailableBudgets = async () => {
+      const localBudgets = GetLocalBudgets();
+      setAvailableBudgets(localBudgets);
+      try {
+        const response = await fetch(
+          `${api_url}/budgets?email=${encodeURIComponent(userEmail)}`,
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Unable to load budgets.');
+        }
+        const mergedBudgets = result.reduce((budgets: Budget[], serverBudget: Budget) => {
+          const localBudget = budgets.find((budget) => budget.budgetId === serverBudget.budgetId);
+          const mergedBudget = localBudget
+            ? {...localBudget, ...serverBudget}
+            : serverBudget;
+          const existingIndex = budgets.findIndex(
+            (budget) => budget.budgetId === serverBudget.budgetId,
+          );
+          if (existingIndex >= 0) {
+            budgets[existingIndex] = mergedBudget;
+          } else {
+            budgets.push(mergedBudget);
+          }
+          return budgets;
+        }, [...localBudgets]);
+        SaveLocalBudgets(mergedBudgets);
+        setAvailableBudgets(mergedBudgets);
+      } catch (error) {
+        if (localBudgets.length === 0) {
+          Alert.alert(
+            'Unable to load budgets',
+            error instanceof Error ? error.message : 'Please try again later.',
+          );
+        }
+      }
+    };
+
+    const switchBudget = async (selectedBudget: Budget) => {
+      try {
+        const response = await fetch(
+          `${api_url}/budgets/${encodeURIComponent(selectedBudget.budgetId)}?email=${encodeURIComponent(userEmail)}`,
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Unable to switch budgets.');
+        }
+        await ClearTransactionData();
+        setTransactionData([]);
+        setBudgetId(result.budgetId);
+        setBudgetTitle(result.name);
+        setBudgetOwnerEmail(result.ownerEmail || userEmail);
+        setBudgetData(result.budgetItems || []);
+      } catch (error) {
+        const localBudget = GetLocalBudgets().find(
+          (budget) => budget.budgetId === selectedBudget.budgetId,
+        );
+        if (localBudget) {
+          await ClearTransactionData();
+          setTransactionData([]);
+          setBudgetId(localBudget.budgetId);
+          setBudgetTitle(localBudget.name);
+          setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
+          setBudgetData(localBudget.budgetItems || []);
+          return;
+        }
+        Alert.alert(
+          'Unable to switch budget',
+          error instanceof Error ? error.message : 'Please try again later.',
+        );
+      }
+    };
+
+    const createBudget = (name: string) => {
+      const newBudget: Budget = {
+        budgetId: UUID(),
+        name,
+        ownerEmail: userEmail,
+        budgetItems: [],
+      };
+      setBudgetId(newBudget.budgetId);
+      setBudgetOwnerEmail(newBudget.ownerEmail);
+      setBudgetTitle(newBudget.name);
+      setBudgetData(newBudget.budgetItems);
+      setTransactionData([]);
+      void SaveBudget(newBudget);
+      setAvailableBudgets((currentBudgets) => [newBudget, ...currentBudgets]);
+      UpsertLocalBudget(newBudget);
     };
 
   const getCurrentTransactions = async () => {
@@ -888,10 +1307,7 @@ function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: ()
   const getTitle = async () => {
       try{
         const result = await GetBudgetTitle()
-        if (result){
-          setBudgetTitle(result)
-          
-        }
+        if (result) setBudgetTitle(result)
       }
       catch (error){
         console.log(error)
@@ -902,7 +1318,13 @@ function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: ()
     getCurrentBudget();
     getCurrentTransactions();
     getTitle();
+    void loadAvailableBudgets();
   }, []);
+
+  useEffect(() => {
+    if (!budgetId || !budgetTitle.trim()) return;
+    void SaveBudget(budget);
+  }, [budgetId, budgetTitle, budgetData]);
 
   useEffect(() => {
     function checkIfShowCloseButton(){
@@ -924,6 +1346,7 @@ function BudgetComponent({navigation, onLogout} : {navigation: any, onLogout: ()
     });
     SaveBudgetItems(emptyBudgetData);
     setBudgetData(emptyBudgetData);
+    setBudgetId(UUID());
     setBudgetTitle('');
     Alert.alert("Budget Closed", "Your current budget has been closed to history and a new one has been created.")
     
@@ -1046,10 +1469,17 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 <View style={{flexDirection: 'column'}}>
                   <LogOutButton onLogout={onLogout}/>         
                   <HistoryButton navigation={navigation}/>
-                  <BudgetProvider budgetId={budgetId}>
-                  <BudgetShareComponent/>
+                  <BudgetSwitcher
+                    budgets={availableBudgets}
+                    activeBudgetId={budgetId}
+                    onRefresh={loadAvailableBudgets}
+                    onSelect={switchBudget}
+                    onCreate={createBudget}
+                  />
+                  <BudgetProvider budgetId={budget.budgetId} budgetName={budget.name}>
+                  <BudgetShareComponent budget={budget} />
                   </BudgetProvider>
-                  <BudgetInvitationComponent/>
+                  <BudgetInvitationComponent email={userEmail} />
                 </View>
               )}
             </View>
@@ -1111,7 +1541,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               <View style={[styles.rowPadding, styles.rowBorder, styles.center]}>
                 <Pressable 
                   onPress={() => {
-                    SaveBudgetItemToHistoryPage()
+                    SaveBudgetItemToHistoryPage(budget)
                     clearBudgetItems()
                     clearCurrentTransactions()
                     }}>
@@ -1252,6 +1682,47 @@ const styles = StyleSheet.create({
   backgroundColor: {
     backgroundColor: '#F0F8FF'
   },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  modalView: {
+    width: '85%',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  activeBudgetOption: {
+    backgroundColor: '#E0F2FE',
+  },
+  budgetIdText: {
+    color: '#6B7280',
+    fontSize: 10,
+    marginTop: 4,
+  },
+  createBudgetButton: {
+    backgroundColor: '#E0F2FE',
+    marginBottom: 10,
+  },
+  menuButton: {
+    alignSelf: 'flex-start',
+  },
+  createBudgetText: {
+    color: '#0369A1',
+    fontWeight: '700',
+  },
+  createBudgetForm: {
+    gap: 10,
+    marginBottom: 10,
+  },
 
   innerContainer: {
     flex: 1,
@@ -1343,6 +1814,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  backToLoginButton: {
+    alignItems: 'center',
+    marginTop: 20,
   },
   footerRow: {
     flexDirection: 'row',
