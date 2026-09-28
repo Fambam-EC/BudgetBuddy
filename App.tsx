@@ -302,7 +302,6 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean, email: string
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin':'*'
               }
             }).then(response => setUserResult(response.toString()))
           }}>

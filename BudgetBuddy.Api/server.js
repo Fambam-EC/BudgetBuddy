@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
@@ -14,11 +15,6 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 const defaultCorsOrigins = [
-  'http://localhost:8080',
-  'http://127.0.0.1:8080',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://192.168.0.146:8080',
   'https://onset-theatrics-subway.ngrok-free.dev',
 ];
 
@@ -31,6 +27,9 @@ const corsOptions = {
 
     const isAllowed =
       [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
+      /^http:\/\/localhost(?::\d+)?$/i.test(origin) ||
+      /^http:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
+      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin) ||
       /^https:\/\/[a-z0-9-]+\.ngrok-free\.dev$/i.test(origin);
 
     return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
@@ -39,6 +38,7 @@ const corsOptions = {
   allowedHeaders: [
     'Accept',
     'Content-Type',
+    'Authorization',
     'bypass-tunnel-reminder',
     'Access-Control-Allow-Origin',
   ],
@@ -48,7 +48,6 @@ const corsOptions = {
 const SALT_ROUNDS = 10;
 
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool
@@ -157,19 +156,80 @@ app.get('/api/users', async (req, res) => {
 app.post('/register', async (req, res) => {
   try{
     const { email, password } = req.body;
-    if (!email || !password){
-      return(res.status(400))
+    if (!isValidEmail(email) || typeof password !== 'string' || password.length < 6){
+      return res.status(400).json({ error: 'A valid email and password of at least 6 characters are required' });
     }
-    console.log(email, password)
-    
+
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
-    
-    await pool.query('INSERT INTO users (email, password_hash) VALUES ($1, $2)', [email, hash]);
-        return res.status(201).json({ message: "Registered" });
-    
+
+    await pool.query('INSERT INTO users (email, password_hash) VALUES ($1, $2)', [email.trim().toLowerCase(), hash]);
+    return res.status(201).json({ message: 'Registered' });
   }
   catch (err){
-    return res.status(500).json({ error: "Error" });
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'An account with that email already exists' });
+    }
+    console.error('Registration failed', err);
+    return res.status(500).json({ error: 'Unable to register account' });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!isValidEmail(email) || typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'A valid email and password are required' });
+  }
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({ error: 'Login is temporarily unavailable' });
+  }
+
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    const result = await pool.query(
+      'SELECT email, password_hash FROM users WHERE LOWER(email) = $1 LIMIT 1',
+      [normalizedEmail],
+    );
+    const user = result.rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ sub: user.email.toLowerCase() }, process.env.JWT_SECRET, {
+      expiresIn: '30d',
+    });
+    return res.status(200).json({ token, user: { email: user.email } });
+  } catch (err) {
+    console.error('Login failed', err);
+    return res.status(500).json({ error: 'Unable to log in' });
+  }
+});
+
+app.get('/auth/me', async (req, res) => {
+  const authorization = req.get('Authorization') || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token || !process.env.JWT_SECRET) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (typeof payload.sub !== 'string') {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    const result = await pool.query(
+      'SELECT email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+      [payload.sub],
+    );
+    if (result.rowCount === 0) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    return res.status(200).json({ user: { email: result.rows[0].email } });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid or expired session' });
+    }
+    console.error('Session validation failed', err);
+    return res.status(500).json({ error: 'Unable to validate session' });
   }
 });
 

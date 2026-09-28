@@ -24,7 +24,10 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
         try {
             const response = await fetch('https://onset-theatrics-subway.ngrok-free.dev/share', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true',
+                },
                 body: JSON.stringify({ email: inviteEmail, budgetId, budgetName: budget.name }),
             });
             const result = await response.json();
