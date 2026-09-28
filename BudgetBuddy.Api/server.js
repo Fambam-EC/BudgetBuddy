@@ -39,6 +39,7 @@ const corsOptions = {
     'Accept',
     'Content-Type',
     'Authorization',
+    'ngrok-skip-browser-warning',
     'bypass-tunnel-reminder',
     'Access-Control-Allow-Origin',
   ],
@@ -100,6 +101,15 @@ async function ensurePasswordResetTokensTable() {
   `);
 }
 
+async function ensureUsersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      email TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL
+    )
+  `);
+}
+
 async function ensureBudgetTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budgets (
@@ -155,6 +165,7 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/register', async (req, res) => {
   try{
+    await ensureUsersTable();
     const { email, password } = req.body;
     if (!isValidEmail(email) || typeof password !== 'string' || password.length < 6){
       return res.status(400).json({ error: 'A valid email and password of at least 6 characters are required' });
@@ -184,6 +195,7 @@ app.post('/login', async (req, res) => {
   }
 
   try {
+    await ensureUsersTable();
     const normalizedEmail = email.trim().toLowerCase();
     const result = await pool.query(
       'SELECT email, password_hash FROM users WHERE LOWER(email) = $1 LIMIT 1',

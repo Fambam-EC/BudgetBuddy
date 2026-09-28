@@ -1,112 +1,109 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Refresh03Icon } from '@hugeicons/core-free-icons';
-
-const apiUrl = 'https://onset-theatrics-subway.ngrok-free.dev';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { apiUrl } from '../Helpers/api';
 
 type Invitation = {
   id: number;
+  email: string;
   budgetId: string;
   budgetName: string;
-  invitationStatus: 'pending' | 'accepted' | 'rejected';
-  createdAt: string;
 };
 
-function BudgetInvitationComponent({ email }: { email: string }) {
-  const [invites, setInvites] = useState<Invitation[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+type BudgetInvitationProps = {
+  email: string;
+  onBudgetAccepted?: (invitation: Invitation) => Promise<void>;
+};
 
-  const handleCheckInvites = useCallback(async () => {
-    if (!email.trim()) {
-      return;
-    }
+function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitationProps) {
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
+  const [error, setError] = useState('');
+
+  const loadInvitations = useCallback(async () => {
     setIsLoading(true);
+    setError('');
     try {
-      const response = await fetch(
-        `${apiUrl}/invites?email=${encodeURIComponent(email.trim())}`,
-      );
+      const response = await fetch(`${apiUrl}/invites?email=${encodeURIComponent(email)}`, {
+        headers: {
+          Accept: 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'Unable to load invitations.');
       }
-      setInvites(result);
-    } catch (error) {
-      Alert.alert(
-        'Unable to load invitations',
-        error instanceof Error ? error.message : 'Please try again later.',
-      );
+      setInvitations(result);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load invitations.');
     } finally {
       setIsLoading(false);
     }
   }, [email]);
 
   useEffect(() => {
-    void handleCheckInvites();
-  }, [handleCheckInvites]);
+    loadInvitations();
+  }, [loadInvitations]);
 
-  const updateInvitation = async (invite: Invitation, status: 'accepted' | 'rejected') => {
-    setUpdatingId(invite.id);
+  const updateInvitation = async (invitation: Invitation, status: 'accepted' | 'rejected') => {
+    setBusyInvitationId(invitation.id);
+    setError('');
     try {
-      const response = await fetch(`${apiUrl}/invites/${invite.id}`, {
+      const response = await fetch(`${apiUrl}/invites/${invitation.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: JSON.stringify({ email, status }),
       });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'Unable to update invitation.');
       }
-      setInvites((currentInvites) =>
-        currentInvites.filter((currentInvite) => currentInvite.id !== invite.id),
-      );
-      Alert.alert(
-        status === 'accepted' ? 'Budget accepted' : 'Invitation rejected',
-        status === 'accepted'
-          ? `"${invite.budgetName}" was added to your accepted budgets.`
-          : 'The budget invitation was rejected.',
-      );
-    } catch (error) {
-      Alert.alert(
-        'Unable to update invitation',
-        error instanceof Error ? error.message : 'Please try again later.',
-      );
+      setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+      if (status === 'accepted' && onBudgetAccepted) {
+        await onBudgetAccepted(result);
+      }
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update invitation.');
+      await loadInvitations();
     } finally {
-      setUpdatingId(null);
+      setBusyInvitationId(null);
     }
   };
 
   return (
-    <View style={[styles.flexStart]}>
-      <View style={[styles.rowBorder, styles.rowPadding, styles.invitationHeader]}>
-        <Text style={[styles.boldText, styles.customFont]}>Budget Invitations</Text>
-        <Pressable onPress={handleCheckInvites} disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator size="small" />
-          ) : (
-            <HugeiconsIcon icon={Refresh03Icon} />
-          )}
+    <View style={styles.container}>
+      <View style={styles.headingRow}>
+        <Text style={styles.heading}>Budget Invitations</Text>
+        <Pressable accessibilityRole="button" onPress={loadInvitations} disabled={isLoading}>
+          <Text style={styles.refresh}>{isLoading ? 'Loading...' : 'Refresh'}</Text>
         </Pressable>
       </View>
-      {invites.map((invite) => (
-        <View key={invite.id} style={styles.inviteCard}>
-          <Text style={styles.customFont}>{invite.budgetName}</Text>
-          <Text style={styles.inviteId}>Budget ID: {invite.budgetId}</Text>
-          <View style={styles.actionRow}>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!isLoading && invitations.length === 0 && !error ? (
+        <Text style={styles.empty}>No pending invitations</Text>
+      ) : null}
+      {invitations.map((invitation) => (
+        <View key={invitation.id} style={styles.invitation}>
+          <Text style={styles.budgetName}>{invitation.budgetName}</Text>
+          <View style={styles.actions}>
             <Pressable
-              style={[styles.actionButton, styles.acceptButton]}
-              onPress={() => updateInvitation(invite, 'accepted')}
-              disabled={updatingId !== null}
+              accessibilityRole="button"
+              disabled={busyInvitationId !== null}
+              onPress={() => updateInvitation(invitation, 'accepted')}
             >
-              <Text style={styles.buttonText}>Accept</Text>
+              <Text style={styles.accept}>{busyInvitationId === invitation.id ? 'Working...' : 'Accept'}</Text>
             </Pressable>
             <Pressable
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={() => updateInvitation(invite, 'rejected')}
-              disabled={updatingId !== null}
+              accessibilityRole="button"
+              disabled={busyInvitationId !== null}
+              onPress={() => updateInvitation(invitation, 'rejected')}
             >
-              <Text style={styles.buttonText}>Reject</Text>
+              <Text style={styles.reject}>Decline</Text>
             </Pressable>
           </View>
         </View>
@@ -116,69 +113,17 @@ function BudgetInvitationComponent({ email }: { email: string }) {
 }
 
 const styles = StyleSheet.create({
-  // Add your styles here
-    rowBorder: {
-        borderWidth: 1,
-        borderColor: '#000',
-        borderRadius: 10
-        },
-    rowPadding: {
-        padding: 10,
-        marginVertical: 4,
-        marginHorizontal: 8
-        },
-    boldText: {
-        fontWeight: 'bold'
-        },
-    customFont: {
-        fontFamily: 'OpenSans-Regular',
-        fontSize: 12
-        },
-    flexStart: {
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start'
-        },
-    invitationHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minWidth: 220,
-    },
-    inviteCard: {
-        borderWidth: 1,
-        borderColor: '#D1D5DB',
-        borderRadius: 10,
-        padding: 10,
-        marginHorizontal: 8,
-        marginTop: 6,
-        minWidth: 220,
-    },
-    inviteId: {
-        color: '#6B7280',
-        fontSize: 11,
-        marginTop: 4,
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginTop: 8,
-    },
-    actionButton: {
-        borderRadius: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-    },
-    acceptButton: {
-        backgroundColor: '#16A34A',
-    },
-    rejectButton: {
-        backgroundColor: '#DC2626',
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-        fontSize: 12,
-    },
+  container: { alignItems: 'flex-start' },
+  headingRow: { alignItems: 'center', flexDirection: 'row' },
+  heading: { borderColor: '#000', borderWidth: 1, fontWeight: 'bold', padding: 10 },
+  refresh: { color: '#176b45', fontWeight: 'bold', padding: 10 },
+  invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
+  budgetName: { flex: 1 },
+  actions: { flexDirection: 'row', gap: 14 },
+  accept: { color: '#176b45', fontWeight: 'bold' },
+  reject: { color: '#a32f2f', fontWeight: 'bold' },
+  empty: { color: '#555', padding: 10 },
+  error: { color: '#a32f2f', padding: 10 },
 });
 
 export default BudgetInvitationComponent;

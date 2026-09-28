@@ -1,34 +1,61 @@
 import React from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmailValidator from '../Helpers/EmailValidator';
-import { useBudget }  from '../Helpers/BudgetDataContext';
+import { apiUrl } from '../Helpers/api';
 
 type ShareBudgetProps = {
     budget: {
         budgetId: string;
         name: string;
+        budgetItems: unknown[];
+        ownerEmail: string;
     };
 };
 
 function ShareBudgetComponent({ budget }: ShareBudgetProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
     const [isSendEnabled, setIsSendEnabled] = React.useState(false);
+    const [isSending, setIsSending] = React.useState(false);
     const [inviteEmail, setInviteEmail] = React.useState('');
     
     const handleValidationResponse = (data: boolean) => {
         setIsSendEnabled(data)
     } 
-    const { budgetId } = useBudget();
-    
     const sendShareBudget = async () => {
+        if (!budget.name.trim() || !budget.ownerEmail) {
+            Alert.alert('Unable to share budget', 'Add a budget title and sign in before sharing.');
+            return;
+        }
+
+        setIsSending(true);
         try {
-            const response = await fetch('https://onset-theatrics-subway.ngrok-free.dev/share', {
+            const budgetResponse = await fetch(`${apiUrl}/budgets`, {
                 method: 'POST',
                 headers: {
+                    Accept: 'application/json',
                     'Content-Type': 'application/json',
                     'ngrok-skip-browser-warning': 'true',
                 },
-                body: JSON.stringify({ email: inviteEmail, budgetId, budgetName: budget.name }),
+                body: JSON.stringify({
+                    budgetId: budget.budgetId,
+                    name: budget.name,
+                    budgetItems: budget.budgetItems,
+                    ownerEmail: budget.ownerEmail,
+                }),
+            });
+            const budgetResult = await budgetResponse.json();
+            if (!budgetResponse.ok) {
+                throw new Error(budgetResult.error || 'Unable to save this budget.');
+            }
+
+            const response = await fetch(`${apiUrl}/share`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true',
+                },
+                body: JSON.stringify({ email: inviteEmail, budgetId: budget.budgetId }),
             });
             const result = await response.json();
             if (!response.ok) {
@@ -41,6 +68,8 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
                 'Unable to share budget',
                 error instanceof Error ? error.message : 'Please try again later.',
             );
+        } finally {
+            setIsSending(false);
         }
     }
 
@@ -77,8 +106,8 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
                         <Pressable 
                             style={[styles.button, styles.buttonClose]} 
                             onPress={sendShareBudget}
-                            disabled={!isSendEnabled}>
-                            <Text style={styles.textStyle}>Share</Text>
+                            disabled={!isSendEnabled || isSending}>
+                            <Text style={styles.textStyle}>{isSending ? 'Sending...' : 'Share'}</Text>
                         </Pressable>
                         </View>
                     </View>
