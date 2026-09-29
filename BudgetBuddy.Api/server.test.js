@@ -3,7 +3,7 @@ const { after, before, test } = require('node:test');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-api-tests';
 
-const { app, pool } = require('./server');
+const { app, initializeDatabase, pool } = require('./server');
 let server;
 let baseUrl;
 
@@ -18,6 +18,34 @@ after(async () => {
     server.close((error) => error ? reject(error) : resolve());
   });
   await pool.end();
+});
+
+test('startup initialization creates every application table', async () => {
+  const originalQuery = pool.query;
+  const statements = [];
+  pool.query = async (statement) => {
+    statements.push(String(statement));
+    return { rows: [], rowCount: 0 };
+  };
+
+  try {
+    await initializeDatabase();
+  } finally {
+    pool.query = originalQuery;
+  }
+
+  for (const tableName of [
+    'users',
+    'password_reset_tokens',
+    'budgets',
+    'budget_invitations',
+    'budget_history',
+  ]) {
+    assert.ok(
+      statements.some((statement) => statement.includes(`CREATE TABLE IF NOT EXISTS ${tableName}`)),
+      `startup should create ${tableName}`,
+    );
+  }
 });
 
 test('registration preflight allows the ngrok browser bypass header', async () => {

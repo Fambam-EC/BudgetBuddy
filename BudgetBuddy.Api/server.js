@@ -689,10 +689,26 @@ app.patch('/invites/:id', requireAuthentication, async (req, res) => {
   }
 });
 
-if (require.main === module) {
-  app.listen(Number(process.env.PORT) || 3000, () => {
-    console.log(`Server running on port ${Number(process.env.PORT) || 3000}`);
+async function initializeDatabase() {
+  await ensureUsersTable();
+  await ensurePasswordResetTokensTable();
+  await ensureBudgetTables();
+}
+
+async function startServer(port = Number(process.env.PORT) || 3000) {
+  await initializeDatabase();
+  return app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
   });
 }
 
-module.exports = { app, pool };
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('Database initialization failed; server was not started.', err);
+    pool.end().finally(() => {
+      process.exitCode = 1;
+    });
+  });
+}
+
+module.exports = { app, initializeDatabase, pool, startServer };
