@@ -54,7 +54,7 @@ app.use(express.json()); // Parses incoming JSON payloads
 // Configure PostgreSQL client pool
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || '0.0.0.0',
+  host: process.env.DB_HOST || '127.0.0.1',
   password: process.env.DB_PASSWORD || 'superuser',
   database: process.env.DB_NAME || 'budgetbuddy',
   port: Number(process.env.DB_PORT) || 5432,
@@ -117,11 +117,15 @@ async function ensureBudgetTables() {
       name TEXT NOT NULL,
       owner_email TEXT,
       budget_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      is_archived BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
   await pool.query(`
     ALTER TABLE budgets ADD COLUMN IF NOT EXISTS owner_email TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budget_invitations (
@@ -137,29 +141,33 @@ async function ensureBudgetTables() {
     CREATE INDEX IF NOT EXISTS budget_invitations_email_status_idx
     ON budget_invitations (LOWER(email), invitation_status)
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_history (
+      history_id TEXT PRIMARY KEY,
+      owner_email TEXT NOT NULL,
+      budget_id TEXT NOT NULL,
+      budget_name TEXT NOT NULL,
+      budget_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS budget_history_owner_created_idx
+    ON budget_history (LOWER(owner_email), created_at DESC)
+  `);
 }
 
-// Route endpoint to write data
-app.post('/api/users', async (req, res) => {
+app.get('/api/users', requireAuthentication, async (req, res) => {
   try {
+    await ensureUsersTable();
     const result = await pool.query(
-      `SELECT * FROM users`);
-    res.status(201).json(result.rows);
+      'SELECT email FROM users WHERE LOWER(email) = $1 LIMIT 1',
+      [req.user.email],
+    );
+    return res.status(200).json(result.rows[0] || null);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Database write failed' });
-  }
-});
-
-app.get('/api/users', async (req, res) => {
-  try {
-    console.log(req)
-    const result = await pool.query(
-      `SELECT * FROM users`);
-    return res.status(201).json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database write failed' });
+    res.status(500).json({ error: 'Unable to load account' });
   }
 });
 
@@ -245,6 +253,29 @@ app.get('/auth/me', async (req, res) => {
   }
 });
 
+function requireAuthentication(req, res, next) {
+  const authorization = req.get('Authorization') || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token || !process.env.JWT_SECRET) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (typeof payload.sub !== 'string' || !isValidEmail(payload.sub)) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    req.user = { email: payload.sub.trim().toLowerCase() };
+    return next();
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid or expired session' });
+    }
+    console.error('Authentication failed', err);
+    return res.status(500).json({ error: 'Unable to authenticate request' });
+  }
+}
+
 app.post('/forgot-password', async (req, res) => {
   const { email } = req.body || {};
   const genericResponse = {
@@ -305,15 +336,14 @@ app.post('/forgot-password', async (req, res) => {
   }
 });
 
-app.post('/budgets', async (req, res) => {
-  const { budgetId, name, budgetItems, ownerEmail } = req.body || {};
+app.post('/budgets', requireAuthentication, async (req, res) => {
+  const { budgetId, name, budgetItems } = req.body || {};
   if (
     typeof budgetId !== 'string' ||
     !budgetId.trim() ||
     typeof name !== 'string' ||
     !name.trim() ||
-    !Array.isArray(budgetItems) ||
-    !isValidEmail(ownerEmail)
+    !Array.isArray(budgetItems)
   ) {
     return res.status(400).json({
       error: 'budgetId, name, and budgetItems are required',
@@ -322,6 +352,26 @@ app.post('/budgets', async (req, res) => {
 
   try {
     await ensureBudgetTables();
+    const existingBudget = await pool.query(
+      `SELECT b.owner_email,
+              EXISTS (
+                SELECT 1 FROM budget_invitations i
+                WHERE i.budget_id = b.budget_id
+                  AND LOWER(i.email) = $2
+                  AND i.invitation_status = 'accepted'
+              ) AS is_collaborator
+       FROM budgets b
+       WHERE b.budget_id = $1`,
+      [budgetId.trim(), req.user.email],
+    );
+    if (
+      existingBudget.rowCount > 0 &&
+      existingBudget.rows[0].owner_email?.toLowerCase() !== req.user.email &&
+      !existingBudget.rows[0].is_collaborator
+    ) {
+      return res.status(403).json({ error: 'You do not have access to this budget' });
+    }
+
     const result = await pool.query(
       `INSERT INTO budgets (budget_id, name, owner_email, budget_items, updated_at)
        VALUES ($1, $2, $3, $4::jsonb, NOW())
@@ -329,10 +379,11 @@ app.post('/budgets', async (req, res) => {
        DO UPDATE SET name = EXCLUDED.name,
                      owner_email = COALESCE(budgets.owner_email, EXCLUDED.owner_email),
                      budget_items = EXCLUDED.budget_items,
+                     is_archived = FALSE,
                      updated_at = NOW()
        RETURNING budget_id AS "budgetId", name, owner_email AS "ownerEmail",
                  budget_items AS "budgetItems", updated_at AS "updatedAt"`,
-      [budgetId.trim(), name.trim(), ownerEmail.trim().toLowerCase(), JSON.stringify(budgetItems)],
+      [budgetId.trim(), name.trim(), req.user.email, JSON.stringify(budgetItems)],
     );
     return res.status(200).json(result.rows[0]);
   } catch (err) {
@@ -341,28 +392,24 @@ app.post('/budgets', async (req, res) => {
   }
 });
 
-app.get('/budgets', async (req, res) => {
-  const { email } = req.query;
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: 'A valid email is required' });
-  }
-
+app.get('/budgets', requireAuthentication, async (req, res) => {
   try {
     await ensureBudgetTables();
     const result = await pool.query(
       `SELECT b.budget_id AS "budgetId", b.name, b.owner_email AS "ownerEmail",
               b.budget_items AS "budgetItems", b.updated_at AS "updatedAt"
        FROM budgets b
-       WHERE LOWER(b.owner_email) = LOWER($1)
+       WHERE b.is_archived = FALSE
+         AND (LOWER(b.owner_email) = LOWER($1)
           OR EXISTS (
             SELECT 1
             FROM budget_invitations i
             WHERE i.budget_id = b.budget_id
               AND LOWER(i.email) = LOWER($1)
               AND i.invitation_status = 'accepted'
-          )
+          ))
        ORDER BY b.updated_at DESC`,
-      [email],
+      [req.user.email],
     );
     return res.status(200).json(result.rows);
   } catch (err) {
@@ -371,11 +418,10 @@ app.get('/budgets', async (req, res) => {
   }
 });
 
-app.get('/budgets/:budgetId', async (req, res) => {
-  const { email } = req.query;
+app.get('/budgets/:budgetId', requireAuthentication, async (req, res) => {
   const { budgetId } = req.params;
-  if (!isValidEmail(email) || !budgetId.trim()) {
-    return res.status(400).json({ error: 'A valid email and budgetId are required' });
+  if (!budgetId.trim()) {
+    return res.status(400).json({ error: 'A budgetId is required' });
   }
 
   try {
@@ -385,6 +431,7 @@ app.get('/budgets/:budgetId', async (req, res) => {
               b.budget_items AS "budgetItems", b.updated_at AS "updatedAt"
        FROM budgets b
        WHERE b.budget_id = $1
+         AND b.is_archived = FALSE
          AND (
            LOWER(b.owner_email) = LOWER($2)
            OR EXISTS (
@@ -395,7 +442,7 @@ app.get('/budgets/:budgetId', async (req, res) => {
                AND i.invitation_status = 'accepted'
            )
          )`,
-      [budgetId.trim(), email],
+      [budgetId.trim(), req.user.email],
     );
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Budget not found or access denied' });
@@ -407,7 +454,110 @@ app.get('/budgets/:budgetId', async (req, res) => {
   }
 });
 
-app.post('/share', async (req, res) => {
+app.get('/history', requireAuthentication, async (req, res) => {
+  try {
+    await ensureBudgetTables();
+    const result = await pool.query(
+      `SELECT history_id AS "historyId", budget_id AS "budgetId",
+              budget_name AS "budgetName", budget_items AS "budgetItems",
+              created_at AS "createdAt"
+       FROM budget_history
+       WHERE LOWER(owner_email) = $1
+       ORDER BY created_at DESC`,
+      [req.user.email],
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Budget history load failed', err);
+    return res.status(500).json({ error: 'Unable to load budget history' });
+  }
+});
+
+app.post('/history', requireAuthentication, async (req, res) => {
+  const { historyId, budgetId, budgetName, budgetItems } = req.body || {};
+  if (
+    typeof historyId !== 'string' || !historyId.trim() ||
+    typeof budgetId !== 'string' || !budgetId.trim() ||
+    typeof budgetName !== 'string' || !budgetName.trim() ||
+    !Array.isArray(budgetItems)
+  ) {
+    return res.status(400).json({ error: 'A historyId, budgetId, budgetName, and budgetItems are required' });
+  }
+
+  let client;
+  try {
+    await ensureBudgetTables();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const access = await client.query(
+      `SELECT b.owner_email,
+              EXISTS (
+                SELECT 1 FROM budget_invitations i
+                WHERE i.budget_id = b.budget_id
+                  AND LOWER(i.email) = $2
+                  AND i.invitation_status = 'accepted'
+              ) AS is_collaborator
+       FROM budgets b
+       WHERE b.budget_id = $1`,
+      [budgetId.trim(), req.user.email],
+    );
+    if (access.rowCount === 0 || access.rows[0].owner_email?.toLowerCase() !== req.user.email) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only the budget owner can archive this budget' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO budget_history (history_id, owner_email, budget_id, budget_name, budget_items)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
+       ON CONFLICT (history_id) DO NOTHING
+       RETURNING history_id AS "historyId", budget_id AS "budgetId",
+                 budget_name AS "budgetName", budget_items AS "budgetItems",
+                 created_at AS "createdAt"`,
+      [historyId.trim(), req.user.email, budgetId.trim(), budgetName.trim(), JSON.stringify(budgetItems)],
+    );
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'History entry already exists' });
+    }
+    await client.query(
+      'UPDATE budgets SET is_archived = TRUE, updated_at = NOW() WHERE budget_id = $1',
+      [budgetId.trim()],
+    );
+    await client.query('COMMIT');
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (client) {
+      await client.query('ROLLBACK').catch((rollbackError) => {
+        console.error('Budget history rollback failed', rollbackError);
+      });
+    }
+    console.error('Budget history save failed', err);
+    return res.status(500).json({ error: 'Unable to save budget history' });
+  } finally {
+    client?.release();
+  }
+});
+
+app.delete('/history/:historyId', requireAuthentication, async (req, res) => {
+  try {
+    await ensureBudgetTables();
+    const result = await pool.query(
+      `DELETE FROM budget_history
+       WHERE history_id = $1 AND LOWER(owner_email) = $2
+       RETURNING history_id AS "historyId"`,
+      [req.params.historyId, req.user.email],
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'History entry not found' });
+    }
+    return res.status(200).json({ historyId: result.rows[0].historyId });
+  } catch (err) {
+    console.error('Budget history delete failed', err);
+    return res.status(500).json({ error: 'Unable to delete budget history' });
+  }
+});
+
+app.post('/share', requireAuthentication, async (req, res) => {
   const { email, budgetId } = req.body || {};
   if (!isValidEmail(email) || typeof budgetId !== 'string' || !budgetId.trim()) {
     return res.status(400).json({ error: 'A valid email and budgetId are required' });
@@ -434,11 +584,15 @@ app.post('/share', async (req, res) => {
   try {
     await ensureBudgetTables();
     const budgetResult = await pool.query(
-      'SELECT name FROM budgets WHERE budget_id = $1',
+      'SELECT name, owner_email FROM budgets WHERE budget_id = $1',
       [budgetId.trim()],
     );
     if (budgetResult.rowCount === 0) {
       return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    if (budgetResult.rows[0].owner_email?.toLowerCase() !== req.user.email) {
+      return res.status(403).json({ error: 'Only the budget owner can invite others' });
     }
 
     const budgetName = budgetResult.rows[0].name;
@@ -482,12 +636,8 @@ app.post('/share', async (req, res) => {
   }
 });
 
-app.get('/invites', async (req, res) => {
+app.get('/invites', requireAuthentication, async (req, res) => {
   try{
-    const { email } = req.query;
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'A valid email is required' });
-    }
     await ensureBudgetTables();
     const result = await pool.query(
       `SELECT id, email, budget_id AS "budgetId", budget_name AS "budgetName",
@@ -495,7 +645,7 @@ app.get('/invites', async (req, res) => {
        FROM budget_invitations
        WHERE LOWER(email) = LOWER($1) AND invitation_status = $2
        ORDER BY created_at DESC`,
-      [email, 'pending'],
+      [req.user.email, 'pending'],
     );
     res.status(200).json(result.rows);
   } catch (err) {
@@ -505,17 +655,16 @@ app.get('/invites', async (req, res) => {
   }
 });
 
-app.patch('/invites/:id', async (req, res) => {
+app.patch('/invites/:id', requireAuthentication, async (req, res) => {
   const invitationId = Number(req.params.id);
-  const { email, status } = req.body || {};
+  const { status } = req.body || {};
   if (
     !Number.isInteger(invitationId) ||
     invitationId <= 0 ||
-    !isValidEmail(email) ||
     !['accepted', 'rejected'].includes(status)
   ) {
     return res.status(400).json({
-      error: 'A valid invitation id, email, and status are required',
+      error: 'A valid invitation id and status are required',
     });
   }
 
@@ -527,7 +676,7 @@ app.patch('/invites/:id', async (req, res) => {
        WHERE id = $2 AND LOWER(email) = LOWER($3) AND invitation_status = 'pending'
        RETURNING id, email, budget_id AS "budgetId", budget_name AS "budgetName",
                  invitation_status AS "invitationStatus", created_at AS "createdAt"`,
-      [status, invitationId, email.trim()],
+      [status, invitationId, req.user.email],
     );
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Pending invitation not found' });
@@ -540,4 +689,10 @@ app.patch('/invites/:id', async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+if (require.main === module) {
+  app.listen(Number(process.env.PORT) || 3000, () => {
+    console.log(`Server running on port ${Number(process.env.PORT) || 3000}`);
+  });
+}
+
+module.exports = { app, pool };

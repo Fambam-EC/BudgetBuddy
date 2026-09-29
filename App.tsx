@@ -36,6 +36,7 @@ import BudgetShareComponent from './Components/BudgetShareComponent';
 import BudgetInvitationComponent from './Components/BudgetInvitationComponent';
 import { BudgetProvider } from "./Helpers/BudgetDataContext";
 import {v4 as UUID} from 'uuid';
+import { apiHeaders, apiUrl, authTokenKey } from './Helpers/api';
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -60,7 +61,6 @@ const budget_items_key = '@budget_items_key';
 const budget_key = '@budget_key';
 const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
-const api_url = "https://onset-theatrics-subway.ngrok-free.dev"
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
@@ -77,7 +77,7 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!email || !password) {
       Alert.alert('Missing information', 'Please enter your email and password.');
       return;
@@ -92,20 +92,21 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
     }
 
 
-    // Connect your signup API here
-    console.log('Signing up:', { email, password });
-     var result = fetch(`${api_url}/register`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: email,
-        password: password,
-      }),
-    });
-    console.log(result, "Result Part")
+    try {
+      const response = await fetch(`${apiUrl}/register`, {
+        method: 'POST',
+        headers: apiHeaders(true),
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to create account.');
+      }
+      Alert.alert('Account created', 'You can now sign in.');
+      isActiveToggle();
+    } catch (error) {
+      Alert.alert('Sign up failed', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
 
   return (
@@ -184,12 +185,9 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${api_url}/forgot-password`, {
+      const response = await fetch(`${apiUrl}/forgot-password`, {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: apiHeaders(true),
         body: JSON.stringify({email: normalizedEmail}),
       });
       const result = await response.json();
@@ -262,22 +260,32 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
   );
 }
 
-function LoginScreen({ authorized }: { authorized: (auth: boolean, email: string) => void }) {
+function LoginScreen({ authorized }: { authorized: (token: string, email: string) => Promise<void> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
   const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
-  const [userResult, setUserResult] = useState("");
-  const handleLogin = () => {
-
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    authorized(true, email.trim());
-    // Add authentication API call logic here
-    Alert.alert('Success', `Logging in with: ${email}`);
+
+    try {
+      const response = await fetch(`${apiUrl}/login`, {
+        method: 'POST',
+        headers: apiHeaders(true),
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to log in.');
+      }
+      await authorized(result.token, result.user.email);
+    } catch (error) {
+      Alert.alert('Login failed', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
 
   return (
@@ -292,22 +300,6 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean, email: string
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
-        </View>
-        {/* Test Get User*/}
-        <View style={styles.container}>
-          <Text style={styles.customFont}>Test Get User</Text>
-          <Pressable style={styles.loginButton} onPress={async () => {
-            // Add logic to get user
-            var result = await fetch(`${api_url}/api/users`, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-              }
-            }).then(response => setUserResult(response.toString()))
-          }}>
-            <Text style={styles.customFont}>Get User</Text>
-            <Text>{userResult}</Text>
-          </Pressable>
         </View>
         {/* Form Inputs */}
         <View style={styles.formContainer}>
@@ -381,37 +373,66 @@ function LoginScreen({ authorized }: { authorized: (auth: boolean, email: string
   );
 }
 
-const submitLogin = async (email: string, password: string) => {};
-
-interface LogoutProps {
-  onLogout: () => void;
-}
-
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const restoreSession = async () => {
+      const token = storage.getString(authTokenKey);
+      if (!token) {
+        setIsRestoringSession(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiUrl}/auth/me`, { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok) {
+          storage.remove(authTokenKey);
+        } else if (isMounted) {
+          setUserEmail(result.user.email);
+          setIsAuthenticated(true);
+        }
+      } catch {
+        storage.remove(authTokenKey);
+      } finally {
+        if (isMounted) setIsRestoringSession(false);
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleAuthenticated = async (token: string, email: string) => {
+    storage.set(authTokenKey, token);
+    setUserEmail(email);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    storage.remove(authTokenKey);
+    setUserEmail('');
+    setIsAuthenticated(false);
+  };
+
   return (
           <SafeAreaProvider>
             <SafeAreaView style={[styles.flex, styles.backgroundColor]}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
-        { !isAuthenticated && (
-          <LoginScreen
-            authorized={(auth, email) => {
-              setIsAuthenticated(auth);
-              setUserEmail(email);
-            }}
-          />
-        ) }
+        { !isAuthenticated && !isRestoringSession && <LoginScreen authorized={handleAuthenticated} /> }
        { isAuthenticated && (
          <RootStack
            userEmail={userEmail}
-           logout={() => {
-             setIsAuthenticated(false);
-             setUserEmail('');
-           }}
+           logout={handleLogout}
          />
        )}
       </NavigationContainer>
@@ -596,11 +617,25 @@ function HistoryComponent(){
 
   const callDeleteHistoryItemWithId = async (id: string) => {
     try {
-      storage.remove(`${id}`);
+      if (id.startsWith('HI:')) {
+        storage.remove(id);
+        setHistoryItemsWithId((current) => current.filter((item) => item.id !== id));
+        return;
+      }
+
+      const response = await fetch(`${apiUrl}/history/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: apiHeaders(),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to delete history entry.');
+      }
+      storage.remove(`HI:${id}`);
       setHistoryItemsWithId(historyItemsWithId.filter(item => item.id !== id));
     }
     catch (error) {
-      console.log(error)
+      Alert.alert('Unable to delete history', error instanceof Error ? error.message : 'Please try again.');
     }
   }
 
@@ -642,21 +677,27 @@ function HistoryComponent(){
   useEffect(() => {
     const getHistoryItems = async () => {
       try {
-        const result = await GetBudgetHistoryItemsFromStorage()
-
-        if (result != null){
-          console.log(result)
-          var object = Object.entries(result).map(([key, value]) => ({
-            id: value.id,
-            budgetId: value.budgetId,
-            budgetName: value.budgetName,
-            items: value.items as HistoryItemModel[]
-          }));
-          setHistoryItemsWithId(object)
+        const response = await fetch(`${apiUrl}/history`, { headers: apiHeaders() });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Unable to load budget history.');
         }
+        setHistoryItemsWithId(result.map((entry: {
+          historyId: string;
+          budgetId: string;
+          budgetName: string;
+          budgetItems: HistoryItemModel[];
+        }) => ({
+          id: entry.historyId,
+          budgetId: entry.budgetId,
+          budgetName: entry.budgetName,
+          items: entry.budgetItems,
+        })));
       }
       catch (error) {
-        console.log(error)
+        console.error('Unable to load budget history', error);
+        const localHistory = await GetBudgetHistoryItemsFromStorage();
+        setHistoryItemsWithId(localHistory);
       }
     }; getHistoryItems()
   }, [])
@@ -792,10 +833,14 @@ async function SaveBudget(budget: Budget): Promise<void> {
   storage.set(title_key, budget.name);
 
   try {
-    const response = await fetch(`${api_url}/budgets`, {
+    const response = await fetch(`${apiUrl}/budgets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(budget),
+      headers: apiHeaders(true),
+      body: JSON.stringify({
+        budgetId: budget.budgetId,
+        name: budget.name,
+        budgetItems: budget.budgetItems,
+      }),
     });
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
@@ -911,18 +956,47 @@ async function SaveBudgetItems(budgetItems: BudgetData[]){
 }
 
 async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
-try{
-    await storage.set(`HI:${budget.budgetId}`, JSON.stringify({
+  try {
+    const saveResponse = await fetch(`${apiUrl}/budgets`, {
+      method: 'POST',
+      headers: apiHeaders(true),
+      body: JSON.stringify({
+        budgetId: budget.budgetId,
+        name: budget.name,
+        budgetItems: budget.budgetItems,
+      }),
+    });
+    const saveResult = await saveResponse.json();
+    if (!saveResponse.ok) {
+      throw new Error(saveResult.error || 'Unable to save the current budget.');
+    }
+
+    const historyId = UUID();
+    const historyResponse = await fetch(`${apiUrl}/history`, {
+      method: 'POST',
+      headers: apiHeaders(true),
+      body: JSON.stringify({
+        historyId,
+        budgetId: budget.budgetId,
+        budgetName: budget.name,
+        budgetItems: budget.budgetItems,
+      }),
+    });
+    const historyResult = await historyResponse.json();
+    if (!historyResponse.ok) {
+      throw new Error(historyResult.error || 'Unable to archive the current budget.');
+    }
+
+    storage.set(`HI:${historyId}`, JSON.stringify({
       budgetId: budget.budgetId,
       budgetName: budget.name,
       items: budget.budgetItems,
     }));
-    return true
-}
-catch(error){ 
-  console.error(error)
-  Alert.alert("Error", "Failed to save budget item to history.");
-  return false;
+    return true;
+  } catch (error) {
+    console.error(error);
+    Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save budget history.');
+    return false;
   }
 }
 
@@ -1195,9 +1269,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       const localBudgets = GetLocalBudgets();
       setAvailableBudgets(localBudgets);
       try {
-        const response = await fetch(
-          `${api_url}/budgets?email=${encodeURIComponent(userEmail)}`,
-        );
+        const response = await fetch(`${apiUrl}/budgets`, { headers: apiHeaders() });
         const result = await response.json();
         if (!response.ok) {
           throw new Error(result.error || 'Unable to load budgets.');
@@ -1232,7 +1304,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     const switchBudget = async (selectedBudget: Budget) => {
       try {
         const response = await fetch(
-          `${api_url}/budgets/${encodeURIComponent(selectedBudget.budgetId)}?email=${encodeURIComponent(userEmail)}`,
+          `${apiUrl}/budgets/${encodeURIComponent(selectedBudget.budgetId)}`,
+          { headers: apiHeaders() },
         );
         const result = await response.json();
         if (!response.ok) {
@@ -1262,6 +1335,27 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           error instanceof Error ? error.message : 'Please try again later.',
         );
       }
+    };
+
+    const loadAcceptedBudget = async (invitation: {budgetId: string}) => {
+      const response = await fetch(
+        `${apiUrl}/budgets/${encodeURIComponent(invitation.budgetId)}`,
+        { headers: apiHeaders() },
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to load the shared budget.');
+      }
+
+      await ClearTransactionData();
+      setTransactionData([]);
+      setBudgetId(result.budgetId);
+      setBudgetTitle(result.name);
+      setBudgetOwnerEmail(result.ownerEmail || userEmail);
+      setBudgetData(result.budgetItems || []);
+      UpsertLocalBudget(result);
+      await loadAvailableBudgets();
+      setShowMenuButtons(false);
     };
 
     const createBudget = (name: string) => {
@@ -1353,7 +1447,11 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   useEffect(() => {
     function checkIfShowCloseButton(){
-    if (budgetData.length > 0 && budgetTitle && budgetTitle.trim().length > 0){
+    if (
+      budgetData.length > 0 &&
+      budgetTitle.trim().length > 0 &&
+      budgetOwnerEmail.toLowerCase() === userEmail.toLowerCase()
+    ) {
       setShowCloseButton(true);
     }
     else {
@@ -1361,7 +1459,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     }
   } 
   checkIfShowCloseButton();
-}, [budgetTitle, budgetData])
+}, [budgetTitle, budgetData, budgetOwnerEmail, userEmail])
 
   const clearBudgetItems = () => {
     const emptyBudgetData: BudgetData[] = budgetData.map(item => {
@@ -1507,10 +1605,12 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                     onSelect={switchBudget}
                     onCreate={createBudget}
                   />
-                  <BudgetProvider budgetId={budget.budgetId} budgetName={budget.name}>
-                  <BudgetShareComponent budget={budget} />
-                  </BudgetProvider>
-                  <BudgetInvitationComponent email={userEmail} />
+                  {budgetOwnerEmail.toLowerCase() === userEmail.toLowerCase() && (
+                    <BudgetProvider budgetId={budget.budgetId} budgetName={budget.name}>
+                      <BudgetShareComponent budget={budget} />
+                    </BudgetProvider>
+                  )}
+                  <BudgetInvitationComponent email={userEmail} onBudgetAccepted={loadAcceptedBudget} />
                 </View>
               )}
             </View>
@@ -1576,12 +1676,19 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             }
             { showCloseButton && (
               <View style={[styles.rowPadding, styles.rowBorder, styles.center]}>
-                <Pressable 
-                  onPress={() => {
-                    SaveBudgetItemToHistoryPage(budget)
-                    clearBudgetItems()
-                    clearCurrentTransactions()
-                    }}>
+                <Pressable
+                  onPress={async () => {
+                    const archived = await SaveBudgetItemToHistoryPage(budget);
+                    if (!archived) return;
+                    const remainingBudgets = GetLocalBudgets().filter(
+                      (savedBudget) => savedBudget.budgetId !== budget.budgetId,
+                    );
+                    SaveLocalBudgets(remainingBudgets);
+                    setAvailableBudgets(remainingBudgets);
+                    clearBudgetItems();
+                    await clearCurrentTransactions();
+                    await loadAvailableBudgets();
+                  }}>
 
                 <Text>Close and Move to History</Text>
               </Pressable>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { apiUrl } from '../Helpers/api';
+import { apiHeaders, apiUrl } from '../Helpers/api';
 
 type Invitation = {
   id: number;
@@ -24,11 +24,8 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch(`${apiUrl}/invites?email=${encodeURIComponent(email)}`, {
-        headers: {
-          Accept: 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      const response = await fetch(`${apiUrl}/invites`, {
+        headers: apiHeaders(),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -52,12 +49,8 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
     try {
       const response = await fetch(`${apiUrl}/invites/${invitation.id}`, {
         method: 'PATCH',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: JSON.stringify({ email, status }),
+        headers: apiHeaders(true),
+        body: JSON.stringify({ status }),
       });
       const result = await response.json();
       if (!response.ok) {

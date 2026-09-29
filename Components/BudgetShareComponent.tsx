@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmailValidator from '../Helpers/EmailValidator';
-import { apiUrl } from '../Helpers/api';
+import { apiHeaders, apiUrl } from '../Helpers/api';
 
 type ShareBudgetProps = {
     budget: {
@@ -31,16 +31,11 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
         try {
             const budgetResponse = await fetch(`${apiUrl}/budgets`, {
                 method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true',
-                },
+                headers: apiHeaders(true),
                 body: JSON.stringify({
                     budgetId: budget.budgetId,
                     name: budget.name,
                     budgetItems: budget.budgetItems,
-                    ownerEmail: budget.ownerEmail,
                 }),
             });
             const budgetResult = await budgetResponse.json();
@@ -50,11 +45,7 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
 
             const response = await fetch(`${apiUrl}/share`, {
                 method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true',
-                },
+                headers: apiHeaders(true),
                 body: JSON.stringify({ email: inviteEmail, budgetId: budget.budgetId }),
             });
             const result = await response.json();

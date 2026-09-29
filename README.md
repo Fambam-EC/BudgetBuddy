@@ -1,6 +1,37 @@
 # BudgetBuddy
-Budget Buddy iOS &amp; Android
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
+
+## Architecture
+
+- `App.tsx` contains the shared React Native experience.
+- Android and iOS use React Native CLI; Web uses React Native Web and Webpack.
+- `BudgetBuddy.Api` is the Express API. PostgreSQL is the only service started by Docker Compose.
+- Native storage uses MMKV. Web storage uses browser `localStorage` through the platform-specific adapter.
+
+## Local Development
+
+Start PostgreSQL from the project root:
+
+```sh
+docker compose up -d postgres
+```
+
+In a second terminal, configure and start the API:
+
+```sh
+cd BudgetBuddy.Api
+cp .env.example .env
+npm install
+npm start
+```
+
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure SMTP settings and `BUDGET_INVITE_URL` to enable email invitations. Never commit `.env` files.
+
+To expose the API, run `ngrok http 3000`, set `apiUrl` in `Helpers/api.ts` to the resulting HTTPS URL, and add the web app origin to `CORS_ORIGINS` in the API environment. Restart the API after changing its environment.
+
+Start the Web client from the project root with `npm run web`. For native targets, run `npm start`, then use `npm run android` or `npm run ios` with the corresponding development environment configured.
+
+Run the API’s database-independent checks from `BudgetBuddy.Api` with `npm test`; run the client smoke tests from the project root with `npm test`.
 
 # Getting Started
 
