@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { apiHeaders, apiUrl } from '../Helpers/api';
 
 type Invitation = {
@@ -73,7 +73,10 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
       <View style={styles.headingRow}>
         <Text style={styles.heading}>Budget Invitations</Text>
         <Pressable accessibilityRole="button" onPress={loadInvitations} disabled={isLoading}>
-          <Text style={styles.refresh}>{isLoading ? 'Loading...' : 'Refresh'}</Text>
+          <View style={styles.refreshContent}>
+            {isLoading && <ActivityIndicator size="small" />}
+            <Text style={styles.refresh}>{isLoading ? 'Loading...' : 'Refresh'}</Text>
+          </View>
         </Pressable>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -89,7 +92,10 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
               disabled={busyInvitationId !== null}
               onPress={() => updateInvitation(invitation, 'accepted')}
             >
-              <Text style={styles.accept}>{busyInvitationId === invitation.id ? 'Working...' : 'Accept'}</Text>
+              <View style={styles.actionContent}>
+                {busyInvitationId === invitation.id && <ActivityIndicator size="small" />}
+                <Text style={styles.accept}>{busyInvitationId === invitation.id ? 'Working...' : 'Accept'}</Text>
+              </View>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -110,9 +116,11 @@ const styles = StyleSheet.create({
   headingRow: { alignItems: 'center', flexDirection: 'row' },
   heading: { borderColor: '#000', borderWidth: 1, fontWeight: 'bold', padding: 10 },
   refresh: { color: '#176b45', fontWeight: 'bold', padding: 10 },
+  refreshContent: { alignItems: 'center', flexDirection: 'row', gap: 4 },
   invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
   budgetName: { flex: 1 },
   actions: { flexDirection: 'row', gap: 14 },
+  actionContent: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   accept: { color: '#176b45', fontWeight: 'bold' },
   reject: { color: '#a32f2f', fontWeight: 'bold' },
   empty: { color: '#555', padding: 10 },

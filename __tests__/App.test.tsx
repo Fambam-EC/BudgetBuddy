@@ -7,6 +7,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 
 jest.mock('react-native', () => ({
+  ActivityIndicator: 'ActivityIndicator',
   Alert: { alert: jest.fn() },
   Dimensions: { get: () => ({ width: 1024, height: 768 }) },
   FlatList: 'FlatList',

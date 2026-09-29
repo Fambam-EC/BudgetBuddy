@@ -1,5 +1,6 @@
 import React, { useEffect, useState, createContext } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -86,6 +87,7 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -102,6 +104,7 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
     }
 
 
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${apiUrl}/register`, {
         method: 'POST',
@@ -116,6 +119,8 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
       isActiveToggle();
     } catch (error) {
       Alert.alert('Sign up failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -166,9 +171,10 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
         <TouchableOpacity
           style={styles.signUpButton}
           onPress={handleSignUp}
+          disabled={isSubmitting}
           activeOpacity={0.8}
         >
-          <Text style={styles.signUpText}>Sign up</Text>
+          {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.signUpText}>Sign up</Text>}
         </TouchableOpacity>
 
         <View style={styles.loginContainer}>
@@ -257,6 +263,7 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
           onPress={handleForgotPassword}
           disabled={isSubmitting}
         >
+          {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
           <Text style={styles.loginButtonText}>
             {isSubmitting ? 'Sending...' : 'Send reset link'}
           </Text>
@@ -276,12 +283,14 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
   const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${apiUrl}/login`, {
         method: 'POST',
@@ -295,6 +304,8 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
       await authorized(result.token, result.user.email);
     } catch (error) {
       Alert.alert('Login failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -361,8 +372,12 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Log In</Text>
+          <TouchableOpacity
+            style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+            onPress={handleLogin}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.loginButtonText}>Log In</Text>}
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
@@ -438,6 +453,12 @@ function App() {
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
+        { !isAuthenticated && isRestoringSession && (
+          <View style={styles.sessionLoading}>
+            <ActivityIndicator size="large" />
+            <Text style={styles.sessionLoadingText}>Restoring your session...</Text>
+          </View>
+        )}
         { !isAuthenticated && !isRestoringSession && <LoginScreen authorized={handleAuthenticated} /> }
        { isAuthenticated && (
          <RootStack
@@ -617,6 +638,7 @@ function HistoryComponent({userEmail}: {userEmail: string}){
   const [expandHistoryItem, setExpandHistoryItem] = useState<boolean>(false);
   const [expandedHistoryItemId, setExpandedHistoryItemId] = useState<string>('');
   const [historyItemsWithId, setHistoryItemsWithId] = useState<HistoryItemList[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const toggleExpandHistoryItem = (id: string) => {
       setExpandedHistoryItemId(id === expandedHistoryItemId ? '' : id);
   };
@@ -682,6 +704,7 @@ function HistoryComponent({userEmail}: {userEmail: string}){
   }
   useEffect(() => {
     const getHistoryItems = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch(`${apiUrl}/history`, { headers: apiHeaders() });
         const result = await response.json();
@@ -704,6 +727,8 @@ function HistoryComponent({userEmail}: {userEmail: string}){
         console.error('Unable to load budget history', error);
         const localHistory = await GetBudgetHistoryItemsFromStorage(userEmail);
         setHistoryItemsWithId(localHistory);
+      } finally {
+        setIsLoading(false);
       }
     }; getHistoryItems()
   }, [userEmail])
@@ -711,12 +736,17 @@ return (<View style={styles.flex}>
   <View style={styles.center}>
   <Text>Budget History</Text>
   </View>
-  <FlatList
+  {isLoading ? (
+    <View style={styles.inlineLoading}>
+      <ActivityIndicator />
+      <Text style={styles.loadingText}>Loading history...</Text>
+    </View>
+  ) : <FlatList
             data={historyItemsWithId}
             renderItem={renderHistoryItem}
             keyExtractor={item => item.id}
             numColumns={1}
-            />
+            />}
     </View>);
 }
 
@@ -882,24 +912,46 @@ function BudgetSwitcher({
 }: {
   budgets: Budget[];
   activeBudgetId: string;
-  onSelect: (budget: Budget) => void;
-  onRefresh: () => void;
-  onCreate: (name: string) => void;
+  onSelect: (budget: Budget) => void | Promise<void>;
+  onRefresh: () => void | Promise<void>;
+  onCreate: (name: string) => void | Promise<void>;
 }) {
   const [visible, setVisible] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newBudgetName, setNewBudgetName] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCreatingBudget, setIsCreatingBudget] = useState(false);
+  const [switchingBudgetId, setSwitchingBudgetId] = useState<string | null>(null);
+
+  const refreshBudgets = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const selectBudget = async (budget: Budget) => {
+    setSwitchingBudgetId(budget.budgetId);
+    try {
+      await onSelect(budget);
+      setVisible(false);
+    } finally {
+      setSwitchingBudgetId(null);
+    }
+  };
 
   return (
     <View>
       <Pressable
         style={[styles.rowPadding, styles.rowBorder, styles.menuButton]}
         onPress={() => {
-          onRefresh();
           setVisible(true);
+          void refreshBudgets();
         }}
       >
-        <Text style={[styles.customFont, styles.boldText]}>Switch Budget</Text>
+        {isRefreshing ? <ActivityIndicator size="small" /> : <Text style={[styles.customFont, styles.boldText]}>Switch Budget</Text>}
       </Pressable>
       <Modal visible={visible} animationType="slide" transparent onRequestClose={() => setVisible(false)}>
         <View style={styles.centeredView}>
@@ -923,24 +975,35 @@ function BudgetSwitcher({
                 />
                 <Pressable
                   style={styles.loginButton}
-                  onPress={() => {
+                  onPress={async () => {
                     const name = newBudgetName.trim();
                     if (!name) {
                       Alert.alert('Missing name', 'Enter a name for the new budget.');
                       return;
                     }
-                    onCreate(name);
-                    setNewBudgetName('');
-                    setIsCreating(false);
-                    setVisible(false);
+                    setIsCreatingBudget(true);
+                    try {
+                      await onCreate(name);
+                      setNewBudgetName('');
+                      setIsCreating(false);
+                      setVisible(false);
+                    } finally {
+                      setIsCreatingBudget(false);
+                    }
                   }}
+                  disabled={isCreatingBudget}
                 >
-                  <Text style={styles.loginButtonText}>Create budget</Text>
+                  {isCreatingBudget ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.loginButtonText}>Create budget</Text>}
                 </Pressable>
               </View>
             )}
-            {budgets.length === 0 && <Text>No budgets available yet.</Text>}
-            {budgets.map((budget) => (
+            {isRefreshing ? (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator />
+                <Text style={styles.loadingText}>Loading budgets...</Text>
+              </View>
+            ) : budgets.length === 0 ? <Text>No budgets available yet.</Text> : null}
+            {!isRefreshing && budgets.map((budget) => (
               <Pressable
                 key={budget.budgetId}
                 style={[
@@ -948,12 +1011,15 @@ function BudgetSwitcher({
                   styles.rowBorder,
                   budget.budgetId === activeBudgetId && styles.activeBudgetOption,
                 ]}
-                onPress={() => {
-                  onSelect(budget);
-                  setVisible(false);
-                }}
+                onPress={() => selectBudget(budget)}
+                disabled={switchingBudgetId !== null}
               >
-                <Text style={styles.customFont}>{budget.name}</Text>
+                {switchingBudgetId === budget.budgetId ? (
+                  <View style={styles.inlineLoading}>
+                    <ActivityIndicator size="small" />
+                    <Text style={styles.customFont}>Opening budget...</Text>
+                  </View>
+                ) : <Text style={styles.customFont}>{budget.name}</Text>}
                 <Text style={styles.budgetIdText}>{budget.budgetId}</Text>
               </Pressable>
             ))}
@@ -1259,6 +1325,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
   const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
+  const [isLoadingBudget, setIsLoadingBudget] = useState(true);
 
   const budget: Budget = {
     budgetId,
@@ -1284,6 +1351,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       }
       catch (error) {
         console.log(error)
+      } finally {
+        setIsLoadingBudget(false);
       }
     };
 
@@ -1380,7 +1449,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setShowMenuButtons(false);
     };
 
-    const createBudget = (name: string) => {
+    const createBudget = async (name: string) => {
       const newBudget: Budget = {
         budgetId: UUID(),
         name,
@@ -1392,7 +1461,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setBudgetTitle(newBudget.name);
       setBudgetData(newBudget.budgetItems);
       setTransactionData([]);
-      void SaveBudget(newBudget, userEmail);
+      await SaveBudget(newBudget, userEmail);
       setAvailableBudgets((currentBudgets) => [newBudget, ...currentBudgets]);
       UpsertLocalBudget(newBudget, userEmail);
     };
@@ -1716,7 +1785,12 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 <Text>Close and Move to History</Text>
               </Pressable>
             </View>)}
-            
+            {isLoadingBudget && (
+              <View style={styles.budgetLoadingOverlay}>
+                <ActivityIndicator size="large" />
+                <Text style={styles.loadingText}>Loading your budget...</Text>
+              </View>
+            )}
       </View>);
 }
 
@@ -1900,6 +1974,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-around',
     paddingHorizontal: 24,
+  },
+  sessionLoading: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    gap: 12,
+  },
+  sessionLoadingText: {
+    color: '#666666',
+    fontSize: 14,
+  },
+  inlineLoading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    color: '#666666',
+    fontSize: 13,
+  },
+  budgetLoadingOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(240, 248, 255, 0.92)',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 10,
   },
   headerContainer: {
     alignItems: 'center',

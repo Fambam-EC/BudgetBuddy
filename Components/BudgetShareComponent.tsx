@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmailValidator from '../Helpers/EmailValidator';
 import { apiHeaders, apiUrl } from '../Helpers/api';
 
@@ -98,6 +98,7 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
                             style={[styles.button, styles.buttonClose]} 
                             onPress={sendShareBudget}
                             disabled={!isSendEnabled || isSending}>
+                            {isSending && <ActivityIndicator size="small" color="#FFFFFF" />}
                             <Text style={styles.textStyle}>{isSending ? 'Sending...' : 'Share'}</Text>
                         </Pressable>
                         </View>
@@ -163,7 +164,10 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
         button: {
             borderRadius: 20,
             padding: 10,
-            elevation: 2
+            elevation: 2,
+            alignItems: 'center',
+            flexDirection: 'row',
+            gap: 8,
         },
         buttonClose: {
             backgroundColor: '#2196F3'
