@@ -63,12 +63,22 @@ const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+function accountStorageKey(key: string, email: string): string {
+  return `${key}:${encodeURIComponent(email.trim().toLowerCase())}`;
+}
+
+function accountHistoryPrefix(email: string): string {
+  return `HI:${encodeURIComponent(email.trim().toLowerCase())}:`;
+}
+
 function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
   return(<Stack.Navigator initialRouteName="Budget Buddy">
       <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
         {props => <BudgetComponent {...props} onLogout={logout} userEmail={userEmail} />}
       </Stack.Screen>
-      <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}} component={HistoryScreen} />
+      <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}}>
+        {props => <HistoryScreen {...props} userEmail={userEmail} />}
+      </Stack.Screen>
     </Stack.Navigator>)
 }
 
@@ -519,10 +529,6 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     setDueDate(new Date(date))
   }, [date])
   
-  const saveTransaction = (newTransaction: TransactionData) => {
-    SaveTransactionItem(newTransaction);
-  };
-
   return (
       <ReanimatedSwipeable
         friction={2}
@@ -605,7 +611,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   </ReanimatedSwipeable>
 )};
 
-function HistoryComponent(){
+function HistoryComponent({userEmail}: {userEmail: string}){
   const [historyItems, setHistoryItems] = useState<HistoryItemModel[]>([]);
   const [historyItemTitle, setHistoryItemTitle] = useState<string>('');
   const [expandHistoryItem, setExpandHistoryItem] = useState<boolean>(false);
@@ -617,7 +623,7 @@ function HistoryComponent(){
 
   const callDeleteHistoryItemWithId = async (id: string) => {
     try {
-      if (id.startsWith('HI:')) {
+      if (id.startsWith(accountHistoryPrefix(userEmail))) {
         storage.remove(id);
         setHistoryItemsWithId((current) => current.filter((item) => item.id !== id));
         return;
@@ -631,7 +637,7 @@ function HistoryComponent(){
       if (!response.ok) {
         throw new Error(result.error || 'Unable to delete history entry.');
       }
-      storage.remove(`HI:${id}`);
+      storage.remove(`${accountHistoryPrefix(userEmail)}${id}`);
       setHistoryItemsWithId(historyItemsWithId.filter(item => item.id !== id));
     }
     catch (error) {
@@ -696,11 +702,11 @@ function HistoryComponent(){
       }
       catch (error) {
         console.error('Unable to load budget history', error);
-        const localHistory = await GetBudgetHistoryItemsFromStorage();
+        const localHistory = await GetBudgetHistoryItemsFromStorage(userEmail);
         setHistoryItemsWithId(localHistory);
       }
     }; getHistoryItems()
-  }, [])
+  }, [userEmail])
 return (<View style={styles.flex}>
   <View style={styles.center}>
   <Text>Budget History</Text>
@@ -714,24 +720,24 @@ return (<View style={styles.flex}>
     </View>);
 }
 
-          function HistoryScreen ({navigation}: {navigation: any}){
+function HistoryScreen({navigation, userEmail}: {navigation: any; userEmail: string}) {
               const homeString: string = 'Home';
               const [date, setDate] = useState<Date>(new Date());
               return (<View id='HistoryScreen' style={[styles.flex, styles.backgroundColor]}>
-        <HistoryComponent/>
+        <HistoryComponent userEmail={userEmail} />
     </View>);
 }
 
-async function GetBudgetTitle(){
-  return storage.getString(title_key) || '';
+async function GetBudgetTitle(userEmail: string){
+  return storage.getString(accountStorageKey(title_key, userEmail)) || '';
 }
 
-async function ClearBudgetTitle(){
-  return storage.remove(title_key);
+async function ClearBudgetTitle(userEmail: string){
+  return storage.remove(accountStorageKey(title_key, userEmail));
 }
 
-async function GetBudgetHistoryItemsFromStorage(){
-  const historyItemPrefix = 'HI:'
+async function GetBudgetHistoryItemsFromStorage(userEmail: string){
+  const historyItemPrefix = accountHistoryPrefix(userEmail);
   const allKeys = storage.getAllKeys();
   const historyKeys = allKeys.filter(key => key.startsWith(historyItemPrefix));
   return historyKeys.map(item => {
@@ -747,9 +753,9 @@ async function GetBudgetHistoryItemsFromStorage(){
 }
 
 
-async function GetBudgetItems(): Promise<BudgetData[]> {
+async function GetBudgetItems(userEmail: string): Promise<BudgetData[]> {
   try{
-    let budgetItem = storage.getString(budget_items_key)
+    let budgetItem = storage.getString(accountStorageKey(budget_items_key, userEmail))
       if (budgetItem){
         return JSON.parse(budgetItem) as BudgetData[];
       }
@@ -762,27 +768,27 @@ async function GetBudgetItems(): Promise<BudgetData[]> {
   }
 }
 
-async function GetBudget(): Promise<Budget | null> {
+async function GetBudget(userEmail: string): Promise<Budget | null> {
   try {
-    const storedBudget = storage.getString(budget_key);
+    const storedBudget = storage.getString(accountStorageKey(budget_key, userEmail));
     if (storedBudget) {
       return JSON.parse(storedBudget) as Budget;
     }
 
-    const localBudgets = GetLocalBudgets();
+    const localBudgets = GetLocalBudgets(userEmail);
     if (localBudgets.length > 0) {
       const firstBudget = localBudgets[0];
-      storage.set(budget_key, JSON.stringify(firstBudget));
-      storage.set(budget_items_key, JSON.stringify(firstBudget.budgetItems));
-      storage.set(title_key, firstBudget.name);
+      storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(firstBudget));
+      storage.set(accountStorageKey(budget_items_key, userEmail), JSON.stringify(firstBudget.budgetItems));
+      storage.set(accountStorageKey(title_key, userEmail), firstBudget.name);
       return firstBudget;
     }
 
-    const [items, name] = await Promise.all([GetBudgetItems(), GetBudgetTitle()]);
+    const [items, name] = await Promise.all([GetBudgetItems(userEmail), GetBudgetTitle(userEmail)]);
     return {
       budgetId: UUID(),
       name,
-      ownerEmail: '',
+      ownerEmail: userEmail,
       budgetItems: items,
     };
   } catch (error) {
@@ -791,46 +797,61 @@ async function GetBudget(): Promise<Budget | null> {
   }
 }
 
-function GetLocalBudgets(): Budget[] {
+function GetLocalBudgets(userEmail: string): Budget[] {
   try {
-    const storedBudgets = storage.getString(budgets_key);
+    const storedBudgets = storage.getString(accountStorageKey(budgets_key, userEmail));
     if (storedBudgets) {
       const parsed = JSON.parse(storedBudgets);
       if (Array.isArray(parsed)) return parsed as Budget[];
     }
 
+    const normalizedEmail = userEmail.trim().toLowerCase();
+    const legacyBudgets = storage.getString(budgets_key);
+    const parsedLegacyBudgets = legacyBudgets ? JSON.parse(legacyBudgets) : [];
+    const ownedLegacyBudgets: Budget[] = Array.isArray(parsedLegacyBudgets)
+      ? parsedLegacyBudgets.filter(
+          (budget: Budget) => budget.ownerEmail?.trim().toLowerCase() === normalizedEmail,
+        )
+      : [];
     const legacyBudget = storage.getString(budget_key);
     if (legacyBudget) {
       const budget = JSON.parse(legacyBudget) as Budget;
-      return [budget];
+      if (
+        budget.ownerEmail?.trim().toLowerCase() === normalizedEmail &&
+        !ownedLegacyBudgets.some((item) => item.budgetId === budget.budgetId)
+      ) {
+        ownedLegacyBudgets.push(budget);
+      }
     }
+    if (ownedLegacyBudgets.length > 0) SaveLocalBudgets(ownedLegacyBudgets, userEmail);
+    return ownedLegacyBudgets;
   } catch (error) {
     console.error('Failed to load local budgets', error);
   }
   return [];
 }
 
-function SaveLocalBudgets(budgets: Budget[]): void {
-  storage.set(budgets_key, JSON.stringify(budgets));
+function SaveLocalBudgets(budgets: Budget[], userEmail: string): void {
+  storage.set(accountStorageKey(budgets_key, userEmail), JSON.stringify(budgets));
 }
 
-function UpsertLocalBudget(budget: Budget): Budget[] {
-  const budgets = GetLocalBudgets();
+function UpsertLocalBudget(budget: Budget, userEmail: string): Budget[] {
+  const budgets = GetLocalBudgets(userEmail);
   const index = budgets.findIndex((item) => item.budgetId === budget.budgetId);
   if (index >= 0) {
     budgets[index] = budget;
   } else {
     budgets.unshift(budget);
   }
-  SaveLocalBudgets(budgets);
+  SaveLocalBudgets(budgets, userEmail);
   return budgets;
 }
 
-async function SaveBudget(budget: Budget): Promise<void> {
-  UpsertLocalBudget(budget);
-  storage.set(budget_key, JSON.stringify(budget));
-  storage.set(budget_items_key, JSON.stringify(budget.budgetItems));
-  storage.set(title_key, budget.name);
+async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
+  UpsertLocalBudget(budget, userEmail);
+  storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(budget));
+  storage.set(accountStorageKey(budget_items_key, userEmail), JSON.stringify(budget.budgetItems));
+  storage.set(accountStorageKey(title_key, userEmail), budget.name);
 
   try {
     const response = await fetch(`${apiUrl}/budgets`, {
@@ -946,10 +967,10 @@ function BudgetSwitcher({
   );
 }
 
-async function SaveBudgetItems(budgetItems: BudgetData[]){
+async function SaveBudgetItems(budgetItems: BudgetData[], userEmail: string){
   try {
     const budgetItemsResponse = JSON.stringify(budgetItems)
-    storage.set(budget_items_key, budgetItemsResponse)
+    storage.set(accountStorageKey(budget_items_key, userEmail), budgetItemsResponse)
   } catch (error) {
     console.log(error)
   }
@@ -987,7 +1008,7 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
       throw new Error(historyResult.error || 'Unable to archive the current budget.');
     }
 
-    storage.set(`HI:${historyId}`, JSON.stringify({
+    storage.set(`${accountHistoryPrefix(budget.ownerEmail)}${historyId}`, JSON.stringify({
       budgetId: budget.budgetId,
       budgetName: budget.name,
       items: budget.budgetItems,
@@ -1000,9 +1021,10 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
   }
 }
 
-async function SaveTransactionItem(newTransaction: TransactionData): Promise<boolean> {
+async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string): Promise<boolean> {
   try {
-    const currentTransactions = await storage.getString(transaction_items_key)
+    const scopedTransactionKey = accountStorageKey(transaction_items_key, userEmail);
+    const currentTransactions = await storage.getString(scopedTransactionKey)
     let transactions: TransactionData[] = [];
     if (currentTransactions){
       transactions = (JSON.parse(currentTransactions) as Partial<TransactionData>[]).map(
@@ -1014,7 +1036,7 @@ async function SaveTransactionItem(newTransaction: TransactionData): Promise<boo
     }
     // Assuming newTransaction is the transaction you want to add
     transactions.push(newTransaction);
-    await storage.set(transaction_items_key, JSON.stringify(transactions));
+    await storage.set(scopedTransactionKey, JSON.stringify(transactions));
     return true;
   } catch (error) {
     console.error(error);
@@ -1023,9 +1045,9 @@ async function SaveTransactionItem(newTransaction: TransactionData): Promise<boo
   }
 }
 
-async function ClearTransactionData(){
+async function ClearTransactionData(userEmail: string){
   try {
-    storage.remove(transaction_items_key);
+    storage.remove(accountStorageKey(transaction_items_key, userEmail));
     return true;
   } catch (error) {
     console.error(error);
@@ -1034,15 +1056,15 @@ async function ClearTransactionData(){
   }
 }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange}: 
-  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void}){
+function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange, userEmail}: 
+  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void, userEmail: string}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
 
   const updateBudgetTitle = (text: string) => {
-    storage.set(title_key, text)
+    storage.set(accountStorageKey(title_key, userEmail), text)
   }
 
   useEffect(() => {
@@ -1248,11 +1270,11 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   const getCurrentBudget = async () =>{
       try {
-        const localBudgets = GetLocalBudgets();
+        const localBudgets = GetLocalBudgets(userEmail);
         if (localBudgets.length > 0) {
           setAvailableBudgets(localBudgets);
         }
-        const result = await GetBudget();
+        const result = await GetBudget(userEmail);
         if (result) {
           setBudgetId(result.budgetId || UUID());
           setBudgetTitle(result.name || '');
@@ -1266,7 +1288,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     };
 
     const loadAvailableBudgets = async () => {
-      const localBudgets = GetLocalBudgets();
+      const localBudgets = GetLocalBudgets(userEmail);
       setAvailableBudgets(localBudgets);
       try {
         const response = await fetch(`${apiUrl}/budgets`, { headers: apiHeaders() });
@@ -1289,7 +1311,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           }
           return budgets;
         }, [...localBudgets]);
-        SaveLocalBudgets(mergedBudgets);
+        SaveLocalBudgets(mergedBudgets, userEmail);
         setAvailableBudgets(mergedBudgets);
       } catch (error) {
         if (localBudgets.length === 0) {
@@ -1311,18 +1333,18 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         if (!response.ok) {
           throw new Error(result.error || 'Unable to switch budgets.');
         }
-        await ClearTransactionData();
+        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
         setBudgetData(result.budgetItems || []);
       } catch (error) {
-        const localBudget = GetLocalBudgets().find(
+        const localBudget = GetLocalBudgets(userEmail).find(
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (localBudget) {
-          await ClearTransactionData();
+          await ClearTransactionData(userEmail);
           setTransactionData([]);
           setBudgetId(localBudget.budgetId);
           setBudgetTitle(localBudget.name);
@@ -1347,13 +1369,13 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         throw new Error(result.error || 'Unable to load the shared budget.');
       }
 
-      await ClearTransactionData();
+      await ClearTransactionData(userEmail);
       setTransactionData([]);
       setBudgetId(result.budgetId);
       setBudgetTitle(result.name);
       setBudgetOwnerEmail(result.ownerEmail || userEmail);
       setBudgetData(result.budgetItems || []);
-      UpsertLocalBudget(result);
+      UpsertLocalBudget(result, userEmail);
       await loadAvailableBudgets();
       setShowMenuButtons(false);
     };
@@ -1370,14 +1392,14 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setBudgetTitle(newBudget.name);
       setBudgetData(newBudget.budgetItems);
       setTransactionData([]);
-      void SaveBudget(newBudget);
+      void SaveBudget(newBudget, userEmail);
       setAvailableBudgets((currentBudgets) => [newBudget, ...currentBudgets]);
-      UpsertLocalBudget(newBudget);
+      UpsertLocalBudget(newBudget, userEmail);
     };
 
   const getCurrentTransactions = async () => {
     try {
-      const result = storage.getString(transaction_items_key)
+      const result = storage.getString(accountStorageKey(transaction_items_key, userEmail))
       if (result){
         setTransactionData(
           (JSON.parse(result) as Partial<TransactionData>[]).map((transaction) => ({
@@ -1394,7 +1416,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   const clearCurrentTransactions = async () => {
     try {
-      await ClearTransactionData();
+      await ClearTransactionData(userEmail);
       setTransactionData([]);
     }
     catch (error) {
@@ -1404,7 +1426,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   
   const saveCurrentTransaction = async (newTransaction: TransactionData) => {
     try {
-      await SaveTransactionItem(newTransaction);
+      await SaveTransactionItem(newTransaction, userEmail);
       getCurrentTransactions();
     } catch (error) {
       console.log(error)
@@ -1425,7 +1447,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   }
   const getTitle = async () => {
       try{
-        const result = await GetBudgetTitle()
+        const result = await GetBudgetTitle(userEmail)
         if (result) setBudgetTitle(result)
       }
       catch (error){
@@ -1442,8 +1464,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   useEffect(() => {
     if (!budgetId || !budgetTitle.trim()) return;
-    void SaveBudget(budget);
-  }, [budgetId, budgetTitle, budgetData]);
+    void SaveBudget(budget, userEmail);
+  }, [budgetId, budgetTitle, budgetData, userEmail]);
 
   useEffect(() => {
     function checkIfShowCloseButton(){
@@ -1467,7 +1489,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       const oneMonthLater = new Date(itemDate.setMonth(itemDate.getMonth() + 1));
       return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]};
     });
-    SaveBudgetItems(emptyBudgetData);
+    SaveBudgetItems(emptyBudgetData, userEmail);
     setBudgetData(emptyBudgetData);
     setBudgetId(UUID());
     setBudgetTitle('');
@@ -1490,7 +1512,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         userEmail,
       })
       setBudgetData(updatedItem);
-      SaveBudgetItems(updatedItem);
+      SaveBudgetItems(updatedItem, userEmail);
   };
 
   const updateBudgetAmount = (id: string, newAmount: number) => {
@@ -1509,7 +1531,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         userEmail,
       })
       setBudgetData(updatedItem);
-      SaveBudgetItems(updatedItem);
+      SaveBudgetItems(updatedItem, userEmail);
   };
 
   const updateBudgetDescription = (id: string, newDescription: string) =>{
@@ -1529,7 +1551,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       userEmail,
     })
     setBudgetData(updatedItem);
-    SaveBudgetItems(updatedItem);
+    SaveBudgetItems(updatedItem, userEmail);
   };
   
 const updateBudgetDueDate = (id: string, newDate: Date) => {
@@ -1548,7 +1570,7 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
     userEmail,
   })
   setBudgetData(updatedItem);
-  SaveBudgetItems(updatedItem);
+  SaveBudgetItems(updatedItem, userEmail);
 }
 
 const removeBudgetItem = (id: string) => {
@@ -1563,7 +1585,7 @@ const removeBudgetItem = (id: string) => {
     })
   const updatedBudget = budgetData.filter(item => item.id !== id)
   setBudgetData(updatedBudget);
-  SaveBudgetItems(updatedBudget);
+  SaveBudgetItems(updatedBudget, userEmail);
 };
 
 
@@ -1581,7 +1603,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 userEmail,
               })
               setBudgetData(budgetDataWithAddedItem);
-              SaveBudgetItems(budgetDataWithAddedItem);              
+              SaveBudgetItems(budgetDataWithAddedItem, userEmail);
 }
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
@@ -1621,6 +1643,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 currentBudgetTitle={budgetTitle}
                 getTitleFunction={getTitle}
                 onTitleChange={recordBudgetTitleChange}
+                userEmail={userEmail}
                 />
             </View>
             <TableHeader />
@@ -1680,10 +1703,10 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   onPress={async () => {
                     const archived = await SaveBudgetItemToHistoryPage(budget);
                     if (!archived) return;
-                    const remainingBudgets = GetLocalBudgets().filter(
+                    const remainingBudgets = GetLocalBudgets(userEmail).filter(
                       (savedBudget) => savedBudget.budgetId !== budget.budgetId,
                     );
-                    SaveLocalBudgets(remainingBudgets);
+                    SaveLocalBudgets(remainingBudgets, userEmail);
                     setAvailableBudgets(remainingBudgets);
                     clearBudgetItems();
                     await clearCurrentTransactions();

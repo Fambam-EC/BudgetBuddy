@@ -43,7 +43,7 @@ const corsOptions = {
     'bypass-tunnel-reminder',
     'Access-Control-Allow-Origin',
   ],
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 200,
 };
 
 const SALT_ROUNDS = 10;
