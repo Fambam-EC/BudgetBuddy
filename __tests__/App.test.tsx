@@ -25,6 +25,8 @@ jest.mock('react-native', () => ({
   useColorScheme: () => 'light',
 }));
 
+jest.mock('react-native-get-random-values', () => ({}));
+
 jest.mock('../Helpers/storage', () => ({
   storage: {
     getString: jest.fn(() => undefined),
