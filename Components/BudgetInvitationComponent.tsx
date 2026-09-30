@@ -87,26 +87,25 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
 
   return (
     <View style={styles.container}>
-      <View style={styles.headingRow}>
-          <Text style={[styles.heading, styles.menuControlText]}>Budget Invitations</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isLoading ? 'Refreshing invitations' : 'Refresh invitations'}
-            onPress={loadInvitations}
-            disabled={isLoading}
-            style={styles.refreshButton}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#176b45" />
-            ) : (
-              <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
-            )}
-        </Pressable>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Budget invitations${invitations.length ? `, ${invitations.length} pending` : ''}`}
+        accessibilityState={{ busy: isLoading }}
+        onPress={loadInvitations}
+        disabled={isLoading}
+        style={styles.invitationButton}
+      >
+        <Text style={styles.headingText}>Budget Invitations</Text>
+        <View style={styles.refreshIcon}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#176b45" />
+          ) : (
+            <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
+          )}
+        </View>
+        {invitations.length > 0 && <Text style={styles.alertBadge}>!</Text>}
+      </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {!isLoading && invitations.length === 0 && !error ? (
-        <Text style={styles.empty}>No pending invitations</Text>
-      ) : null}
       {invitations.map((invitation) => (
         <View key={invitation.id} style={styles.invitation}>
           <Text style={styles.budgetName}>{invitation.budgetName}</Text>
@@ -137,34 +136,43 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
 
 const styles = StyleSheet.create({
   container: { alignItems: 'flex-start' },
-  headingRow: { alignItems: 'center', flexDirection: 'row' },
-    heading: {
-      borderColor: '#000',
-      borderRadius: 10,
-      borderWidth: 1,
-      marginHorizontal: 8,
-      marginVertical: 4,
-      padding: 10,
-    },
-    refreshButton: {
-      alignItems: 'center',
-      borderColor: '#000',
-      borderRadius: 10,
-      borderWidth: 1,
-      height: 40,
-      justifyContent: 'center',
-      marginHorizontal: 8,
-      marginVertical: 4,
-      width: 40,
-    },
-    menuControlText: { fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
+  invitationButton: {
+    alignItems: 'center',
+    borderColor: '#000',
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  headingText: { fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
+  refreshIcon: { alignItems: 'center', height: 24, justifyContent: 'center', marginLeft: 10, width: 24 },
+  alertBadge: {
+    alignItems: 'center',
+    backgroundColor: '#b42318',
+    borderColor: '#fff',
+    borderRadius: 9,
+    borderWidth: 1,
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    height: 18,
+    lineHeight: 16,
+    position: 'absolute',
+    right: -7,
+    textAlign: 'center',
+    top: -7,
+    width: 18,
+  },
   invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
   budgetName: { flex: 1 },
   actions: { flexDirection: 'row', gap: 14 },
   actionContent: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   accept: { color: '#176b45', fontWeight: 'bold' },
   reject: { color: '#a32f2f', fontWeight: 'bold' },
-  empty: { color: '#555', padding: 10 },
   error: { color: '#a32f2f', padding: 10 },
 });
 

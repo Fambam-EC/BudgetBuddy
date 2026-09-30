@@ -581,6 +581,7 @@ app.post('/share', requireAuthentication, async (req, res) => {
 
   const recipientEmail = email.trim().toLowerCase();
   let client;
+  let transactionOpen = false;
   try {
     await ensureBudgetTables();
     const budgetResult = await pool.query(
@@ -600,6 +601,7 @@ app.post('/share', requireAuthentication, async (req, res) => {
 
     client = await pool.connect();
     await client.query('BEGIN');
+    transactionOpen = true;
     await client.query(
       `DELETE FROM budget_invitations
        WHERE LOWER(email) = $1 AND budget_id = $2 AND invitation_status = 'pending'`,
@@ -613,6 +615,9 @@ app.post('/share', requireAuthentication, async (req, res) => {
       [recipientEmail, budgetId.trim(), budgetName],
     );
 
+    await client.query('COMMIT');
+    transactionOpen = false;
+
     await mailTransporter.sendMail({
       from: process.env.SMTP_FROM,
       to: recipientEmail,
@@ -621,10 +626,9 @@ app.post('/share', requireAuthentication, async (req, res) => {
       html: `<p>You have been invited to share the BudgetBuddy budget <strong>${safeBudgetName}</strong>.</p><p><a href="${inviteLink.toString()}">Open budget invitation</a></p>`,
     });
 
-    await client.query('COMMIT');
     return res.status(201).json(invitationResult.rows[0]);
   } catch (err) {
-    if (client) {
+    if (client && transactionOpen) {
       await client.query('ROLLBACK').catch((rollbackError) => {
         console.error('Budget invitation rollback failed', rollbackError);
       });
