@@ -1,5 +1,5 @@
 import 'react-native-get-random-values';
-import React, { useEffect, useState, createContext } from "react";
+import React, { useEffect, useRef, useState, createContext } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -1347,6 +1347,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
   const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
+  const skipInitialBudgetSave = useRef(false);
 
   const budget: Budget = {
     budgetId,
@@ -1356,26 +1357,52 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   };
   const [availableBudgets, setAvailableBudgets] = useState<Budget[]>([]);
 
-  const getCurrentBudget = async () =>{
-      try {
-        const localBudgets = GetLocalBudgets(userEmail);
-        if (localBudgets.length > 0) {
-          setAvailableBudgets(localBudgets);
-        }
-        const result = await GetBudget(userEmail);
-        if (result) {
-          setBudgetId(result.budgetId || UUID());
-          setBudgetTitle(result.name || '');
-          setBudgetOwnerEmail(result.ownerEmail || userEmail);
-          setBudgetData(result.budgetItems || []);
+  const getCurrentBudget = async () => {
+    try {
+      const localBudgets = GetLocalBudgets(userEmail);
+      if (localBudgets.length > 0) {
+        setAvailableBudgets(localBudgets);
+      }
+
+      let currentBudget = await GetBudget(userEmail);
+      if (currentBudget && !isLocalOnlyMode) {
+        const cachedBudget = currentBudget;
+        try {
+          const response = await fetch(
+            `${apiUrl}/budgets/${encodeURIComponent(cachedBudget.budgetId)}`,
+            { headers: apiHeaders() },
+          );
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to refresh the current budget.');
+          }
+          const refreshedBudget = result as Budget;
+          currentBudget = refreshedBudget;
+          UpsertLocalBudget(refreshedBudget, userEmail);
+          storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(refreshedBudget));
+          storage.set(
+            accountStorageKey(budget_items_key, userEmail),
+            JSON.stringify(refreshedBudget.budgetItems || []),
+          );
+          storage.set(accountStorageKey(title_key, userEmail), refreshedBudget.name);
+        } catch (error) {
+          console.log('Unable to refresh the current budget from the server', error);
         }
       }
-      catch (error) {
-        console.log(error)
-      } finally {
-        setIsLoadingBudget(false);
+
+      if (currentBudget) {
+        skipInitialBudgetSave.current = true;
+        setBudgetId(currentBudget.budgetId || UUID());
+        setBudgetTitle(currentBudget.name || '');
+        setBudgetOwnerEmail(currentBudget.ownerEmail || userEmail);
+        setBudgetData(currentBudget.budgetItems || []);
       }
-    };
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsLoadingBudget(false);
+    }
+  };
 
     const loadAvailableBudgets = async () => {
       const localBudgets = GetLocalBudgets(userEmail);
@@ -1566,27 +1593,31 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       userEmail,
     });
   }
+
   const getTitle = async () => {
-      try{
-        const result = await GetBudgetTitle(userEmail)
-        if (result) setBudgetTitle(result)
-      }
-      catch (error){
-        console.log(error)
-      }
-    };
+    try {
+      const result = await GetBudgetTitle(userEmail);
+      if (result) setBudgetTitle(result);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   useEffect(() => {
     getCurrentBudget();
     getCurrentTransactions();
-    getTitle();
     void loadAvailableBudgets();
   }, []);
 
   useEffect(() => {
+    if (isLoadingBudget) return;
+    if (skipInitialBudgetSave.current) {
+      skipInitialBudgetSave.current = false;
+      return;
+    }
     if (!budgetId || !budgetTitle.trim()) return;
     void SaveBudget(budget, userEmail);
-  }, [budgetId, budgetTitle, budgetData, userEmail]);
+  }, [budgetId, budgetTitle, budgetData, userEmail, isLoadingBudget]);
 
   useEffect(() => {
     function checkIfShowCloseButton(){
