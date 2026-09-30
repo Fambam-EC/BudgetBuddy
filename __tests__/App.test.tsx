@@ -27,6 +27,8 @@ jest.mock('react-native', () => ({
 
 jest.mock('react-native-get-random-values', () => ({}));
 
+jest.mock('@hugeicons/react-native', () => ({ HugeiconsIcon: 'HugeiconsIcon' }));
+
 jest.mock('../Helpers/storage', () => ({
   storage: {
     getString: jest.fn(() => undefined),
@@ -64,9 +66,18 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-test('renders correctly', async () => {
+test('starts in local web mode without making API requests', async () => {
   expect(typeof App).toBe('function');
-  await ReactTestRenderer.act(() => {
-    ReactTestRenderer.create(<App />);
-  });
+  const fetchMock = jest.fn();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchMock;
+
+  try {
+    await ReactTestRenderer.act(() => {
+      ReactTestRenderer.create(<App />);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

@@ -2,17 +2,22 @@ import React from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmailValidator from '../Helpers/EmailValidator';
 import { apiHeaders, apiUrl } from '../Helpers/api';
+import {
+    createLocalInvitation,
+    type LocalBudgetSnapshot,
+} from '../Helpers/localBudgetSharing';
 
 type ShareBudgetProps = {
+    localOnly?: boolean;
     budget: {
         budgetId: string;
         name: string;
-        budgetItems: unknown[];
+        budgetItems: LocalBudgetSnapshot['budgetItems'];
         ownerEmail: string;
     };
 };
 
-function ShareBudgetComponent({ budget }: ShareBudgetProps) {
+function ShareBudgetComponent({ budget, localOnly = false }: ShareBudgetProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
     const [isSendEnabled, setIsSendEnabled] = React.useState(false);
     const [isSending, setIsSending] = React.useState(false);
@@ -29,6 +34,13 @@ function ShareBudgetComponent({ budget }: ShareBudgetProps) {
 
         setIsSending(true);
         try {
+            if (localOnly) {
+                createLocalInvitation(inviteEmail, budget);
+                Alert.alert('Budget shared', 'The invitation was sent successfully.');
+                setModalVisible(false);
+                return;
+            }
+
             const budgetResponse = await fetch(`${apiUrl}/budgets`, {
                 method: 'POST',
                 headers: apiHeaders(true),

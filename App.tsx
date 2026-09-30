@@ -37,6 +37,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BudgetShareComponent from './Components/BudgetShareComponent';
 import BudgetInvitationComponent from './Components/BudgetInvitationComponent';
 import { BudgetProvider } from "./Helpers/BudgetDataContext";
+import { getAcceptedLocalBudget } from './Helpers/localBudgetSharing';
 import {v4 as UUID} from 'uuid';
 import { apiHeaders, apiUrl, authTokenKey } from './Helpers/api';
 
@@ -64,6 +65,8 @@ const budget_key = '@budget_key';
 const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const isLocalOnlyMode = Platform.OS === 'web';
+const localOnlyUserEmail = 'anonymous@budgetbuddy.local';
 
 function accountStorageKey(key: string, email: string): string {
   return `${key}:${encodeURIComponent(email.trim().toLowerCase())}`;
@@ -401,11 +404,13 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
-  const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(isLocalOnlyMode);
+  const [userEmail, setUserEmail] = useState(isLocalOnlyMode ? localOnlyUserEmail : '');
+  const [isRestoringSession, setIsRestoringSession] = useState(!isLocalOnlyMode);
 
   useEffect(() => {
+    if (isLocalOnlyMode) return;
+
     let isMounted = true;
     const restoreSession = async () => {
       const token = storage.getString(authTokenKey);
@@ -707,6 +712,10 @@ function HistoryComponent({userEmail}: {userEmail: string}){
     const getHistoryItems = async () => {
       setIsLoading(true);
       try {
+        if (isLocalOnlyMode) {
+          setHistoryItemsWithId(await GetBudgetHistoryItemsFromStorage(userEmail));
+          return;
+        }
         const response = await fetch(`${apiUrl}/history`, { headers: apiHeaders() });
         const result = await response.json();
         if (!response.ok) {
@@ -883,6 +892,7 @@ async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
   storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(budget));
   storage.set(accountStorageKey(budget_items_key, userEmail), JSON.stringify(budget.budgetItems));
   storage.set(accountStorageKey(title_key, userEmail), budget.name);
+  if (isLocalOnlyMode) return;
 
   try {
     const response = await fetch(`${apiUrl}/budgets`, {
@@ -1045,6 +1055,16 @@ async function SaveBudgetItems(budgetItems: BudgetData[], userEmail: string){
 
 async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
   try {
+    if (isLocalOnlyMode) {
+      const historyId = UUID();
+      storage.set(`${accountHistoryPrefix(budget.ownerEmail)}${historyId}`, JSON.stringify({
+        budgetId: budget.budgetId,
+        budgetName: budget.name,
+        items: budget.budgetItems,
+      }));
+      return true;
+    }
+
     const saveResponse = await fetch(`${apiUrl}/budgets`, {
       method: 'POST',
       headers: apiHeaders(true),
@@ -1360,6 +1380,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     const loadAvailableBudgets = async () => {
       const localBudgets = GetLocalBudgets(userEmail);
       setAvailableBudgets(localBudgets);
+      if (isLocalOnlyMode) return;
+
       try {
         const response = await fetch(`${apiUrl}/budgets`, { headers: apiHeaders() });
         const result = await response.json();
@@ -1394,6 +1416,20 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     };
 
     const switchBudget = async (selectedBudget: Budget) => {
+      if (isLocalOnlyMode) {
+        const localBudget = GetLocalBudgets(userEmail).find(
+          (budget) => budget.budgetId === selectedBudget.budgetId,
+        );
+        if (!localBudget) return;
+        await ClearTransactionData(userEmail);
+        setTransactionData([]);
+        setBudgetId(localBudget.budgetId);
+        setBudgetTitle(localBudget.name);
+        setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
+        setBudgetData(localBudget.budgetItems || []);
+        return;
+      }
+
       try {
         const response = await fetch(
           `${apiUrl}/budgets/${encodeURIComponent(selectedBudget.budgetId)}`,
@@ -1430,6 +1466,21 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     };
 
     const loadAcceptedBudget = async (invitation: {budgetId: string}) => {
+      if (isLocalOnlyMode) {
+        const result = getAcceptedLocalBudget(userEmail, invitation.budgetId);
+        if (!result) throw new Error('Unable to load the shared budget.');
+        await ClearTransactionData(userEmail);
+        setTransactionData([]);
+        setBudgetId(result.budgetId);
+        setBudgetTitle(result.name);
+        setBudgetOwnerEmail(result.ownerEmail || userEmail);
+        setBudgetData(result.budgetItems || []);
+        UpsertLocalBudget(result, userEmail);
+        await loadAvailableBudgets();
+        setShowMenuButtons(false);
+        return;
+      }
+
       const response = await fetch(
         `${apiUrl}/budgets/${encodeURIComponent(invitation.budgetId)}`,
         { headers: apiHeaders() },
@@ -1688,7 +1739,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               </Pressable>
               {showMenuButtons && (
                 <View style={{flexDirection: 'column'}}>
-                  <LogOutButton onLogout={onLogout}/>         
+                  {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
                   <HistoryButton navigation={navigation}/>
                   <BudgetSwitcher
                     budgets={availableBudgets}
@@ -1699,10 +1750,14 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   />
                   {budgetOwnerEmail.toLowerCase() === userEmail.toLowerCase() && (
                     <BudgetProvider budgetId={budget.budgetId} budgetName={budget.name}>
-                      <BudgetShareComponent budget={budget} />
+                      <BudgetShareComponent budget={budget} localOnly={isLocalOnlyMode} />
                     </BudgetProvider>
                   )}
-                  <BudgetInvitationComponent email={userEmail} onBudgetAccepted={loadAcceptedBudget} />
+                  <BudgetInvitationComponent
+                    email={userEmail}
+                    localOnly={isLocalOnlyMode}
+                    onBudgetAccepted={loadAcceptedBudget}
+                  />
                 </View>
               )}
             </View>

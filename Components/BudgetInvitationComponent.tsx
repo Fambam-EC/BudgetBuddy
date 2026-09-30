@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { RefreshCwIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react-native';
 import { apiHeaders, apiUrl } from '../Helpers/api';
+import {
+  listLocalInvitations,
+  updateLocalInvitation,
+  type LocalInvitation,
+} from '../Helpers/localBudgetSharing';
 
-type Invitation = {
-  id: number;
-  email: string;
-  budgetId: string;
-  budgetName: string;
-};
+type Invitation = Pick<LocalInvitation, 'id' | 'email' | 'budgetId' | 'budgetName'>;
 
 type BudgetInvitationProps = {
   email: string;
+  localOnly?: boolean;
   onBudgetAccepted?: (invitation: Invitation) => Promise<void>;
 };
 
-function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitationProps) {
+function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted }: BudgetInvitationProps) {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
@@ -24,6 +27,11 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
     setIsLoading(true);
     setError('');
     try {
+      if (localOnly) {
+        setInvitations(listLocalInvitations(email));
+        return;
+      }
+
       const response = await fetch(`${apiUrl}/invites`, {
         headers: apiHeaders(),
       });
@@ -47,6 +55,15 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
     setBusyInvitationId(invitation.id);
     setError('');
     try {
+      if (localOnly) {
+        updateLocalInvitation(invitation.id, email, status);
+        setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+        if (status === 'accepted' && onBudgetAccepted) {
+          await onBudgetAccepted(invitation);
+        }
+        return;
+      }
+
       const response = await fetch(`${apiUrl}/invites/${invitation.id}`, {
         method: 'PATCH',
         headers: apiHeaders(true),
@@ -71,12 +88,19 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
-        <Text style={styles.heading}>Budget Invitations</Text>
-        <Pressable accessibilityRole="button" onPress={loadInvitations} disabled={isLoading}>
-          <View style={styles.refreshContent}>
-            {isLoading && <ActivityIndicator size="small" />}
-            <Text style={styles.refresh}>{isLoading ? 'Loading...' : 'Refresh'}</Text>
-          </View>
+          <Text style={[styles.heading, styles.menuControlText]}>Budget Invitations</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isLoading ? 'Refreshing invitations' : 'Refresh invitations'}
+            onPress={loadInvitations}
+            disabled={isLoading}
+            style={styles.refreshButton}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#176b45" />
+            ) : (
+              <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
+            )}
         </Pressable>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -114,9 +138,26 @@ function BudgetInvitationComponent({ email, onBudgetAccepted }: BudgetInvitation
 const styles = StyleSheet.create({
   container: { alignItems: 'flex-start' },
   headingRow: { alignItems: 'center', flexDirection: 'row' },
-  heading: { borderColor: '#000', borderWidth: 1, fontWeight: 'bold', padding: 10 },
-  refresh: { color: '#176b45', fontWeight: 'bold', padding: 10 },
-  refreshContent: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+    heading: {
+      borderColor: '#000',
+      borderRadius: 10,
+      borderWidth: 1,
+      marginHorizontal: 8,
+      marginVertical: 4,
+      padding: 10,
+    },
+    refreshButton: {
+      alignItems: 'center',
+      borderColor: '#000',
+      borderRadius: 10,
+      borderWidth: 1,
+      height: 40,
+      justifyContent: 'center',
+      marginHorizontal: 8,
+      marginVertical: 4,
+      width: 40,
+    },
+    menuControlText: { fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
   invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
   budgetName: { flex: 1 },
   actions: { flexDirection: 'row', gap: 14 },

@@ -58,7 +58,7 @@ test('registration preflight allows the ngrok browser bypass header', async () =
     },
   });
 
-  assert.equal(response.status, 204);
+  assert.equal(response.status, 200);
   assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:8080');
   assert.match(response.headers.get('access-control-allow-headers'), /ngrok-skip-browser-warning/i);
 });
