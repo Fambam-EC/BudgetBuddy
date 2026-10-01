@@ -192,6 +192,53 @@ app.get('/api/users', requireAuthentication, async (req, res) => {
   }
 });
 
+app.delete('/account', requireAuthentication, async (req, res) => {
+  let client;
+  try {
+    await ensureUsersTable();
+    await ensurePasswordResetTokensTable();
+    await ensureBudgetTables();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query(
+      'DELETE FROM budgets WHERE LOWER(owner_email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM budget_history WHERE LOWER(owner_email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM budget_invitations WHERE LOWER(email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM password_reset_tokens WHERE LOWER(email) = $1',
+      [req.user.email],
+    );
+    const result = await client.query(
+      'DELETE FROM users WHERE LOWER(email) = $1 RETURNING email',
+      [req.user.email],
+    );
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    await client.query('COMMIT');
+    return res.status(200).json({ message: 'Account deleted' });
+  } catch (err) {
+    if (client) {
+      await client.query('ROLLBACK').catch((rollbackError) => {
+        console.error('Account deletion rollback failed', rollbackError);
+      });
+    }
+    console.error('Account deletion failed', err);
+    return res.status(500).json({ error: 'Unable to delete account' });
+  } finally {
+    client?.release();
+  }
+});
+
 app.post('/register', async (req, res) => {
   try{
     await ensureUsersTable();

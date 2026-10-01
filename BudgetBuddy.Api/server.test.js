@@ -74,6 +74,76 @@ test('budget endpoints reject requests without a JWT', async () => {
   assert.equal(response.status, 401);
 });
 
+test('account deletion removes owned data and the account in one transaction', async () => {
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const queries = [];
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+  pool.connect = async () => ({
+    query: async (statement, parameters) => {
+      const query = String(statement).trim();
+      queries.push({ query, parameters });
+      if (query.startsWith('DELETE FROM users')) {
+        return { rows: [{ email: 'person@example.com' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 1 };
+    },
+    release: () => {},
+  });
+
+  try {
+    const token = jwt.sign({ sub: 'Person@Example.com' }, process.env.JWT_SECRET);
+    const response = await fetch(`${baseUrl}/account`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { message: 'Account deleted' });
+    assert.equal(queries[0].query, 'BEGIN');
+    assert.match(queries[1].query, /DELETE FROM budgets WHERE LOWER\(owner_email\) = \$1/);
+    assert.match(queries[2].query, /DELETE FROM budget_history WHERE LOWER\(owner_email\) = \$1/);
+    assert.match(queries[3].query, /DELETE FROM budget_invitations WHERE LOWER\(email\) = \$1/);
+    assert.match(queries[4].query, /DELETE FROM password_reset_tokens WHERE LOWER\(email\) = \$1/);
+    assert.match(queries[5].query, /DELETE FROM users WHERE LOWER\(email\) = \$1 RETURNING email/);
+    assert.ok(queries.slice(1, 6).every(({ parameters }) => parameters[0] === 'person@example.com'));
+    assert.equal(queries[6].query, 'COMMIT');
+  } finally {
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+  }
+});
+
+test('account deletion rolls back when the account is not found', async () => {
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const queries = [];
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+  pool.connect = async () => ({
+    query: async (statement) => {
+      const query = String(statement).trim();
+      queries.push(query);
+      return { rows: [], rowCount: query.startsWith('DELETE FROM users') ? 0 : 1 };
+    },
+    release: () => {},
+  });
+
+  try {
+    const token = jwt.sign({ sub: 'person@example.com' }, process.env.JWT_SECRET);
+    const response = await fetch(`${baseUrl}/account`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'Account not found' });
+    assert.equal(queries.at(-1), 'ROLLBACK');
+  } finally {
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+  }
+});
+
 test('password reset consumes a valid token and updates the password in one transaction', async () => {
   const originalQuery = pool.query;
   const originalConnect = pool.connect;

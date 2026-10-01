@@ -1,6 +1,8 @@
 # BudgetBuddy
 BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
 
+The standalone [BudgetBuddy Privacy Policy](./privacy-policy.html) describes the app's current data practices.
+
 ## Architecture
 
 - `App.tsx` contains the shared React Native experience.

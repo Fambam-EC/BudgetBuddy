@@ -77,6 +77,21 @@ function accountHistoryPrefix(email: string): string {
   return `HI:${encodeURIComponent(email.trim().toLowerCase())}:`;
 }
 
+function clearLocalAccountData(email: string): void {
+  const scopedKeys = [
+    title_key,
+    budget_items_key,
+    budget_key,
+    budgets_key,
+    transaction_items_key,
+  ].map((key) => accountStorageKey(key, email));
+  const historyPrefix = accountHistoryPrefix(email);
+  const keysToRemove = storage.getAllKeys().filter(
+    (key) => scopedKeys.includes(key) || key.startsWith(historyPrefix),
+  );
+  keysToRemove.forEach((key) => storage.remove(key));
+}
+
 function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
   return(<Stack.Navigator initialRouteName="Budget Buddy">
       <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
@@ -1299,7 +1314,7 @@ async function ClearTransactionData(userEmail: string){
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange, userEmail}: 
   {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void, userEmail: string}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
-  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [totalIncomeInput, setTotalIncomeInput] = useState(totalIncomeAmount.toFixed(2));
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
 
@@ -1331,20 +1346,24 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
       }
         />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $
-            <TextInput
+        <View style={[styles.row, styles.center]}>
+          <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $</Text>
+          <TextInput
             style={[styles.zeroWidthForPadding, styles.headerFontSize]}
-        placeholder="Total Income"
-        keyboardType={'number-pad'}
-        value={totalSetBudgetAmount.toFixed(2).toString()}
-        onChangeText={(amount) => setTotalBudgetAmount(Number(amount))}
-        onSubmitEditing={() => {
-          setTotalBudgetAmount(Number(totalSetBudgetAmount))
-          setPotentialSurplus(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0))
-          setIsEditingTotal(false)
-        }}
-        />
-        </Text>
+            placeholder="Total Income"
+            keyboardType="decimal-pad"
+            value={totalIncomeInput}
+            onChangeText={(amount) => {
+              setTotalIncomeInput(amount);
+              const parsedAmount = Number(amount);
+              if (amount.trim() !== '' && Number.isFinite(parsedAmount)) {
+                setTotalBudgetAmount(parsedAmount);
+                setPotentialSurplus(parsedAmount - (budgetedTotal ? budgetedTotal : 0));
+              }
+            }}
+            onEndEditing={() => setTotalIncomeInput(totalSetBudgetAmount.toFixed(2))}
+          />
+        </View>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.row, styles.center]}>
@@ -1499,6 +1518,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
   const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
   const skipInitialBudgetSave = useRef(false);
 
@@ -1913,6 +1933,40 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
+
+  const deleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const response = await fetch(`${apiUrl}/account`, {
+        method: 'DELETE',
+        headers: apiHeaders(),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to delete account.');
+      }
+
+      try {
+        clearLocalAccountData(userEmail);
+      } catch (error) {
+        console.error('Account was deleted, but local data could not be cleared', error);
+        Alert.alert(
+          'Account deleted',
+          'Your account was deleted, but some data could not be removed from this device. Clear the app data in your device settings.',
+        );
+      }
+      setShowMenuButtons(false);
+      onLogout();
+    } catch (error) {
+      Alert.alert(
+        'Unable to delete account',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
     return (
             <View style={[styles.flex, styles.backgroundColor]}>  
             <View style={styles.flexStart}>
@@ -1924,6 +1978,12 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               {showMenuButtons && (
                 <View style={{flexDirection: 'column'}}>
                   {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
+                  {!isLocalOnlyMode && (
+                    <DeleteAccountButton
+                      onDelete={deleteAccount}
+                      isDeleting={isDeletingAccount}
+                    />
+                  )}
                   <HistoryButton navigation={navigation}/>
                   <BudgetSwitcher
                     budgets={availableBudgets}
@@ -2049,6 +2109,32 @@ function LogOutButton( {onLogout}: {onLogout: () => void}){
       <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Log Out</Text>
     </Pressable>
   </View>);
+}
+
+function DeleteAccountButton({onDelete, isDeleting}: {
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, all budgets you own, and your archived budget history. Budgets shared with you may still belong to their owners.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Delete Account', style: 'destructive', onPress: onDelete},
+      ],
+    );
+  };
+
+  return (
+    <View style={[styles.flexStart]}>
+      <Pressable onPress={confirmDelete} disabled={isDeleting}>
+        <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText, {color: 'red'}]}>
+          {isDeleting ? 'Deleting Account...' : 'Delete Account'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 
