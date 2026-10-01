@@ -1346,10 +1346,10 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
       }
         />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
-        <View style={[styles.row, styles.center]}>
-          <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $</Text>
+        <View style={[styles.row, styles.center, {alignSelf: 'center'}]}>
+          <Text style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}>Total Income: $</Text>
           <TextInput
-            style={[styles.zeroWidthForPadding, styles.headerFontSize]}
+            style={[styles.zeroWidthForPadding, styles.headerFontSize, {flex: 0, textAlign: 'center'}]}
             placeholder="Total Income"
             keyboardType="decimal-pad"
             value={totalIncomeInput}
@@ -1977,13 +1977,6 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               </Pressable>
               {showMenuButtons && (
                 <View style={{flexDirection: 'column'}}>
-                  {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
-                  {!isLocalOnlyMode && (
-                    <DeleteAccountButton
-                      onDelete={deleteAccount}
-                      isDeleting={isDeletingAccount}
-                    />
-                  )}
                   <HistoryButton navigation={navigation}/>
                   <BudgetSwitcher
                     budgets={availableBudgets}
@@ -2002,6 +1995,13 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                     localOnly={isLocalOnlyMode}
                     onBudgetAccepted={loadAcceptedBudget}
                   />
+                  {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
+                  {!isLocalOnlyMode && (
+                    <DeleteAccountButton
+                      onDelete={deleteAccount}
+                      isDeleting={isDeletingAccount}
+                    />
+                  )}
                 </View>
               )}
             </View>
