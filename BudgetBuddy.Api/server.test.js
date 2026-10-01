@@ -2,16 +2,12 @@ const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-api-tests';
-process.env.SMTP_HOST = process.env.SMTP_HOST || 'smtp.test';
-process.env.SMTP_FROM = process.env.SMTP_FROM || 'budgetbuddy@example.com';
+process.env.MAILJET_API_KEY = process.env.MAILJET_API_KEY || 'test-api-key';
+process.env.MAILJET_API_SECRET = process.env.MAILJET_API_SECRET || 'test-secret-key';
+process.env.MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL || 'budgetbuddy@example.com';
 process.env.BUDGET_INVITE_URL = process.env.BUDGET_INVITE_URL || 'https://example.com/invite';
 
-const nodemailer = require('nodemailer');
-const originalCreateTransport = nodemailer.createTransport;
-const mailTransporter = { sendMail: async () => ({}) };
-nodemailer.createTransport = () => mailTransporter;
 const { app, initializeDatabase, pool } = require('./server');
-nodemailer.createTransport = originalCreateTransport;
 const jwt = require('jsonwebtoken');
 let server;
 let baseUrl;
@@ -80,7 +76,7 @@ test('budget endpoints reject requests without a JWT', async () => {
 test('budget invitation is committed before its email is sent', async () => {
   const originalQuery = pool.query;
   const originalConnect = pool.connect;
-  const originalSendMail = mailTransporter.sendMail;
+  const originalFetch = global.fetch;
   const events = [];
   pool.query = async (statement) => {
     if (String(statement).includes('SELECT name, owner_email FROM budgets')) {
@@ -107,9 +103,19 @@ test('budget invitation is committed before its email is sent', async () => {
     },
     release: () => {},
   });
-  mailTransporter.sendMail = async () => {
+  global.fetch = async (url, options) => {
+    if (url !== 'https://api.mailjet.com/v3.1/send') {
+      return originalFetch(url, options);
+    }
     events.push('EMAIL');
-    return {};
+    assert.equal(options.method, 'POST');
+    assert.equal(
+      options.headers.Authorization,
+      `Basic ${Buffer.from('test-api-key:test-secret-key').toString('base64')}`,
+    );
+    const request = JSON.parse(options.body);
+    assert.equal(request.Messages[0].To[0].Email, 'recipient@example.com');
+    return { ok: true, status: 200 };
   };
 
   try {
@@ -132,6 +138,6 @@ test('budget invitation is committed before its email is sent', async () => {
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;
-    mailTransporter.sendMail = originalSendMail;
+    global.fetch = originalFetch;
   }
 });

@@ -4,7 +4,6 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -63,17 +62,43 @@ const pool = new Pool({
 const resetTokenLifetimeMinutes = 30;
 const passwordResetUrl = process.env.PASSWORD_RESET_URL;
 const budgetInviteUrl = process.env.BUDGET_INVITE_URL;
-const mailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: process.env.SMTP_USER
-    ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      }
-    : undefined,
-});
+
+const isMailjetConfigured = () =>
+  Boolean(
+    process.env.MAILJET_API_KEY &&
+    process.env.MAILJET_API_SECRET &&
+    process.env.MAILJET_FROM_EMAIL,
+  );
+
+async function sendEmail({ to, subject, text, html }) {
+  const response = await fetch('https://api.mailjet.com/v3.1/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(
+        `${process.env.MAILJET_API_KEY}:${process.env.MAILJET_API_SECRET}`,
+      ).toString('base64')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      Messages: [
+        {
+          From: {
+            Email: process.env.MAILJET_FROM_EMAIL,
+            Name: process.env.MAILJET_FROM_NAME || 'BudgetBuddy',
+          },
+          To: [{ Email: to }],
+          Subject: subject,
+          TextPart: text,
+          HTMLPart: html,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Mailjet email request failed with status ${response.status}`);
+  }
+}
 
 const hashResetToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
@@ -298,9 +323,9 @@ app.post('/forgot-password', async (req, res) => {
       return res.status(200).json(genericResponse);
     }
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_FROM || !passwordResetUrl) {
+    if (!isMailjetConfigured() || !passwordResetUrl) {
       console.error(
-        'Password reset email is not configured. Set SMTP_HOST, SMTP_FROM, and PASSWORD_RESET_URL.',
+        'Password reset email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and PASSWORD_RESET_URL.',
       );
       return res.status(503).json({ error: 'Password reset email is temporarily unavailable' });
     }
@@ -321,8 +346,7 @@ app.post('/forgot-password', async (req, res) => {
       'INSERT INTO password_reset_tokens (token_hash, email, expires_at) VALUES ($1, $2, $3)',
       [tokenHash, email.trim(), expiresAt],
     );
-    await mailTransporter.sendMail({
-      from: process.env.SMTP_FROM,
+    await sendEmail({
       to: email.trim(),
       subject: 'Reset your BudgetBuddy password',
       text: `Use this link to reset your BudgetBuddy password: ${resetLink.toString()}\n\nThis link expires in ${resetTokenLifetimeMinutes} minutes.`,
@@ -563,9 +587,9 @@ app.post('/share', requireAuthentication, async (req, res) => {
     return res.status(400).json({ error: 'A valid email and budgetId are required' });
   }
 
-  if (!process.env.SMTP_HOST || !process.env.SMTP_FROM || !budgetInviteUrl) {
+  if (!isMailjetConfigured() || !budgetInviteUrl) {
     console.error(
-      'Budget invitation email is not configured. Set SMTP_HOST, SMTP_FROM, and BUDGET_INVITE_URL.',
+      'Budget invitation email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and BUDGET_INVITE_URL.',
     );
     return res.status(503).json({ error: 'Budget invitations are temporarily unavailable' });
   }
@@ -618,8 +642,7 @@ app.post('/share', requireAuthentication, async (req, res) => {
     await client.query('COMMIT');
     transactionOpen = false;
 
-    await mailTransporter.sendMail({
-      from: process.env.SMTP_FROM,
+    await sendEmail({
       to: recipientEmail,
       subject: `You're invited to share "${budgetName}" on BudgetBuddy`,
       text: `You have been invited to share the BudgetBuddy budget "${budgetName}". Open this link to view the invitation: ${inviteLink.toString()}`,
