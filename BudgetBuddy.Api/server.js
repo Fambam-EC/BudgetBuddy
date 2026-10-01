@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -62,6 +63,7 @@ const pool = new Pool({
 const resetTokenLifetimeMinutes = 30;
 const passwordResetUrl = process.env.PASSWORD_RESET_URL;
 const budgetInviteUrl = process.env.BUDGET_INVITE_URL;
+const mailjetSmtpPort = Number(process.env.MAILJET_SMTP_PORT) || 587;
 
 const isMailjetConfigured = () =>
   Boolean(
@@ -71,33 +73,27 @@ const isMailjetConfigured = () =>
   );
 
 async function sendEmail({ to, subject, text, html }) {
-  const response = await fetch('https://api.mailjet.com/v3.1/send', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(
-        `${process.env.MAILJET_API_KEY}:${process.env.MAILJET_API_SECRET}`,
-      ).toString('base64')}`,
-      'Content-Type': 'application/json',
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAILJET_SMTP_HOST || 'in-v3.mailjet.com',
+    port: mailjetSmtpPort,
+    secure: mailjetSmtpPort === 465,
+    requireTLS: mailjetSmtpPort !== 465,
+    auth: {
+      user: process.env.MAILJET_API_KEY,
+      pass: process.env.MAILJET_API_SECRET,
     },
-    body: JSON.stringify({
-      Messages: [
-        {
-          From: {
-            Email: process.env.MAILJET_FROM_EMAIL,
-            Name: process.env.MAILJET_FROM_NAME || 'BudgetBuddy',
-          },
-          To: [{ Email: to }],
-          Subject: subject,
-          TextPart: text,
-          HTMLPart: html,
-        },
-      ],
-    }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Mailjet email request failed with status ${response.status}`);
-  }
+  await transporter.sendMail({
+    from: {
+      name: process.env.MAILJET_FROM_NAME || 'BudgetBuddy',
+      address: process.env.MAILJET_FROM_EMAIL,
+    },
+    to,
+    subject,
+    text,
+    html,
+  });
 }
 
 const hashResetToken = (token) =>
@@ -313,10 +309,11 @@ app.post('/forgot-password', async (req, res) => {
 
   try {
     await ensurePasswordResetTokensTable();
+    const normalizedEmail = email.trim().toLowerCase();
 
     const result = await pool.query(
       'SELECT email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-      [email.trim()],
+      [normalizedEmail],
     );
 
     if (result.rowCount === 0) {
@@ -337,26 +334,87 @@ app.post('/forgot-password', async (req, res) => {
     );
     const resetLink = new URL(passwordResetUrl);
     resetLink.searchParams.set('token', token);
-    resetLink.searchParams.set('email', email.trim());
+    resetLink.searchParams.set('email', normalizedEmail);
 
-    await pool.query('DELETE FROM password_reset_tokens WHERE email = $1 OR expires_at < NOW()', [
-      email.trim(),
-    ]);
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE LOWER(email) = $1 OR expires_at < NOW()',
+      [normalizedEmail],
+    );
     await pool.query(
       'INSERT INTO password_reset_tokens (token_hash, email, expires_at) VALUES ($1, $2, $3)',
-      [tokenHash, email.trim(), expiresAt],
+      [tokenHash, normalizedEmail, expiresAt],
     );
     await sendEmail({
-      to: email.trim(),
+      to: normalizedEmail,
       subject: 'Reset your BudgetBuddy password',
       text: `Use this link to reset your BudgetBuddy password: ${resetLink.toString()}\n\nThis link expires in ${resetTokenLifetimeMinutes} minutes.`,
-      html: `<p>Use the link below to reset your BudgetBuddy password.</p><p><a href="${resetLink.toString()}">Reset password</a></p><p>This link expires in ${resetTokenLifetimeMinutes} minutes.</p>`,
+      html: `<p>Use the link below to reset your BudgetBuddy password.</p><p><a href="${escapeHtml(resetLink.toString())}">Reset password</a></p><p>This link expires in ${resetTokenLifetimeMinutes} minutes.</p>`,
     });
 
     return res.status(200).json(genericResponse);
   } catch (err) {
     console.error('Password reset request failed', err);
     return res.status(500).json({ error: 'Unable to send password reset email' });
+  }
+});
+
+app.post('/reset-password', async (req, res) => {
+  const { email, token, password } = req.body || {};
+  if (
+    !isValidEmail(email) ||
+    typeof token !== 'string' ||
+    !/^[a-f0-9]{64}$/i.test(token) ||
+    typeof password !== 'string' ||
+    password.length < 6
+  ) {
+    return res.status(400).json({
+      error: 'A valid email, reset token, and password of at least 6 characters are required',
+    });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const tokenHash = hashResetToken(token);
+  let client;
+  try {
+    await ensureUsersTable();
+    await ensurePasswordResetTokensTable();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const tokenResult = await client.query(
+      `DELETE FROM password_reset_tokens
+       WHERE token_hash = $1 AND LOWER(email) = $2 AND expires_at > NOW()
+       RETURNING email`,
+      [tokenHash, normalizedEmail],
+    );
+    if (tokenResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid or expired password reset link' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const userResult = await client.query(
+      'UPDATE users SET password_hash = $1 WHERE LOWER(email) = $2',
+      [passwordHash, normalizedEmail],
+    );
+    if (userResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Unable to reset password for this account' });
+    }
+
+    await client.query('COMMIT');
+    return res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Password reset rollback failed', rollbackError);
+      }
+    }
+    console.error('Password reset failed', err);
+    return res.status(500).json({ error: 'Unable to reset password' });
+  } finally {
+    if (client) client.release();
   }
 });
 

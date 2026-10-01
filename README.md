@@ -25,7 +25,7 @@ npm install
 npm start
 ```
 
-Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure SMTP settings and `BUDGET_INVITE_URL` to enable email invitations. Never commit `.env` files.
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `MAILJET_API_KEY`, `MAILJET_API_SECRET`, and `MAILJET_FROM_EMAIL` to send email through Mailjet SMTP (`in-v3.mailjet.com:587` by default). `MAILJET_SMTP_HOST` and `MAILJET_SMTP_PORT` can override the SMTP endpoint. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
 
 To expose the API, run `ngrok http 3000`, set `apiUrl` in `Helpers/api.ts` to the resulting HTTPS URL, and add the web app origin to `CORS_ORIGINS` in the API environment. Restart the API after changing its environment.
 

@@ -9,6 +9,7 @@ process.env.BUDGET_INVITE_URL = process.env.BUDGET_INVITE_URL || 'https://exampl
 
 const { app, initializeDatabase, pool } = require('./server');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 let server;
 let baseUrl;
 
@@ -73,10 +74,93 @@ test('budget endpoints reject requests without a JWT', async () => {
   assert.equal(response.status, 401);
 });
 
+test('password reset consumes a valid token and updates the password in one transaction', async () => {
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const queries = [];
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+  pool.connect = async () => ({
+    query: async (statement, parameters) => {
+      const query = String(statement).trim();
+      queries.push({ query, parameters });
+      if (query.startsWith('DELETE FROM password_reset_tokens')) {
+        return { rows: [{ email: 'person@example.com' }], rowCount: 1 };
+      }
+      if (query.startsWith('UPDATE users SET password_hash')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release: () => {},
+  });
+
+  try {
+    const response = await fetch(`${baseUrl}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'Person@Example.com',
+        token: 'a'.repeat(64),
+        password: 'new-password',
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).message, 'Password has been reset successfully');
+    assert.equal(queries[0].query, 'BEGIN');
+    assert.match(queries[1].query, /DELETE FROM password_reset_tokens/);
+    assert.equal(queries[1].parameters[1], 'person@example.com');
+    assert.match(queries[2].query, /UPDATE users SET password_hash/);
+    assert.equal(queries[2].parameters[1], 'person@example.com');
+    assert.equal(queries[3].query, 'COMMIT');
+  } finally {
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+  }
+});
+
+test('password reset rejects expired or already-used tokens without changing a password', async () => {
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const queries = [];
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+  pool.connect = async () => ({
+    query: async (statement) => {
+      const query = String(statement).trim();
+      queries.push(query);
+      return { rows: [], rowCount: 0 };
+    },
+    release: () => {},
+  });
+
+  try {
+    const response = await fetch(`${baseUrl}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'person@example.com',
+        token: 'b'.repeat(64),
+        password: 'new-password',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: 'Invalid or expired password reset link',
+    });
+    assert.equal(queries[0], 'BEGIN');
+    assert.match(queries[1], /DELETE FROM password_reset_tokens/);
+    assert.equal(queries[2], 'ROLLBACK');
+  } finally {
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+  }
+});
+
 test('budget invitation is committed before its email is sent', async () => {
   const originalQuery = pool.query;
   const originalConnect = pool.connect;
-  const originalFetch = global.fetch;
+  const originalCreateTransport = nodemailer.createTransport;
   const events = [];
   pool.query = async (statement) => {
     if (String(statement).includes('SELECT name, owner_email FROM budgets')) {
@@ -103,19 +187,20 @@ test('budget invitation is committed before its email is sent', async () => {
     },
     release: () => {},
   });
-  global.fetch = async (url, options) => {
-    if (url !== 'https://api.mailjet.com/v3.1/send') {
-      return originalFetch(url, options);
-    }
-    events.push('EMAIL');
-    assert.equal(options.method, 'POST');
-    assert.equal(
-      options.headers.Authorization,
-      `Basic ${Buffer.from('test-api-key:test-secret-key').toString('base64')}`,
-    );
-    const request = JSON.parse(options.body);
-    assert.equal(request.Messages[0].To[0].Email, 'recipient@example.com');
-    return { ok: true, status: 200 };
+  nodemailer.createTransport = (options) => {
+    assert.equal(options.host, 'in-v3.mailjet.com');
+    assert.equal(options.port, 587);
+    assert.equal(options.secure, false);
+    assert.equal(options.requireTLS, true);
+    assert.equal(options.auth.user, 'test-api-key');
+    assert.equal(options.auth.pass, 'test-secret-key');
+    return {
+      sendMail: async (message) => {
+        events.push('EMAIL');
+        assert.equal(message.to, 'recipient@example.com');
+        assert.equal(message.from.address, 'budgetbuddy@example.com');
+      },
+    };
   };
 
   try {
@@ -138,6 +223,6 @@ test('budget invitation is committed before its email is sent', async () => {
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;
-    global.fetch = originalFetch;
+    nodemailer.createTransport = originalCreateTransport;
   }
 });

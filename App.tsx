@@ -13,6 +13,7 @@ import {
   Alert,
   Pressable,
   Modal,
+  Linking,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity
@@ -281,6 +282,111 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
   );
 }
 
+function ResetPasswordScreen({
+  email,
+  token,
+  onComplete,
+}: {
+  email: string;
+  token: string;
+  onComplete: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (password.length < 6) {
+      Alert.alert('Invalid password', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Passwords do not match', 'Please enter the same password twice.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${apiUrl}/reset-password`, {
+        method: 'POST',
+        headers: apiHeaders(true),
+        body: JSON.stringify({email, token, password}),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to reset your password.');
+      }
+
+      Alert.alert('Password updated', 'You can now log in with your new password.', [
+        {text: 'Back to login', onPress: onComplete},
+      ]);
+    } catch (error) {
+      Alert.alert(
+        'Unable to reset password',
+        error instanceof Error ? error.message : 'Please try again later.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.innerContainer}
+    >
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>Choose a new password</Text>
+        <Text style={styles.subtitle}>
+          Enter and confirm a password for {email}.
+        </Text>
+      </View>
+
+      <View style={styles.formContainer}>
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>New password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="At least 6 characters"
+            placeholderTextColor="#999"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Confirm password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Re-enter your new password"
+            placeholderTextColor="#999"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+        </View>
+      </View>
+
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+          onPress={handleResetPassword}
+          disabled={isSubmitting}
+        >
+          {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
+          <Text style={styles.loginButtonText}>
+            {isSubmitting ? 'Updating...' : 'Update password'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
 function LoginScreen({ authorized }: { authorized: (token: string, email: string) => Promise<void> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -288,6 +394,7 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
   const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -407,6 +514,42 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(isLocalOnlyMode);
   const [userEmail, setUserEmail] = useState(isLocalOnlyMode ? localOnlyUserEmail : '');
   const [isRestoringSession, setIsRestoringSession] = useState(!isLocalOnlyMode);
+  const [passwordResetLink, setPasswordResetLink] = useState<{email: string; token: string} | null>(null);
+
+  useEffect(() => {
+    const applyResetLink = (url: string | null) => {
+      if (!url) return;
+      try {
+        const queryStart = url.indexOf('?');
+        if (queryStart < 0) return;
+        let token = '';
+        let resetEmail = '';
+        const query = url.slice(queryStart + 1).split('#')[0];
+        for (const parameter of query.split('&')) {
+          const separatorIndex = parameter.indexOf('=');
+          const key = decodeURIComponent(
+            (separatorIndex < 0 ? parameter : parameter.slice(0, separatorIndex)).replace(/\+/g, ' '),
+          );
+          const value = decodeURIComponent(
+            (separatorIndex < 0 ? '' : parameter.slice(separatorIndex + 1)).replace(/\+/g, ' '),
+          );
+          if (key === 'token') token = value;
+          if (key === 'email') resetEmail = value;
+        }
+        if (token && resetEmail) {
+          setPasswordResetLink({email: resetEmail, token});
+        }
+      } catch (error) {
+        console.error('Unable to read password reset link', error);
+      }
+    };
+
+    void Linking.getInitialURL().then(applyResetLink).catch((error: unknown) => {
+      console.error('Unable to read initial app link', error);
+    });
+    const subscription = Linking.addEventListener('url', ({url}) => applyResetLink(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (isLocalOnlyMode) return;
@@ -459,6 +602,14 @@ function App() {
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
+        {passwordResetLink ? (
+          <ResetPasswordScreen
+            email={passwordResetLink.email}
+            token={passwordResetLink.token}
+            onComplete={() => setPasswordResetLink(null)}
+          />
+        ) : (
+          <>
         { !isAuthenticated && isRestoringSession && (
           <View style={styles.sessionLoading}>
             <ActivityIndicator size="large" />
@@ -472,6 +623,8 @@ function App() {
            logout={handleLogout}
          />
        )}
+          </>
+        )}
       </NavigationContainer>
       </GestureHandlerRootView>
       </SafeAreaView>
