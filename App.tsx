@@ -1968,8 +1968,8 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
   };
 
     return (
-            <View style={[styles.flex, styles.backgroundColor]}>  
-            <View style={styles.flexStart}>
+            <View style={[styles.flex, styles.backgroundColor, styles.menuScreen]}>
+            <View style={[styles.flexStart, showMenuButtons && styles.menuContainer]}>
               <Pressable onPress={() => setShowMenuButtons(!showMenuButtons)}>
                 <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>
                   {showMenuButtons ? 'Close' : 'Menu'}
@@ -2085,8 +2085,15 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 <Text>Close and Move to History</Text>
               </Pressable>
             </View>)}
+            {showMenuButtons && (
+            <Pressable
+              style={styles.menuBackdrop}
+              onPress={() => setShowMenuButtons(false)}
+              accessibilityLabel="Close menu"
+            />
+            )}
             {isLoadingBudget && (
-              <View style={styles.budgetLoadingOverlay}>
+            <View style={styles.budgetLoadingOverlay}>
                 <ActivityIndicator size="large" />
                 <Text style={styles.loadingText}>Loading your budget...</Text>
               </View>
@@ -2220,6 +2227,21 @@ const styles = StyleSheet.create({
     },
     flexStart:{
       alignItems: 'flex-start'
+    },
+    menuScreen: {
+      position: 'relative',
+    },
+    menuContainer: {
+      zIndex: 2,
+      elevation: 2,
+    },
+    menuBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 1,
     },
     flexBetween:{
       justifyContent: 'space-between'
