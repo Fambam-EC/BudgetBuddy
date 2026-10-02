@@ -43,10 +43,10 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
 2. Create a DNS route for a hostname in a domain managed by Cloudflare (replace the example hostname):
 
    ```powershell
-   cloudflared tunnel route dns budgetbuddy-api api.example.com
+   cloudflared tunnel route dns budgetbuddy-api api.budgetbuddy.me
    ```
 
-3. Copy `cloudflared\config.yml.example` to `%USERPROFILE%\.cloudflared\config.yml`. Replace `YOUR_TUNNEL_UUID`, `YOUR_WINDOWS_USERNAME`, and `api.example.com` with the tunnel UUID printed by the create command, your Windows username, and the hostname from step 2. Keep the generated tunnel credentials outside the repository.
+3. Copy `cloudflared\config.yml.example` to `%USERPROFILE%\.cloudflared\config.yml`. Replace `YOUR_TUNNEL_UUID` and `YOUR_WINDOWS_USERNAME` with the tunnel UUID printed by the create command and your Windows username. Keep the generated tunnel credentials outside the repository.
 
 4. Start PostgreSQL and the API in separate terminals:
 
@@ -64,7 +64,7 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
    cloudflared tunnel run budgetbuddy-api
    ```
 
-6. If browser clients call the API, add each client website's HTTPS origin (not the API hostname) to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. Set `apiUrl` in `Helpers/api.ts` to `https://api.example.com`, then rebuild/restart the client. Native clients do not require a CORS origin.
+6. If browser clients call the API from a different website, add that website's HTTPS origin to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
 

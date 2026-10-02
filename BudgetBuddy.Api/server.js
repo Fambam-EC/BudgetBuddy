@@ -15,7 +15,7 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 const defaultCorsOrigins = [
-  'https://onset-theatrics-subway.ngrok-free.dev',
+  'https://api.budgetbuddy.me',
 ];
 
 const corsOptions = {
@@ -29,8 +29,7 @@ const corsOptions = {
       [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
       /^http:\/\/localhost(?::\d+)?$/i.test(origin) ||
       /^http:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
-      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin) ||
-      /^https:\/\/[a-z0-9-]+\.ngrok-free\.dev$/i.test(origin);
+      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin);
 
     return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
   },
@@ -39,8 +38,6 @@ const corsOptions = {
     'Accept',
     'Content-Type',
     'Authorization',
-    'ngrok-skip-browser-warning',
-    'bypass-tunnel-reminder',
     'Access-Control-Allow-Origin',
   ],
   optionsSuccessStatus: 200,

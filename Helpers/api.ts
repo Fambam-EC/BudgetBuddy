@@ -1,6 +1,6 @@
 import { storage } from './storage';
 
-export const apiUrl = 'https://onset-theatrics-subway.ngrok-free.dev';
+export const apiUrl = 'https://api.budgetbuddy.me';
 export const authTokenKey = '@auth_token_key';
 
 export function apiHeaders(includeJsonContentType = false): Record<string, string> {
@@ -8,7 +8,6 @@ export function apiHeaders(includeJsonContentType = false): Record<string, strin
 	return {
 		Accept: 'application/json',
 		...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
-		'ngrok-skip-browser-warning': 'true',
 		...(token ? { Authorization: `Bearer ${token}` } : {}),
 	};
 }
