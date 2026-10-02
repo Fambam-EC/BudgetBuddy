@@ -7,7 +7,7 @@ process.env.MAILJET_API_SECRET = process.env.MAILJET_API_SECRET || 'test-secret-
 process.env.MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL || 'budgetbuddy@example.com';
 process.env.BUDGET_INVITE_URL = process.env.BUDGET_INVITE_URL || 'https://example.com/invite';
 
-const { app, initializeDatabase, pool } = require('./server');
+const { app, initializeDatabase, pool, startServer } = require('./server');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 let server;
@@ -51,6 +51,25 @@ test('startup initialization creates every application table', async () => {
       statements.some((statement) => statement.includes(`CREATE TABLE IF NOT EXISTS ${tableName}`)),
       `startup should create ${tableName}`,
     );
+  }
+});
+
+test('startServer initializes the database before binding the API to loopback', async () => {
+  const originalQuery = pool.query;
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+
+  let apiServer;
+  try {
+    apiServer = await startServer(0);
+    await new Promise((resolve) => apiServer.once('listening', resolve));
+    assert.equal(apiServer.address().address, '127.0.0.1');
+  } finally {
+    pool.query = originalQuery;
+    if (apiServer) {
+      await new Promise((resolve, reject) => {
+        apiServer.close((error) => error ? reject(error) : resolve());
+      });
+    }
   }
 });
 

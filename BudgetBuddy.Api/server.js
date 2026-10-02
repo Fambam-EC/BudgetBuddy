@@ -829,7 +829,7 @@ async function initializeDatabase() {
 
 async function startServer(port = Number(process.env.PORT) || 3000) {
   await initializeDatabase();
-  return app.listen(port, () => {
+  return app.listen(port, '127.0.0.1', () => {
     console.log(`Server running on port ${port}`);
   });
 }
