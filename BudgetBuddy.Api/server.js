@@ -4,7 +4,6 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -60,37 +59,33 @@ const pool = new Pool({
 const resetTokenLifetimeMinutes = 30;
 const passwordResetUrl = process.env.PASSWORD_RESET_URL;
 const budgetInviteUrl = process.env.BUDGET_INVITE_URL;
-const mailjetSmtpPort = Number(process.env.MAILJET_SMTP_PORT) || 587;
 
-const isMailjetConfigured = () =>
+const isEmailConfigured = () =>
   Boolean(
-    process.env.MAILJET_API_KEY &&
-    process.env.MAILJET_API_SECRET &&
-    process.env.MAILJET_FROM_EMAIL,
+    process.env.RESEND_API_KEY &&
+    process.env.RESEND_FROM_EMAIL,
   );
 
 async function sendEmail({ to, subject, text, html }) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.MAILJET_SMTP_HOST || 'in-v3.mailjet.com',
-    port: mailjetSmtpPort,
-    secure: mailjetSmtpPort === 465,
-    requireTLS: mailjetSmtpPort !== 465,
-    auth: {
-      user: process.env.MAILJET_API_KEY,
-      pass: process.env.MAILJET_API_SECRET,
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      from: `${process.env.RESEND_FROM_NAME || 'BudgetBuddy'} <${process.env.RESEND_FROM_EMAIL}>`,
+      to: [to],
+      subject,
+      text,
+      html,
+    }),
   });
 
-  await transporter.sendMail({
-    from: {
-      name: process.env.MAILJET_FROM_NAME || 'BudgetBuddy',
-      address: process.env.MAILJET_FROM_EMAIL,
-    },
-    to,
-    subject,
-    text,
-    html,
-  });
+  if (!response.ok) {
+    const responseBody = await response.text();
+    throw new Error(`Resend email request failed (${response.status}): ${responseBody}`);
+  }
 }
 
 const hashResetToken = (token) =>
@@ -364,9 +359,9 @@ app.post('/forgot-password', async (req, res) => {
       return res.status(200).json(genericResponse);
     }
 
-    if (!isMailjetConfigured() || !passwordResetUrl) {
+    if (!isEmailConfigured() || !passwordResetUrl) {
       console.error(
-        'Password reset email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and PASSWORD_RESET_URL.',
+        'Password reset email is not configured. Set RESEND_API_KEY, RESEND_FROM_EMAIL, and PASSWORD_RESET_URL.',
       );
       return res.status(503).json({ error: 'Password reset email is temporarily unavailable' });
     }
@@ -689,9 +684,9 @@ app.post('/share', requireAuthentication, async (req, res) => {
     return res.status(400).json({ error: 'A valid email and budgetId are required' });
   }
 
-  if (!isMailjetConfigured() || !budgetInviteUrl) {
+  if (!isEmailConfigured() || !budgetInviteUrl) {
     console.error(
-      'Budget invitation email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and BUDGET_INVITE_URL.',
+      'Budget invitation email is not configured. Set RESEND_API_KEY, RESEND_FROM_EMAIL, and BUDGET_INVITE_URL.',
     );
     return res.status(503).json({ error: 'Budget invitations are temporarily unavailable' });
   }
