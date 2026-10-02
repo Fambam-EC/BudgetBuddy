@@ -15,7 +15,7 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 const defaultCorsOrigins = [
-  'https://onset-theatrics-subway.ngrok-free.dev',
+  'https://api.budgetbuddy.me',
 ];
 
 const corsOptions = {
@@ -29,8 +29,7 @@ const corsOptions = {
       [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
       /^http:\/\/localhost(?::\d+)?$/i.test(origin) ||
       /^http:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
-      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin) ||
-      /^https:\/\/[a-z0-9-]+\.ngrok-free\.dev$/i.test(origin);
+      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin);
 
     return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
   },
@@ -39,8 +38,6 @@ const corsOptions = {
     'Accept',
     'Content-Type',
     'Authorization',
-    'ngrok-skip-browser-warning',
-    'bypass-tunnel-reminder',
     'Access-Control-Allow-Origin',
   ],
   optionsSuccessStatus: 200,
@@ -63,17 +60,38 @@ const pool = new Pool({
 const resetTokenLifetimeMinutes = 30;
 const passwordResetUrl = process.env.PASSWORD_RESET_URL;
 const budgetInviteUrl = process.env.BUDGET_INVITE_URL;
-const mailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: process.env.SMTP_USER
-    ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      }
-    : undefined,
-});
+const mailjetSmtpPort = Number(process.env.MAILJET_SMTP_PORT) || 587;
+
+const isMailjetConfigured = () =>
+  Boolean(
+    process.env.MAILJET_API_KEY &&
+    process.env.MAILJET_API_SECRET &&
+    process.env.MAILJET_FROM_EMAIL,
+  );
+
+async function sendEmail({ to, subject, text, html }) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAILJET_SMTP_HOST || 'in-v3.mailjet.com',
+    port: mailjetSmtpPort,
+    secure: mailjetSmtpPort === 465,
+    requireTLS: mailjetSmtpPort !== 465,
+    auth: {
+      user: process.env.MAILJET_API_KEY,
+      pass: process.env.MAILJET_API_SECRET,
+    },
+  });
+
+  await transporter.sendMail({
+    from: {
+      name: process.env.MAILJET_FROM_NAME || 'BudgetBuddy',
+      address: process.env.MAILJET_FROM_EMAIL,
+    },
+    to,
+    subject,
+    text,
+    html,
+  });
+}
 
 const hashResetToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
@@ -168,6 +186,53 @@ app.get('/api/users', requireAuthentication, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Unable to load account' });
+  }
+});
+
+app.delete('/account', requireAuthentication, async (req, res) => {
+  let client;
+  try {
+    await ensureUsersTable();
+    await ensurePasswordResetTokensTable();
+    await ensureBudgetTables();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query(
+      'DELETE FROM budgets WHERE LOWER(owner_email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM budget_history WHERE LOWER(owner_email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM budget_invitations WHERE LOWER(email) = $1',
+      [req.user.email],
+    );
+    await client.query(
+      'DELETE FROM password_reset_tokens WHERE LOWER(email) = $1',
+      [req.user.email],
+    );
+    const result = await client.query(
+      'DELETE FROM users WHERE LOWER(email) = $1 RETURNING email',
+      [req.user.email],
+    );
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    await client.query('COMMIT');
+    return res.status(200).json({ message: 'Account deleted' });
+  } catch (err) {
+    if (client) {
+      await client.query('ROLLBACK').catch((rollbackError) => {
+        console.error('Account deletion rollback failed', rollbackError);
+      });
+    }
+    console.error('Account deletion failed', err);
+    return res.status(500).json({ error: 'Unable to delete account' });
+  } finally {
+    client?.release();
   }
 });
 
@@ -288,19 +353,20 @@ app.post('/forgot-password', async (req, res) => {
 
   try {
     await ensurePasswordResetTokensTable();
+    const normalizedEmail = email.trim().toLowerCase();
 
     const result = await pool.query(
       'SELECT email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-      [email.trim()],
+      [normalizedEmail],
     );
 
     if (result.rowCount === 0) {
       return res.status(200).json(genericResponse);
     }
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_FROM || !passwordResetUrl) {
+    if (!isMailjetConfigured() || !passwordResetUrl) {
       console.error(
-        'Password reset email is not configured. Set SMTP_HOST, SMTP_FROM, and PASSWORD_RESET_URL.',
+        'Password reset email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and PASSWORD_RESET_URL.',
       );
       return res.status(503).json({ error: 'Password reset email is temporarily unavailable' });
     }
@@ -312,27 +378,87 @@ app.post('/forgot-password', async (req, res) => {
     );
     const resetLink = new URL(passwordResetUrl);
     resetLink.searchParams.set('token', token);
-    resetLink.searchParams.set('email', email.trim());
+    resetLink.searchParams.set('email', normalizedEmail);
 
-    await pool.query('DELETE FROM password_reset_tokens WHERE email = $1 OR expires_at < NOW()', [
-      email.trim(),
-    ]);
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE LOWER(email) = $1 OR expires_at < NOW()',
+      [normalizedEmail],
+    );
     await pool.query(
       'INSERT INTO password_reset_tokens (token_hash, email, expires_at) VALUES ($1, $2, $3)',
-      [tokenHash, email.trim(), expiresAt],
+      [tokenHash, normalizedEmail, expiresAt],
     );
-    await mailTransporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: email.trim(),
+    await sendEmail({
+      to: normalizedEmail,
       subject: 'Reset your BudgetBuddy password',
       text: `Use this link to reset your BudgetBuddy password: ${resetLink.toString()}\n\nThis link expires in ${resetTokenLifetimeMinutes} minutes.`,
-      html: `<p>Use the link below to reset your BudgetBuddy password.</p><p><a href="${resetLink.toString()}">Reset password</a></p><p>This link expires in ${resetTokenLifetimeMinutes} minutes.</p>`,
+      html: `<p>Use the link below to reset your BudgetBuddy password.</p><p><a href="${escapeHtml(resetLink.toString())}">Reset password</a></p><p>This link expires in ${resetTokenLifetimeMinutes} minutes.</p>`,
     });
 
     return res.status(200).json(genericResponse);
   } catch (err) {
     console.error('Password reset request failed', err);
     return res.status(500).json({ error: 'Unable to send password reset email' });
+  }
+});
+
+app.post('/reset-password', async (req, res) => {
+  const { email, token, password } = req.body || {};
+  if (
+    !isValidEmail(email) ||
+    typeof token !== 'string' ||
+    !/^[a-f0-9]{64}$/i.test(token) ||
+    typeof password !== 'string' ||
+    password.length < 6
+  ) {
+    return res.status(400).json({
+      error: 'A valid email, reset token, and password of at least 6 characters are required',
+    });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const tokenHash = hashResetToken(token);
+  let client;
+  try {
+    await ensureUsersTable();
+    await ensurePasswordResetTokensTable();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const tokenResult = await client.query(
+      `DELETE FROM password_reset_tokens
+       WHERE token_hash = $1 AND LOWER(email) = $2 AND expires_at > NOW()
+       RETURNING email`,
+      [tokenHash, normalizedEmail],
+    );
+    if (tokenResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid or expired password reset link' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const userResult = await client.query(
+      'UPDATE users SET password_hash = $1 WHERE LOWER(email) = $2',
+      [passwordHash, normalizedEmail],
+    );
+    if (userResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Unable to reset password for this account' });
+    }
+
+    await client.query('COMMIT');
+    return res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Password reset rollback failed', rollbackError);
+      }
+    }
+    console.error('Password reset failed', err);
+    return res.status(500).json({ error: 'Unable to reset password' });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -563,9 +689,9 @@ app.post('/share', requireAuthentication, async (req, res) => {
     return res.status(400).json({ error: 'A valid email and budgetId are required' });
   }
 
-  if (!process.env.SMTP_HOST || !process.env.SMTP_FROM || !budgetInviteUrl) {
+  if (!isMailjetConfigured() || !budgetInviteUrl) {
     console.error(
-      'Budget invitation email is not configured. Set SMTP_HOST, SMTP_FROM, and BUDGET_INVITE_URL.',
+      'Budget invitation email is not configured. Set MAILJET_API_KEY, MAILJET_API_SECRET, MAILJET_FROM_EMAIL, and BUDGET_INVITE_URL.',
     );
     return res.status(503).json({ error: 'Budget invitations are temporarily unavailable' });
   }
@@ -618,8 +744,7 @@ app.post('/share', requireAuthentication, async (req, res) => {
     await client.query('COMMIT');
     transactionOpen = false;
 
-    await mailTransporter.sendMail({
-      from: process.env.SMTP_FROM,
+    await sendEmail({
       to: recipientEmail,
       subject: `You're invited to share "${budgetName}" on BudgetBuddy`,
       text: `You have been invited to share the BudgetBuddy budget "${budgetName}". Open this link to view the invitation: ${inviteLink.toString()}`,
@@ -701,7 +826,7 @@ async function initializeDatabase() {
 
 async function startServer(port = Number(process.env.PORT) || 3000) {
   await initializeDatabase();
-  return app.listen(port, () => {
+  return app.listen(port, '127.0.0.1', () => {
     console.log(`Server running on port ${port}`);
   });
 }

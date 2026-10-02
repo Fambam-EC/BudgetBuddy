@@ -13,6 +13,7 @@ import {
   Alert,
   Pressable,
   Modal,
+  Linking,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity
@@ -74,6 +75,21 @@ function accountStorageKey(key: string, email: string): string {
 
 function accountHistoryPrefix(email: string): string {
   return `HI:${encodeURIComponent(email.trim().toLowerCase())}:`;
+}
+
+function clearLocalAccountData(email: string): void {
+  const scopedKeys = [
+    title_key,
+    budget_items_key,
+    budget_key,
+    budgets_key,
+    transaction_items_key,
+  ].map((key) => accountStorageKey(key, email));
+  const historyPrefix = accountHistoryPrefix(email);
+  const keysToRemove = storage.getAllKeys().filter(
+    (key) => scopedKeys.includes(key) || key.startsWith(historyPrefix),
+  );
+  keysToRemove.forEach((key) => storage.remove(key));
 }
 
 function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
@@ -281,6 +297,111 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
   );
 }
 
+function ResetPasswordScreen({
+  email,
+  token,
+  onComplete,
+}: {
+  email: string;
+  token: string;
+  onComplete: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (password.length < 6) {
+      Alert.alert('Invalid password', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Passwords do not match', 'Please enter the same password twice.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${apiUrl}/reset-password`, {
+        method: 'POST',
+        headers: apiHeaders(true),
+        body: JSON.stringify({email, token, password}),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to reset your password.');
+      }
+
+      Alert.alert('Password updated', 'You can now log in with your new password.', [
+        {text: 'Back to login', onPress: onComplete},
+      ]);
+    } catch (error) {
+      Alert.alert(
+        'Unable to reset password',
+        error instanceof Error ? error.message : 'Please try again later.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.innerContainer}
+    >
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>Choose a new password</Text>
+        <Text style={styles.subtitle}>
+          Enter and confirm a password for {email}.
+        </Text>
+      </View>
+
+      <View style={styles.formContainer}>
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>New password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="At least 6 characters"
+            placeholderTextColor="#999"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Confirm password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Re-enter your new password"
+            placeholderTextColor="#999"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+        </View>
+      </View>
+
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+          onPress={handleResetPassword}
+          disabled={isSubmitting}
+        >
+          {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
+          <Text style={styles.loginButtonText}>
+            {isSubmitting ? 'Updating...' : 'Update password'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
 function LoginScreen({ authorized }: { authorized: (token: string, email: string) => Promise<void> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -288,6 +409,7 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
   const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -407,6 +529,42 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(isLocalOnlyMode);
   const [userEmail, setUserEmail] = useState(isLocalOnlyMode ? localOnlyUserEmail : '');
   const [isRestoringSession, setIsRestoringSession] = useState(!isLocalOnlyMode);
+  const [passwordResetLink, setPasswordResetLink] = useState<{email: string; token: string} | null>(null);
+
+  useEffect(() => {
+    const applyResetLink = (url: string | null) => {
+      if (!url) return;
+      try {
+        const queryStart = url.indexOf('?');
+        if (queryStart < 0) return;
+        let token = '';
+        let resetEmail = '';
+        const query = url.slice(queryStart + 1).split('#')[0];
+        for (const parameter of query.split('&')) {
+          const separatorIndex = parameter.indexOf('=');
+          const key = decodeURIComponent(
+            (separatorIndex < 0 ? parameter : parameter.slice(0, separatorIndex)).replace(/\+/g, ' '),
+          );
+          const value = decodeURIComponent(
+            (separatorIndex < 0 ? '' : parameter.slice(separatorIndex + 1)).replace(/\+/g, ' '),
+          );
+          if (key === 'token') token = value;
+          if (key === 'email') resetEmail = value;
+        }
+        if (token && resetEmail) {
+          setPasswordResetLink({email: resetEmail, token});
+        }
+      } catch (error) {
+        console.error('Unable to read password reset link', error);
+      }
+    };
+
+    void Linking.getInitialURL().then(applyResetLink).catch((error: unknown) => {
+      console.error('Unable to read initial app link', error);
+    });
+    const subscription = Linking.addEventListener('url', ({url}) => applyResetLink(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (isLocalOnlyMode) return;
@@ -459,6 +617,14 @@ function App() {
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
+        {passwordResetLink ? (
+          <ResetPasswordScreen
+            email={passwordResetLink.email}
+            token={passwordResetLink.token}
+            onComplete={() => setPasswordResetLink(null)}
+          />
+        ) : (
+          <>
         { !isAuthenticated && isRestoringSession && (
           <View style={styles.sessionLoading}>
             <ActivityIndicator size="large" />
@@ -472,6 +638,8 @@ function App() {
            logout={handleLogout}
          />
        )}
+          </>
+        )}
       </NavigationContainer>
       </GestureHandlerRootView>
       </SafeAreaView>
@@ -1146,7 +1314,7 @@ async function ClearTransactionData(userEmail: string){
 function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange, userEmail}: 
   {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void, userEmail: string}){
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
-  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [totalIncomeInput, setTotalIncomeInput] = useState(totalIncomeAmount.toFixed(2));
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
   const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
 
@@ -1178,20 +1346,24 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
       }
         />
         <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Total Income: $
-            <TextInput
-            style={[styles.zeroWidthForPadding, styles.headerFontSize]}
-        placeholder="Total Income"
-        keyboardType={'number-pad'}
-        value={totalSetBudgetAmount.toFixed(2).toString()}
-        onChangeText={(amount) => setTotalBudgetAmount(Number(amount))}
-        onSubmitEditing={() => {
-          setTotalBudgetAmount(Number(totalSetBudgetAmount))
-          setPotentialSurplus(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0))
-          setIsEditingTotal(false)
-        }}
-        />
-        </Text>
+        <View style={[styles.row, styles.center, {alignSelf: 'center'}]}>
+          <Text style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}>Total Income: $</Text>
+          <TextInput
+            style={[styles.zeroWidthForPadding, styles.headerFontSize, {flex: 0, textAlign: 'center'}]}
+            placeholder="Total Income"
+            keyboardType="decimal-pad"
+            value={totalIncomeInput}
+            onChangeText={(amount) => {
+              setTotalIncomeInput(amount);
+              const parsedAmount = Number(amount);
+              if (amount.trim() !== '' && Number.isFinite(parsedAmount)) {
+                setTotalBudgetAmount(parsedAmount);
+                setPotentialSurplus(parsedAmount - (budgetedTotal ? budgetedTotal : 0));
+              }
+            }}
+            onEndEditing={() => setTotalIncomeInput(totalSetBudgetAmount.toFixed(2))}
+          />
+        </View>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
         <View style={[styles.row, styles.center]}>
@@ -1346,6 +1518,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const [showCloseButton, setShowCloseButton] = useState<boolean>(false);
   const [showMenuButtons, setShowMenuButtons] = useState<boolean>(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isLoadingBudget, setIsLoadingBudget] = useState(true);
   const skipInitialBudgetSave = useRef(false);
 
@@ -1760,9 +1933,43 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
+
+  const deleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const response = await fetch(`${apiUrl}/account`, {
+        method: 'DELETE',
+        headers: apiHeaders(),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to delete account.');
+      }
+
+      try {
+        clearLocalAccountData(userEmail);
+      } catch (error) {
+        console.error('Account was deleted, but local data could not be cleared', error);
+        Alert.alert(
+          'Account deleted',
+          'Your account was deleted, but some data could not be removed from this device. Clear the app data in your device settings.',
+        );
+      }
+      setShowMenuButtons(false);
+      onLogout();
+    } catch (error) {
+      Alert.alert(
+        'Unable to delete account',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
     return (
-            <View style={[styles.flex, styles.backgroundColor]}>  
-            <View style={styles.flexStart}>
+            <View style={[styles.flex, styles.backgroundColor, styles.menuScreen]}>
+            <View style={[styles.flexStart, showMenuButtons && styles.menuContainer]}>
               <Pressable onPress={() => setShowMenuButtons(!showMenuButtons)}>
                 <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>
                   {showMenuButtons ? 'Close' : 'Menu'}
@@ -1770,7 +1977,6 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               </Pressable>
               {showMenuButtons && (
                 <View style={{flexDirection: 'column'}}>
-                  {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
                   <HistoryButton navigation={navigation}/>
                   <BudgetSwitcher
                     budgets={availableBudgets}
@@ -1789,6 +1995,13 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                     localOnly={isLocalOnlyMode}
                     onBudgetAccepted={loadAcceptedBudget}
                   />
+                  {!isLocalOnlyMode && <LogOutButton onLogout={onLogout}/>}
+                  {!isLocalOnlyMode && (
+                    <DeleteAccountButton
+                      onDelete={deleteAccount}
+                      isDeleting={isDeletingAccount}
+                    />
+                  )}
                 </View>
               )}
             </View>
@@ -1872,8 +2085,15 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 <Text>Close and Move to History</Text>
               </Pressable>
             </View>)}
+            {showMenuButtons && (
+            <Pressable
+              style={styles.menuBackdrop}
+              onPress={() => setShowMenuButtons(false)}
+              accessibilityLabel="Close menu"
+            />
+            )}
             {isLoadingBudget && (
-              <View style={styles.budgetLoadingOverlay}>
+            <View style={styles.budgetLoadingOverlay}>
                 <ActivityIndicator size="large" />
                 <Text style={styles.loadingText}>Loading your budget...</Text>
               </View>
@@ -1896,6 +2116,32 @@ function LogOutButton( {onLogout}: {onLogout: () => void}){
       <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText]}>Log Out</Text>
     </Pressable>
   </View>);
+}
+
+function DeleteAccountButton({onDelete, isDeleting}: {
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, all budgets you own, and your archived budget history. Budgets shared with you may still belong to their owners.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Delete Account', style: 'destructive', onPress: onDelete},
+      ],
+    );
+  };
+
+  return (
+    <View style={[styles.flexStart]}>
+      <Pressable onPress={confirmDelete} disabled={isDeleting}>
+        <Text style={[styles.rowPadding, styles.rowBorder, styles.customFont, styles.boldText, {color: 'red'}]}>
+          {isDeleting ? 'Deleting Account...' : 'Delete Account'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 
@@ -1981,6 +2227,21 @@ const styles = StyleSheet.create({
     },
     flexStart:{
       alignItems: 'flex-start'
+    },
+    menuScreen: {
+      position: 'relative',
+    },
+    menuContainer: {
+      zIndex: 2,
+      elevation: 2,
+    },
+    menuBackdrop: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 1,
     },
     flexBetween:{
       justifyContent: 'space-between'

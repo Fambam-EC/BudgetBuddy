@@ -1,6 +1,8 @@
 # BudgetBuddy
 BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
 
+The standalone [BudgetBuddy Privacy Policy](./privacy-policy.html) describes the app's current data practices.
+
 ## Architecture
 
 - `App.tsx` contains the shared React Native experience.
@@ -25,9 +27,46 @@ npm install
 npm start
 ```
 
-Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure SMTP settings and `BUDGET_INVITE_URL` to enable email invitations. Never commit `.env` files.
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `MAILJET_API_KEY`, `MAILJET_API_SECRET`, and `MAILJET_FROM_EMAIL` to send email through Mailjet SMTP (`in-v3.mailjet.com:587` by default). `MAILJET_SMTP_HOST` and `MAILJET_SMTP_PORT` can override the SMTP endpoint. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
 
-To expose the API, run `ngrok http 3000`, set `apiUrl` in `Helpers/api.ts` to the resulting HTTPS URL, and add the web app origin to `CORS_ORIGINS` in the API environment. Restart the API after changing its environment.
+### Expose the API with Cloudflare Tunnel
+
+The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes only the API over HTTPS. PostgreSQL remains available to the API at `127.0.0.1:5432` and is bound to the host loopback interface. A deployed Cloudflare Worker cannot connect to a developer machine's `localhost`.
+
+1. Install `cloudflared` and authenticate with your Cloudflare account:
+
+   ```powershell
+   cloudflared tunnel login
+   cloudflared tunnel create budgetbuddy-api
+   ```
+
+2. Create a DNS route for a hostname in a domain managed by Cloudflare (replace the example hostname):
+
+   ```powershell
+   cloudflared tunnel route dns budgetbuddy-api api.budgetbuddy.me
+   ```
+
+3. Copy `cloudflared\config.yml.example` to `%USERPROFILE%\.cloudflared\config.yml`. Replace `YOUR_TUNNEL_UUID` and `YOUR_WINDOWS_USERNAME` with the tunnel UUID printed by the create command and your Windows username. Keep the generated tunnel credentials outside the repository.
+
+4. Start PostgreSQL and the API in separate terminals:
+
+   ```powershell
+   docker compose up -d postgres
+   cd BudgetBuddy.Api
+   npm start
+   ```
+
+   The API runs on `127.0.0.1:3000`, and `.env` must contain the PostgreSQL credentials configured in `docker-compose.yml`. Change `JWT_SECRET` to a long random value before exposing the API.
+
+5. Run the named tunnel:
+
+   ```powershell
+   cloudflared tunnel run budgetbuddy-api
+   ```
+
+6. If browser clients call the API from a different website, add that website's HTTPS origin to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
+
+The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
 
 Start the Web client from the project root with `npm run web`. For native targets, run `npm start`, then use `npm run android` or `npm run ios` with the corresponding development environment configured.
 

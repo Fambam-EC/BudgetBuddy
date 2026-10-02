@@ -12,6 +12,10 @@ jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 1024, height: 768 }) },
   FlatList: 'FlatList',
   KeyboardAvoidingView: 'KeyboardAvoidingView',
+  Linking: {
+    getInitialURL: jest.fn(() => Promise.resolve(null)),
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
   Modal: 'Modal',
   Platform: { OS: 'web' },
   Pressable: 'Pressable',
