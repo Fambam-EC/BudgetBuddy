@@ -27,7 +27,7 @@ npm install
 npm start
 ```
 
-Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `MAILJET_API_KEY`, `MAILJET_API_SECRET`, and `MAILJET_FROM_EMAIL` to send email through Mailjet SMTP (`in-v3.mailjet.com:587` by default). `MAILJET_SMTP_HOST` and `MAILJET_SMTP_PORT` can override the SMTP endpoint. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to send email through the Resend Email API. `RESEND_FROM_NAME` optionally sets the sender name and defaults to `BudgetBuddy`. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
 
 ### Expose the API with Cloudflare Tunnel
 

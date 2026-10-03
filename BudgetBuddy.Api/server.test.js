@@ -2,14 +2,12 @@ const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-api-tests';
-process.env.MAILJET_API_KEY = process.env.MAILJET_API_KEY || 'test-api-key';
-process.env.MAILJET_API_SECRET = process.env.MAILJET_API_SECRET || 'test-secret-key';
-process.env.MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL || 'budgetbuddy@example.com';
+process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || 'test-api-key';
+process.env.RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'budgetbuddy@example.com';
 process.env.BUDGET_INVITE_URL = process.env.BUDGET_INVITE_URL || 'https://example.com/invite';
 
 const { app, initializeDatabase, pool, startServer } = require('./server');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 let server;
 let baseUrl;
 
@@ -252,7 +250,7 @@ test('password reset rejects expired or already-used tokens without changing a p
 test('budget invitation is committed before its email is sent', async () => {
   const originalQuery = pool.query;
   const originalConnect = pool.connect;
-  const originalCreateTransport = nodemailer.createTransport;
+  const originalFetch = globalThis.fetch;
   const events = [];
   pool.query = async (statement) => {
     if (String(statement).includes('SELECT name, owner_email FROM budgets')) {
@@ -279,20 +277,18 @@ test('budget invitation is committed before its email is sent', async () => {
     },
     release: () => {},
   });
-  nodemailer.createTransport = (options) => {
-    assert.equal(options.host, 'in-v3.mailjet.com');
-    assert.equal(options.port, 587);
-    assert.equal(options.secure, false);
-    assert.equal(options.requireTLS, true);
-    assert.equal(options.auth.user, 'test-api-key');
-    assert.equal(options.auth.pass, 'test-secret-key');
-    return {
-      sendMail: async (message) => {
-        events.push('EMAIL');
-        assert.equal(message.to, 'recipient@example.com');
-        assert.equal(message.from.address, 'budgetbuddy@example.com');
-      },
-    };
+  globalThis.fetch = async (input, options) => {
+    if (input === 'https://api.resend.com/emails') {
+      events.push('EMAIL');
+      assert.equal(options.method, 'POST');
+      assert.equal(options.headers.Authorization, 'Bearer test-api-key');
+      assert.equal(options.headers['Content-Type'], 'application/json');
+      const message = JSON.parse(options.body);
+      assert.equal(message.to[0], 'recipient@example.com');
+      assert.equal(message.from, 'BudgetBuddy <budgetbuddy@example.com>');
+      return { ok: true };
+    }
+    return originalFetch(input, options);
   };
 
   try {
@@ -315,6 +311,6 @@ test('budget invitation is committed before its email is sent', async () => {
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;
-    nodemailer.createTransport = originalCreateTransport;
+    globalThis.fetch = originalFetch;
   }
 });
