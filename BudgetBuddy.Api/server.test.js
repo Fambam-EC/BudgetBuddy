@@ -4,7 +4,8 @@ const { after, before, test } = require('node:test');
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-api-tests';
 process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || 'test-api-key';
 process.env.RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'budgetbuddy@example.com';
-process.env.BUDGET_INVITE_URL = process.env.BUDGET_INVITE_URL || 'https://example.com/invite';
+process.env.PASSWORD_RESET_URL = 'https://api.budgetbuddy.me/reset-password';
+process.env.BUDGET_INVITE_URL = 'https://api.budgetbuddy.me/budget-invitation';
 
 const { app, initializeDatabase, pool, startServer } = require('./server');
 const jwt = require('jsonwebtoken');
@@ -247,11 +248,81 @@ test('password reset rejects expired or already-used tokens without changing a p
   }
 });
 
+test('forgot-password email links to the API reset form with a one-time token', async () => {
+  const originalQuery = pool.query;
+  const originalFetch = globalThis.fetch;
+  let sentEmail;
+  pool.query = async (statement) => {
+    if (String(statement).includes('SELECT email FROM users')) {
+      return { rows: [{ email: 'person@example.com' }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 1 };
+  };
+  globalThis.fetch = async (input, options) => {
+    if (input === 'https://api.resend.com/emails') {
+      sentEmail = JSON.parse(options.body);
+      return { ok: true };
+    }
+    return originalFetch(input, options);
+  };
+
+  try {
+    const response = await originalFetch(`${baseUrl}/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'Person@Example.com' }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.match((await response.json()).message, /password reset email has been sent/);
+    const linkMatch = sentEmail.text.match(/https:\/\/api\.budgetbuddy\.me\/reset-password\?[^\s]+/);
+    assert.ok(linkMatch, 'reset email should link to the API-hosted reset form');
+    const resetLink = new URL(linkMatch[0]);
+    assert.equal(resetLink.searchParams.get('email'), 'person@example.com');
+    assert.match(resetLink.searchParams.get('token'), /^[a-f0-9]{64}$/);
+  } finally {
+    pool.query = originalQuery;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('password reset landing page submits valid email and token to the reset endpoint', async () => {
+  const email = encodeURIComponent('person@example.com');
+  const token = 'c'.repeat(64);
+  const response = await fetch(
+    `${baseUrl}/reset-password?email=${email}&token=${token}`,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/html/);
+  const html = await response.text();
+  assert.match(html, /value="person@example\.com"/);
+  assert.match(html, new RegExp(`value="${token}"`));
+  assert.match(html, /fetch\('\/reset-password'/);
+  assert.match(html, /Passwords do not match/);
+});
+
+test('password reset landing page rejects missing or invalid link parameters', async () => {
+  const response = await fetch(`${baseUrl}/reset-password?email=person%40example.com`);
+
+  assert.equal(response.status, 400);
+  assert.match(await response.text(), /Invalid reset link/);
+});
+
+test('budget invitation landing page explains how to accept the pending invitation', async () => {
+  const response = await fetch(`${baseUrl}/budget-invitation?budgetId=budget-1`);
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/html/);
+  assert.match(await response.text(), /Budget Invitations/);
+});
+
 test('budget invitation is committed before its email is sent', async () => {
   const originalQuery = pool.query;
   const originalConnect = pool.connect;
   const originalFetch = globalThis.fetch;
   const events = [];
+  let invitationEmail;
   pool.query = async (statement) => {
     if (String(statement).includes('SELECT name, owner_email FROM budgets')) {
       return {
@@ -286,6 +357,7 @@ test('budget invitation is committed before its email is sent', async () => {
       const message = JSON.parse(options.body);
       assert.equal(message.to[0], 'recipient@example.com');
       assert.equal(message.from, 'BudgetBuddy <budgetbuddy@example.com>');
+      invitationEmail = message;
       return { ok: true };
     }
     return originalFetch(input, options);
@@ -308,6 +380,10 @@ test('budget invitation is committed before its email is sent', async () => {
     assert.notEqual(commitIndex, -1);
     assert.notEqual(emailIndex, -1);
     assert.ok(commitIndex < emailIndex);
+    assert.match(
+      invitationEmail.text,
+      /https:\/\/api\.budgetbuddy\.me\/budget-invitation\?budgetId=budget-1/,
+    );
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;

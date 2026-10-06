@@ -397,6 +397,81 @@ app.post('/forgot-password', async (req, res) => {
   }
 });
 
+app.get('/reset-password', (req, res) => {
+  const email = typeof req.query.email === 'string' ? req.query.email : '';
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!isValidEmail(email) || !/^[a-f0-9]{64}$/i.test(token)) {
+    return res.status(400).type('html').send(
+      '<!doctype html><html lang="en"><meta charset="utf-8"><title>Invalid reset link</title>' +
+      '<body><main><h1>Invalid reset link</h1><p>Request a new password reset email and use its latest link.</p></main></body></html>',
+    );
+  }
+
+  return res.type('html').send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reset your BudgetBuddy password</title>
+  <style>
+    body { background: #f0f8ff; color: #17212b; font: 16px Arial, sans-serif; margin: 0; padding: 24px; }
+    main { background: #fff; border-radius: 12px; margin: 8vh auto; max-width: 420px; padding: 28px; }
+    label { display: block; font-weight: 600; margin: 16px 0 6px; }
+    input, button { box-sizing: border-box; font: inherit; padding: 11px; width: 100%; }
+    button { background: #176b45; border: 0; border-radius: 6px; color: #fff; cursor: pointer; margin-top: 20px; }
+    #status { min-height: 24px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Reset your password</h1>
+    <p>Choose a new password for your BudgetBuddy account.</p>
+    <form id="reset-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" value="${escapeHtml(email)}" readonly>
+      <input id="token" type="hidden" value="${escapeHtml(token)}">
+      <label for="password">New password</label>
+      <input id="password" type="password" minlength="6" autocomplete="new-password" required>
+      <label for="confirm-password">Confirm new password</label>
+      <input id="confirm-password" type="password" minlength="6" autocomplete="new-password" required>
+      <button type="submit">Update password</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script>
+    document.getElementById('reset-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = document.getElementById('password').value;
+      const status = document.getElementById('status');
+      if (password !== document.getElementById('confirm-password').value) {
+        status.textContent = 'Passwords do not match.';
+        return;
+      }
+      status.textContent = 'Updating your password...';
+      try {
+        const response = await fetch('/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: document.getElementById('email').value,
+            token: document.getElementById('token').value,
+            password,
+          }),
+        });
+        const result = await response.json();
+        status.textContent = response.ok
+          ? 'Password updated. You can now sign in to BudgetBuddy.'
+          : result.error || 'Unable to reset your password.';
+        if (response.ok) event.target.hidden = true;
+      } catch {
+        status.textContent = 'Unable to reach BudgetBuddy. Please try again.';
+      }
+    });
+  </script>
+</body>
+</html>`);
+});
+
 app.post('/reset-password', async (req, res) => {
   const { email, token, password } = req.body || {};
   if (
@@ -455,6 +530,35 @@ app.post('/reset-password', async (req, res) => {
   } finally {
     if (client) client.release();
   }
+});
+
+app.get('/budget-invitation', (req, res) => {
+  if (typeof req.query.budgetId !== 'string' || !req.query.budgetId.trim()) {
+    return res.status(400).type('html').send(
+      '<!doctype html><html lang="en"><meta charset="utf-8"><title>Invalid invitation</title>' +
+      '<body><main><h1>Invalid invitation</h1><p>Ask the budget owner to send a new invitation.</p></main></body></html>',
+    );
+  }
+
+  return res.type('html').send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BudgetBuddy invitation</title>
+  <style>
+    body { background: #f0f8ff; color: #17212b; font: 16px Arial, sans-serif; margin: 0; padding: 24px; }
+    main { background: #fff; border-radius: 12px; margin: 8vh auto; max-width: 480px; padding: 28px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>You have a BudgetBuddy invitation</h1>
+    <p>Open BudgetBuddy and sign in or create an account with the email address that received this invitation.</p>
+    <p>Then open the menu and choose <strong>Budget Invitations</strong> to review and accept it.</p>
+  </main>
+</body>
+</html>`);
 });
 
 app.post('/budgets', requireAuthentication, async (req, res) => {

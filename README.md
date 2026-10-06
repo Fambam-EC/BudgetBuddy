@@ -27,7 +27,7 @@ npm install
 npm start
 ```
 
-Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to send email through the Resend Email API. `RESEND_FROM_NAME` optionally sets the sender name and defaults to `BudgetBuddy`. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to send email through the Resend Email API. `RESEND_FROM_NAME` optionally sets the sender name and defaults to `BudgetBuddy`. The reset and invitation links default to `https://api.budgetbuddy.me/reset-password` and `https://api.budgetbuddy.me/budget-invitation`; the API serves the reset form and invitation instructions at those URLs. Never commit `.env` files.
 
 ### Expose the API with Cloudflare Tunnel
 
