@@ -90,6 +90,32 @@ test('registration preflight allows standard API request headers', async () => {
   );
 });
 
+test('account deletion and support pages are publicly available', async () => {
+  const deletionResponse = await fetch(`${baseUrl}/delete-account`);
+  assert.equal(deletionResponse.status, 200);
+  assert.match(deletionResponse.headers.get('content-type'), /text\/html/);
+  const deletionPage = await deletionResponse.text();
+  assert.match(deletionPage, /Delete your BudgetBuddy account/);
+  assert.match(deletionPage, /Permanently delete my account/);
+  assert.match(deletionPage, /fetch\('\/login'/);
+  assert.match(deletionPage, /fetch\('\/account'/);
+
+  const aliasResponse = await fetch(`${baseUrl}/account-deletion`);
+  assert.equal(aliasResponse.status, 200);
+
+  const supportResponse = await fetch(`${baseUrl}/support`);
+  assert.equal(supportResponse.status, 200);
+  assert.match(supportResponse.headers.get('content-type'), /text\/html/);
+  const supportPage = await supportResponse.text();
+  assert.match(supportPage, /BudgetBuddy Support/);
+  assert.match(supportPage, /support@budgetbuddy\.me/);
+  assert.match(supportPage, /href="\/delete-account"/);
+
+  const resetResponse = await fetch(`${baseUrl}/forgot-password`);
+  assert.equal(resetResponse.status, 200);
+  assert.match(await resetResponse.text(), /fetch\('\/forgot-password'/);
+});
+
 test('budget endpoints reject requests without a JWT', async () => {
   const response = await fetch(`${baseUrl}/budgets`);
   assert.equal(response.status, 401);

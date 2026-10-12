@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f7f2">
+  <title>Delete your BudgetBuddy account</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #18332a;
+      background: #f4f7f2;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 48px 20px; }
+    main {
+      width: min(100%, 560px);
+      margin: 0 auto;
+      padding: 36px;
+      border: 1px solid #dbe5db;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 12px 36px rgb(24 51 42 / 8%);
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(1.75rem, 6vw, 2.25rem); }
+    h2 { margin: 26px 0 8px; font-size: 1.1rem; }
+    p, li { color: #45574e; line-height: 1.6; }
+    ul { padding-left: 22px; }
+    label { display: block; margin: 18px 0 6px; font-weight: 650; }
+    input {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 12px;
+      border: 1px solid #aab9ae;
+      border-radius: 8px;
+      font: inherit;
+    }
+    input:focus-visible, button:focus-visible, a:focus-visible {
+      outline: 3px solid #65a982;
+      outline-offset: 3px;
+    }
+    button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 20px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 8px;
+      background: #1d6249;
+      color: white;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.danger { background: #a42e2e; }
+    button:disabled { cursor: wait; opacity: .7; }
+    a { color: #1d6249; }
+    .notice { min-height: 1.5em; margin-top: 16px; }
+    .notice.error { color: #a42e2e; }
+    .notice.success { color: #1d6249; }
+    [hidden] { display: none !important; }
+    @media (max-width: 480px) {
+      body { padding: 20px 12px; }
+      main { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Delete your BudgetBuddy account</h1>
+    <p>Sign in with your BudgetBuddy account to permanently delete it and its associated data. You can submit this request here without reinstalling the app.</p>
+
+    <section id="login-section" aria-labelledby="login-heading">
+      <h2 id="login-heading">Verify your account</h2>
+      <form id="login-form">
+        <label for="email">Account email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button id="login-button" type="submit">Continue</button>
+      </form>
+      <p><a href="/forgot-password">Forgot your password?</a></p>
+    </section>
+
+    <section id="confirm-section" aria-labelledby="confirm-heading" hidden>
+      <h2 id="confirm-heading">Confirm permanent deletion</h2>
+      <p id="account-label"></p>
+      <p>Deleting your account permanently removes:</p>
+      <ul>
+        <li>Your BudgetBuddy account and sign-in credentials</li>
+        <li>Budgets you own and their invitations</li>
+        <li>Your archived budget history and password-reset requests</li>
+      </ul>
+      <p>Budgets owned by someone else and shared with you remain with their owner. This action cannot be undone.</p>
+      <p>This page deletes data held on our servers. It cannot erase offline copies already stored on your devices; clear BudgetBuddy's app or browser storage on each device to remove those copies.</p>
+      <button id="delete-button" class="danger" type="button">Permanently delete my account</button>
+    </section>
+
+    <p id="status" class="notice" role="status" aria-live="polite"></p>
+    <p><a href="/support">BudgetBuddy Support</a></p>
+  </main>
+
+  <script>
+    const loginSection = document.getElementById('login-section');
+    const confirmSection = document.getElementById('confirm-section');
+    const loginForm = document.getElementById('login-form');
+    const loginButton = document.getElementById('login-button');
+    const deleteButton = document.getElementById('delete-button');
+    const status = document.getElementById('status');
+    let accountToken;
+
+    function showStatus(message, kind) {
+      status.textContent = message;
+      status.className = `notice${kind ? ` ${kind}` : ''}`;
+    }
+
+    async function readResponse(response) {
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Something went wrong. Please try again.');
+      }
+      return result;
+    }
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      loginButton.disabled = true;
+      showStatus('Verifying your account…');
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: loginForm.elements.email.value.trim(),
+            password: loginForm.elements.password.value,
+          }),
+        });
+        const result = await readResponse(response);
+        accountToken = result.token;
+        loginForm.reset();
+        document.getElementById('account-label').textContent =
+          `You are signed in as ${result.user.email}.`;
+        loginSection.hidden = true;
+        confirmSection.hidden = false;
+        showStatus('');
+      } catch (error) {
+        showStatus(error instanceof Error ? error.message : 'Unable to verify your account.', 'error');
+      } finally {
+        loginButton.disabled = false;
+      }
+    });
+
+    deleteButton.addEventListener('click', async () => {
+      if (!accountToken) {
+        showStatus('Please sign in again before deleting your account.', 'error');
+        confirmSection.hidden = true;
+        loginSection.hidden = false;
+        return;
+      }
+      deleteButton.disabled = true;
+      showStatus('Deleting your account…');
+      try {
+        await readResponse(await fetch('/account', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accountToken}` },
+        }));
+        accountToken = undefined;
+        confirmSection.hidden = true;
+        showStatus('Your BudgetBuddy account and associated server data have been deleted.', 'success');
+      } catch (error) {
+        showStatus(error instanceof Error ? error.message : 'Unable to delete your account.', 'error');
+      } finally {
+        deleteButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

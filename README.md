@@ -1,7 +1,7 @@
 # BudgetBuddy
 BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
 
-The standalone [BudgetBuddy Privacy Policy](./privacy-policy.html) describes the app's current data practices.
+The BudgetBuddy Privacy Policy is hosted externally and is provided in the Google Play Store listing.
 
 ## Architecture
 
@@ -67,6 +67,14 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
 6. If browser clients call the API from a different website, add that website's HTTPS origin to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
+
+### Public account deletion and support pages
+
+The existing Express API serves the account-deletion page at `https://api.budgetbuddy.me/delete-account` (also available at `/account-deletion`) and the support page at `https://api.budgetbuddy.me/support`. These routes use the existing `api.budgetbuddy.me` Cloudflare Tunnel hostname and API process; they do not require another project, hostname, or tunnel. Keep the API and tunnel running so these pages remain reachable.
+
+The deletion page lets a user sign in with their BudgetBuddy credentials and explicitly confirm permanent account deletion. It calls the existing `/login` and authenticated `DELETE /account` endpoints. In Play Console, enter `https://api.budgetbuddy.me/delete-account` in the account-deletion URL field and complete the Data deletion section to match the data actually deleted by the app. The in-app deletion path remains available in the app menu.
+
+The support page provides password-reset guidance, links to account deletion, and a contact link for `support@budgetbuddy.me`. The password-reset form at `/forgot-password` uses the existing API email flow. Ensure the support mailbox can receive requests and password-reset email is configured before publishing the pages.
 
 Start the Web client from the project root with `npm run web`. For native targets, run `npm start`, then use `npm run android` or `npm run ios` with the corresponding development environment configured.
 

@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -59,6 +60,18 @@ const pool = new Pool({
 const resetTokenLifetimeMinutes = 30;
 const passwordResetUrl = process.env.PASSWORD_RESET_URL;
 const budgetInviteUrl = process.env.BUDGET_INVITE_URL;
+
+app.get(['/delete-account', '/account-deletion'], (req, res) => {
+  return res.sendFile(path.join(__dirname, 'public', 'delete-account.html'));
+});
+
+app.get('/support', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'public', 'support.html'));
+});
+
+app.get('/forgot-password', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
+});
 
 const isEmailConfigured = () =>
   Boolean(
