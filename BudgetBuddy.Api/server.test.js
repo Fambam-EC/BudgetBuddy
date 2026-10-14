@@ -110,7 +110,7 @@ test('account deletion, support, and privacy pages are publicly available', asyn
   assert.match(supportPage, /BudgetBuddy Support/);
   assert.match(supportPage, /support@budgetbuddy\.me/);
   assert.match(supportPage, /href="https:\/\/api\.budgetbuddy\.me\/delete-account"/);
-  assert.match(supportPage, /href="\/privacy-policy"/);
+  assert.match(supportPage, /href="\/policy"/);
 
   const privacyResponse = await fetch(`${baseUrl}/privacy-policy`);
   assert.equal(privacyResponse.status, 200);
@@ -122,6 +122,9 @@ test('account deletion, support, and privacy pages are publicly available', asyn
 
   const privacyAliasResponse = await fetch(`${baseUrl}/privacy`);
   assert.equal(privacyAliasResponse.status, 200);
+
+  const policyResponse = await fetch(`${baseUrl}/policy`);
+  assert.equal(policyResponse.status, 200);
 
   const resetResponse = await fetch(`${baseUrl}/forgot-password`);
   assert.equal(resetResponse.status, 200);

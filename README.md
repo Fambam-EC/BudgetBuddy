@@ -1,7 +1,7 @@
 # BudgetBuddy
 BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
 
-The BudgetBuddy Privacy Policy is included with the API and served at `/privacy-policy`.
+The BudgetBuddy Privacy Policy and support page are static site pages served at `/policy` and `/support`.
 
 ## Architecture
 
@@ -70,20 +70,20 @@ The tunnel process must stay running for the API to remain reachable. Never expo
 
 ### Deploy the static website to the Cloudflare Worker
 
-The root `index.html` is a standalone landing page. Build a static asset directory containing that file and its two Open Sans fonts, then deploy it to the existing `budgetbuddy` Worker:
+The root `index.html` is a standalone landing page. The root `policy.html` and `support.html` files provide the privacy policy and support page. Build a static asset directory containing all three pages and the landing page's two Open Sans fonts, then deploy it to the existing `budgetbuddy` Worker:
 
 ```powershell
 npm run build:worker
 npx wrangler@4 deploy --config .\wrangler.jsonc
 ```
 
-Or run both steps with `npm run deploy:worker`. The Wrangler configuration serves `dist` as Worker static assets and uses `index.html` as the fallback for paths that do not match a file, so client-side SPA routes resolve to the app entry page. This build publishes the standalone root landing page; it does not bundle the React Native Web app.  Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare for the domain root to use it.
+Or run both steps with `npm run deploy:worker`. The Wrangler configuration serves `dist` as Worker static assets and uses `index.html` as the fallback for paths that do not match a file, so client-side SPA routes resolve to the app entry page. The build includes `policy.html` and `support.html` so Cloudflare serves them at `/policy` and `/support`. This build publishes the standalone root landing page; it does not bundle the React Native Web app. Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare for the domain root to use it.
 
 ### Public account deletion, support, and privacy pages
 
-The Express API serves the account-deletion page at `https://api.budgetbuddy.me/delete-account` (also available at `/account-deletion`), the support page at `https://api.budgetbuddy.me/support`, and the privacy policy at `https://api.budgetbuddy.me/privacy-policy` (also available at `/privacy`). These pages are included in the API project and require no separate build.
+The Express API serves the account-deletion page at `https://api.budgetbuddy.me/delete-account` (also available at `/account-deletion`). Its `/support`, `/policy`, `/privacy`, and `/privacy-policy` routes serve the root static support and privacy pages for compatibility. The public website serves those pages at `https://budgetbuddy.me/support` and `https://budgetbuddy.me/policy`.
 
-To keep the public support URL at `https://budgetbuddy.me/support`, configure the existing `budgetbuddy.me` website host or reverse proxy to forward `/support` and `/privacy-policy` to the matching paths on `https://api.budgetbuddy.me`, preserving the browser's URL. Do not route the entire `budgetbuddy.me` hostname to the API unless the existing homepage is also served there. The API's existing Cloudflare Tunnel continues to serve `api.budgetbuddy.me`; the path forwarding rule belongs on whichever service currently hosts `budgetbuddy.me`.
+The API's existing Cloudflare Tunnel continues to serve `api.budgetbuddy.me`; the `budgetbuddy.me` Worker serves the landing page, privacy policy, and support page.
 
 The deletion page lets a user sign in with their BudgetBuddy credentials and explicitly confirm permanent account deletion. It calls the existing `/login` and authenticated `DELETE /account` endpoints. In Play Console, enter `https://api.budgetbuddy.me/delete-account` in the account-deletion URL field and complete the Data deletion section to match the data actually deleted by the app. The in-app deletion path remains available in the app menu.
 

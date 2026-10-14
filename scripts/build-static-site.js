@@ -13,6 +13,13 @@ fs.copyFileSync(
   path.join(outputDirectory, 'index.html'),
 );
 
+for (const page of ['policy.html', 'support.html']) {
+  fs.copyFileSync(
+    path.join(projectRoot, page),
+    path.join(outputDirectory, page),
+  );
+}
+
 for (const font of ['OpenSans-Regular.ttf', 'OpenSans-Bold.ttf']) {
   fs.copyFileSync(
     path.join(projectRoot, 'assets', 'fonts', font),
