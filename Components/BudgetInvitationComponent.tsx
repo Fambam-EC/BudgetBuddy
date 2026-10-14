@@ -45,7 +45,7 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
     } finally {
       setIsLoading(false);
     }
-  }, [email]);
+  }, [email, localOnly]);
 
   useEffect(() => {
     loadInvitations();
@@ -87,93 +87,191 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
 
   return (
     <View style={styles.container}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Budget invitations${invitations.length ? `, ${invitations.length} pending` : ''}`}
-        accessibilityState={{ busy: isLoading }}
-        onPress={loadInvitations}
-        disabled={isLoading}
-        style={styles.invitationButton}
-      >
-        <Text style={styles.headingText}>Budget Invitations</Text>
-        <View style={styles.refreshIcon}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#176b45" />
-          ) : (
-            <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
-          )}
-        </View>
-        {invitations.length > 0 && <Text style={styles.alertBadge}>!</Text>}
-      </Pressable>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {invitations.map((invitation) => (
-        <View key={invitation.id} style={styles.invitation}>
-          <Text style={styles.budgetName}>{invitation.budgetName}</Text>
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={busyInvitationId !== null}
-              onPress={() => updateInvitation(invitation, 'accepted')}
-            >
-              <View style={styles.actionContent}>
-                {busyInvitationId === invitation.id && <ActivityIndicator size="small" />}
-                <Text style={styles.accept}>{busyInvitationId === invitation.id ? 'Working...' : 'Accept'}</Text>
-              </View>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={busyInvitationId !== null}
-              onPress={() => updateInvitation(invitation, 'rejected')}
-            >
-              <Text style={styles.reject}>Decline</Text>
-            </Pressable>
+      <View style={styles.panel}>
+        <View style={styles.header}>
+          <View style={styles.heading}>
+            <View style={styles.titleRow}>
+              <Text style={styles.headingText}>Budget invitations</Text>
+              {invitations.length > 0 && (
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>
+                    {invitations.length} pending
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.subtitle}>Shared budgets waiting for you</Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh budget invitations"
+            accessibilityState={{ busy: isLoading, disabled: isLoading }}
+            onPress={loadInvitations}
+            disabled={isLoading}
+            style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#176b45" />
+            ) : (
+              <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
+            )}
+          </Pressable>
         </View>
-      ))}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        ) : null}
+        {invitations.length > 0 ? (
+          <View style={styles.invitationList}>
+            {invitations.map((invitation) => (
+              <View key={invitation.id} style={styles.invitationCard}>
+                <View style={styles.invitationDetails}>
+                  <Text style={styles.invitationLabel}>BUDGET INVITATION</Text>
+                  <Text style={styles.budgetName} numberOfLines={2}>
+                    {invitation.budgetName}
+                  </Text>
+                </View>
+                <View style={styles.actions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: busyInvitationId !== null }}
+                    disabled={busyInvitationId !== null}
+                    onPress={() => updateInvitation(invitation, 'accepted')}
+                    style={({ pressed }) => [
+                      styles.acceptButton,
+                      busyInvitationId !== null && styles.disabledButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    {busyInvitationId === invitation.id && (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    )}
+                    <Text style={styles.accept}>
+                      {busyInvitationId === invitation.id ? 'Working...' : 'Accept'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: busyInvitationId !== null }}
+                    disabled={busyInvitationId !== null}
+                    onPress={() => updateInvitation(invitation, 'rejected')}
+                    style={({ pressed }) => [
+                      styles.declineButton,
+                      busyInvitationId !== null && styles.disabledButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.reject}>Decline</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : !error && !isLoading ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>You're all caught up</Text>
+            <Text style={styles.emptyText}>New budget invitations will show up here.</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'flex-start' },
-  invitationButton: {
-    alignItems: 'center',
-    borderColor: '#000',
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginHorizontal: 8,
-    marginVertical: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    position: 'relative',
+  container: {
+    alignSelf: 'flex-start',
+    maxWidth: 420,
+    minWidth: 280,
+    width: '100%',
   },
-  headingText: { fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
-  refreshIcon: { alignItems: 'center', height: 24, justifyContent: 'center', marginLeft: 10, width: 24 },
-  alertBadge: {
+  panel: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D9E7F2',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    padding: 14,
+  },
+  header: {
     alignItems: 'center',
-    backgroundColor: '#b42318',
-    borderColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heading: { flex: 1, paddingRight: 12 },
+  titleRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  headingText: { color: '#1F2937', fontFamily: 'OpenSans-Bold', fontSize: 15 },
+  subtitle: { color: '#6B7280', fontFamily: 'OpenSans-Regular', fontSize: 12, marginTop: 3 },
+  pendingBadge: {
+    backgroundColor: '#E8F5EE',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  pendingBadgeText: { color: '#176B45', fontFamily: 'OpenSans-Bold', fontSize: 10 },
+  refreshButton: {
+    alignItems: 'center',
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  invitationList: { gap: 9, marginTop: 14 },
+  invitationCard: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E5EDF3',
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+    padding: 12,
+  },
+  invitationDetails: { gap: 3 },
+  invitationLabel: { color: '#6B7280', fontFamily: 'OpenSans-Bold', fontSize: 9, letterSpacing: 0.6 },
+  budgetName: { color: '#1F2937', fontFamily: 'OpenSans-Bold', fontSize: 14 },
+  actions: { flexDirection: 'row', gap: 8 },
+  acceptButton: {
+    alignItems: 'center',
+    backgroundColor: '#176B45',
+    borderRadius: 9,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  declineButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5EDF3',
     borderRadius: 9,
     borderWidth: 1,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-    height: 18,
-    lineHeight: 16,
-    position: 'absolute',
-    right: -7,
-    textAlign: 'center',
-    top: -7,
-    width: 18,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 12,
   },
-  invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
-  budgetName: { flex: 1 },
-  actions: { flexDirection: 'row', gap: 14 },
-  actionContent: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  accept: { color: '#176b45', fontWeight: 'bold' },
-  reject: { color: '#a32f2f', fontWeight: 'bold' },
-  error: { color: '#a32f2f', padding: 10 },
+  accept: { color: '#FFFFFF', fontFamily: 'OpenSans-Bold', fontSize: 12 },
+  reject: { color: '#6B7280', fontFamily: 'OpenSans-Bold', fontSize: 12 },
+  disabledButton: { opacity: 0.6 },
+  pressed: { opacity: 0.75 },
+  emptyState: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    marginTop: 14,
+    padding: 13,
+  },
+  emptyTitle: { color: '#374151', fontFamily: 'OpenSans-Bold', fontSize: 13 },
+  emptyText: { color: '#6B7280', fontFamily: 'OpenSans-Regular', fontSize: 12, marginTop: 3 },
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    marginTop: 12,
+    padding: 10,
+  },
+  error: { color: '#B42318', fontFamily: 'OpenSans-Regular', fontSize: 12 },
 });
 
 export default BudgetInvitationComponent;
