@@ -1,7 +1,7 @@
 # BudgetBuddy
 BudgetBuddy is a React Native budget app targeting Android, iOS, and Web. The Express API and PostgreSQL database support accounts, JWT sessions, budgets, invitations, and budget history.
 
-The standalone [BudgetBuddy Privacy Policy](./privacy-policy.html) describes the app's current data practices.
+The BudgetBuddy Privacy Policy is included with the API and served at `/privacy-policy`.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ npm install
 npm start
 ```
 
-Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to send email through the Resend Email API. `RESEND_FROM_NAME` optionally sets the sender name and defaults to `BudgetBuddy`. Set `PASSWORD_RESET_URL` and `BUDGET_INVITE_URL` to enable password reset and email invitations. Never commit `.env` files.
+Set a long random `JWT_SECRET` in `BudgetBuddy.Api/.env`. Configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to send email through the Resend Email API. `RESEND_FROM_NAME` optionally sets the sender name and defaults to `BudgetBuddy`. The reset and invitation links default to `https://api.budgetbuddy.me/reset-password` and `https://api.budgetbuddy.me/budget-invitation`; the API serves the reset form and invitation instructions at those URLs. Never commit `.env` files.
 
 ### Expose the API with Cloudflare Tunnel
 
@@ -67,6 +67,16 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
 6. If browser clients call the API from a different website, add that website's HTTPS origin to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
+
+### Public account deletion, support, and privacy pages
+
+The Express API serves the account-deletion page at `https://api.budgetbuddy.me/delete-account` (also available at `/account-deletion`), the support page at `https://api.budgetbuddy.me/support`, and the privacy policy at `https://api.budgetbuddy.me/privacy-policy` (also available at `/privacy`). These pages are included in the API project and require no separate build.
+
+To keep the public support URL at `https://budgetbuddy.me/support`, configure the existing `budgetbuddy.me` website host or reverse proxy to forward `/support` and `/privacy-policy` to the matching paths on `https://api.budgetbuddy.me`, preserving the browser's URL. Do not route the entire `budgetbuddy.me` hostname to the API unless the existing homepage is also served there. The API's existing Cloudflare Tunnel continues to serve `api.budgetbuddy.me`; the path forwarding rule belongs on whichever service currently hosts `budgetbuddy.me`.
+
+The deletion page lets a user sign in with their BudgetBuddy credentials and explicitly confirm permanent account deletion. It calls the existing `/login` and authenticated `DELETE /account` endpoints. In Play Console, enter `https://api.budgetbuddy.me/delete-account` in the account-deletion URL field and complete the Data deletion section to match the data actually deleted by the app. The in-app deletion path remains available in the app menu.
+
+The support page provides password-reset guidance, links to account deletion and the privacy policy, and a contact link for `support@budgetbuddy.me`. Account-related links point to the existing API host. The password-reset form at `/forgot-password` uses the existing API email flow. Ensure the support mailbox can receive requests and password-reset email is configured before publishing the pages.
 
 Start the Web client from the project root with `npm run web`. For native targets, run `npm start`, then use `npm run android` or `npm run ios` with the corresponding development environment configured.
 

@@ -14,6 +14,17 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
+# Some pod resource-bundle targets are finalized after the post-install hook.
+# Reapply the minimum supported simulator version after integration as well.
+post_integrate do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |build_configuration|
+      build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
+  installer.pods_project.save
+end
+
 target 'BudgetBuddy' do
   config = use_native_modules!
 
@@ -30,5 +41,11 @@ target 'BudgetBuddy' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_configuration|
+        build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      end
+    end
   end
 end

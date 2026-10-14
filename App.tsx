@@ -1316,7 +1316,7 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
   const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
   const [totalIncomeInput, setTotalIncomeInput] = useState(totalIncomeAmount.toFixed(2));
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
-  const [potentialSurplus, setPotentialSurplus] = useState(totalSetBudgetAmount - (budgetedTotal ? budgetedTotal : 0));
+  const potentialSurplus = totalSetBudgetAmount - (budgetedTotal ?? 0);
 
   const updateBudgetTitle = (text: string) => {
     storage.set(accountStorageKey(title_key, userEmail), text)
@@ -1358,7 +1358,6 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
               const parsedAmount = Number(amount);
               if (amount.trim() !== '' && Number.isFinite(parsedAmount)) {
                 setTotalBudgetAmount(parsedAmount);
-                setPotentialSurplus(parsedAmount - (budgetedTotal ? budgetedTotal : 0));
               }
             }}
             onEndEditing={() => setTotalIncomeInput(totalSetBudgetAmount.toFixed(2))}
@@ -2232,6 +2231,7 @@ const styles = StyleSheet.create({
       position: 'relative',
     },
     menuContainer: {
+      alignSelf: 'flex-start',
       zIndex: 2,
       elevation: 2,
     },

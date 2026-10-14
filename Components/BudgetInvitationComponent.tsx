@@ -45,7 +45,7 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
     } finally {
       setIsLoading(false);
     }
-  }, [email]);
+  }, [email, localOnly]);
 
   useEffect(() => {
     loadInvitations();
@@ -90,40 +90,58 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Budget invitations${invitations.length ? `, ${invitations.length} pending` : ''}`}
-        accessibilityState={{ busy: isLoading }}
+        accessibilityState={{ busy: isLoading, disabled: isLoading }}
         onPress={loadInvitations}
         disabled={isLoading}
-        style={styles.invitationButton}
+        style={({ pressed }) => [styles.invitationButton, pressed && styles.pressed]}
       >
         <Text style={styles.headingText}>Budget Invitations</Text>
+        {invitations.length > 0 && (
+          <View style={styles.pendingBadge}>
+            <Text style={styles.pendingBadgeText}>{invitations.length}</Text>
+          </View>
+        )}
         <View style={styles.refreshIcon}>
           {isLoading ? (
             <ActivityIndicator size="small" color="#176b45" />
           ) : (
-            <HugeiconsIcon icon={RefreshCwIcon} size={18} color="#176b45" strokeWidth={1.8} />
+            <HugeiconsIcon icon={RefreshCwIcon} size={16} color="#176b45" strokeWidth={1.8} />
           )}
         </View>
-        {invitations.length > 0 && <Text style={styles.alertBadge}>!</Text>}
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {invitations.map((invitation) => (
-        <View key={invitation.id} style={styles.invitation}>
-          <Text style={styles.budgetName}>{invitation.budgetName}</Text>
+        <View key={invitation.id} style={styles.invitationCard}>
+          <Text style={styles.budgetName} numberOfLines={2}>{invitation.budgetName}</Text>
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: busyInvitationId !== null }}
               disabled={busyInvitationId !== null}
               onPress={() => updateInvitation(invitation, 'accepted')}
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.acceptButton,
+                busyInvitationId !== null && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}
             >
-              <View style={styles.actionContent}>
-                {busyInvitationId === invitation.id && <ActivityIndicator size="small" />}
-                <Text style={styles.accept}>{busyInvitationId === invitation.id ? 'Working...' : 'Accept'}</Text>
-              </View>
+              {busyInvitationId === invitation.id && <ActivityIndicator size="small" color="#FFFFFF" />}
+              <Text style={styles.accept}>
+                {busyInvitationId === invitation.id ? 'Working...' : 'Accept'}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: busyInvitationId !== null }}
               disabled={busyInvitationId !== null}
               onPress={() => updateInvitation(invitation, 'rejected')}
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.declineButton,
+                busyInvitationId !== null && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.reject}>Decline</Text>
             </Pressable>
@@ -135,7 +153,10 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'flex-start' },
+  container: {
+    alignSelf: 'flex-start',
+    alignItems: 'flex-start',
+  },
   invitationButton: {
     alignItems: 'center',
     borderColor: '#000',
@@ -146,34 +167,67 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    position: 'relative',
   },
-  headingText: { fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
-  refreshIcon: { alignItems: 'center', height: 24, justifyContent: 'center', marginLeft: 10, width: 24 },
-  alertBadge: {
+  headingText: { color: '#1F2937', fontFamily: 'OpenSans-Regular', fontSize: 12, fontWeight: 'bold' },
+  pendingBadge: {
+    backgroundColor: '#E8F5EE',
+    borderRadius: 8,
+    marginLeft: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  pendingBadgeText: { color: '#176B45', fontFamily: 'OpenSans-Bold', fontSize: 10 },
+  refreshIcon: {
     alignItems: 'center',
-    backgroundColor: '#b42318',
-    borderColor: '#fff',
-    borderRadius: 9,
-    borderWidth: 1,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-    height: 18,
-    lineHeight: 16,
-    position: 'absolute',
-    right: -7,
-    textAlign: 'center',
-    top: -7,
-    width: 18,
+    justifyContent: 'center',
+    marginLeft: 8,
+    minHeight: 18,
+    minWidth: 18,
   },
-  invitation: { alignItems: 'center', flexDirection: 'row', gap: 16, padding: 10 },
-  budgetName: { flex: 1 },
-  actions: { flexDirection: 'row', gap: 14 },
-  actionContent: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  accept: { color: '#176b45', fontWeight: 'bold' },
-  reject: { color: '#a32f2f', fontWeight: 'bold' },
-  error: { color: '#a32f2f', padding: 10 },
+  invitationCard: {
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    borderColor: '#1F2937',
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+    marginHorizontal: 8,
+    marginVertical: 3,
+    padding: 8,
+  },
+  budgetName: { color: '#FFFFFF', flex: 1, flexShrink: 1, fontFamily: 'OpenSans-Bold', fontSize: 12 },
+  actions: { flexDirection: 'row', flexShrink: 0, gap: 6 },
+  actionButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    minHeight: 32,
+    paddingHorizontal: 10,
+  },
+  acceptButton: {
+    backgroundColor: '#176B45',
+    borderColor: '#176B45',
+  },
+  declineButton: {
+    backgroundColor: '#B42318',
+    borderColor: '#B42318',
+  },
+  accept: { color: '#FFFFFF', fontFamily: 'OpenSans-Bold', fontSize: 11 },
+  reject: { color: '#FFFFFF', fontFamily: 'OpenSans-Bold', fontSize: 11 },
+  disabledButton: { opacity: 0.6 },
+  pressed: { opacity: 0.75 },
+  error: {
+    color: '#B42318',
+    fontFamily: 'OpenSans-Regular',
+    fontSize: 12,
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
 });
 
 export default BudgetInvitationComponent;

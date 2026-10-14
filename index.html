@@ -2,18 +2,553 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-  <title>Budget Buddy :)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f0f8ff" />
+  <meta name="description" content="Budget Buddy is coming soon: a simpler, friendlier way to plan your budget and stay on top of your money." />
+  <title>Budget Buddy — Coming Soon</title>
   <style>
-    #app-root {
+    @font-face {
+      font-family: "Open Sans";
+      src: url("./assets/fonts/OpenSans-Regular.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Open Sans";
+      src: url("./assets/fonts/OpenSans-Bold.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+    }
+
+    :root {
+      color-scheme: light;
+      font-family: "Open Sans", Arial, sans-serif;
+      color: #17243b;
+      background: #f0f8ff;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .page {
+      position: relative;
       display: flex;
-      flex: 1 1 100%;
-      height: 100vh;
+      min-height: 100vh;
+      min-height: 100svh;
+      flex-direction: column;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .page::before,
+    .page::after {
+      position: absolute;
+      z-index: -1;
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+    }
+
+    .page::before {
+      top: -24rem;
+      right: -17rem;
+      width: 48rem;
+      height: 48rem;
+      background: radial-gradient(circle, rgba(147, 197, 253, 0.3), rgba(240, 248, 255, 0) 70%);
+    }
+
+    .page::after {
+      bottom: -28rem;
+      left: -20rem;
+      width: 52rem;
+      height: 52rem;
+      background: radial-gradient(circle, rgba(191, 219, 254, 0.34), rgba(240, 248, 255, 0) 70%);
+    }
+
+    .topbar,
+    .footer {
+      display: flex;
+      width: min(1120px, calc(100% - 64px));
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      min-height: 96px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: inherit;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 12px;
+      background: #2563eb;
+      box-shadow: 0 5px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 14px;
+      border: 1px solid #dbeafe;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.7);
+      color: #31517f;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px #dcfce7;
+    }
+
+    main {
+      display: grid;
+      width: min(1120px, calc(100% - 64px));
+      flex: 1;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+      align-items: center;
+      gap: clamp(32px, 7vw, 100px);
+      margin: 0 auto;
+      padding: 52px 0 76px;
+    }
+
+    .hero-copy {
+      max-width: 520px;
+      padding: 20px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 22px;
+      color: #2563eb;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: #17243b;
+      font-size: clamp(48px, 6.4vw, 76px);
+      font-weight: 700;
+      letter-spacing: -0.075em;
+      line-height: 1.05;
+    }
+
+    h1 span {
+      color: #2563eb;
+    }
+
+    .description {
+      max-width: 450px;
+      margin: 24px 0 0;
+      color: #62718a;
+      font-size: clamp(16px, 1.7vw, 18px);
+      line-height: 1.8;
+    }
+
+    .promise {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 34px;
+      color: #31517f;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .promise-icon {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid #dbeafe;
+      border-radius: 11px;
+      background: #fff;
+      color: #2563eb;
+    }
+
+    .preview-wrap {
+      position: relative;
+      display: grid;
+      min-height: 400px;
+      place-items: center;
+    }
+
+    .preview-wrap::before {
+      position: absolute;
+      width: min(390px, 85vw);
+      aspect-ratio: 1;
+      border: 1px solid rgba(147, 197, 253, 0.5);
+      border-radius: 50%;
+      background: rgba(219, 234, 254, 0.42);
+      content: "";
+    }
+
+    .preview-wrap::after {
+      position: absolute;
+      width: min(310px, 70vw);
+      aspect-ratio: 1;
+      border: 1px dashed rgba(96, 165, 250, 0.48);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .budget-card {
+      position: relative;
+      z-index: 1;
+      width: min(340px, 88%);
+      padding: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 24px 70px rgba(44, 81, 137, 0.16), 0 4px 12px rgba(44, 81, 137, 0.05);
+      transform: rotate(-2deg);
+    }
+
+    .card-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .card-label {
+      margin: 0;
+      color: #738198;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .card-month {
+      margin: 5px 0 0;
+      color: #17243b;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .more-icon {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border-radius: 10px;
+      background: #f3f7fc;
+      color: #64748b;
+    }
+
+    .total {
+      margin: 26px 0 5px;
+      color: #17243b;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.06em;
+    }
+
+    .total-caption {
+      margin: 0;
+      color: #738198;
+      font-size: 12px;
+    }
+
+    .progress-track {
+      height: 9px;
+      margin-top: 20px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #e8eef7;
+    }
+
+    .progress-fill {
+      width: 67%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #60a5fa, #2563eb);
+    }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: #738198;
+      font-size: 11px;
+    }
+
+    .card-divider {
+      height: 1px;
+      margin: 22px 0 17px;
+      border: 0;
+      background: #edf1f7;
+    }
+
+    .category {
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      align-items: center;
+      gap: 11px;
+      margin-top: 13px;
+    }
+
+    .category-icon {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 11px;
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    .category:nth-of-type(2) .category-icon {
+      background: #ecfdf5;
+      color: #16a34a;
+    }
+
+    .category-name {
+      color: #40516c;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .category-amount {
+      color: #17243b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .footer {
+      min-height: 82px;
+      border-top: 1px solid rgba(191, 219, 254, 0.65);
+      color: #738198;
+      font-size: 12px;
+    }
+
+    .footer-note {
+      margin: 0;
+    }
+
+    .powered-by {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: #52627a;
+      text-align: right;
+    }
+
+    .powered-by-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .aale-logo {
+      display: block;
+      width: 105px;
+      height: auto;
+    }
+
+    @media (max-width: 760px) {
+      .topbar,
+      .footer {
+        width: min(100% - 40px, 560px);
+      }
+
+      .topbar {
+        min-height: 78px;
+      }
+
+      main {
+        width: min(100% - 40px, 560px);
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding: 46px 0 42px;
+      }
+
+      .hero-copy {
+        padding: 0;
+      }
+
+      .eyebrow {
+        margin-bottom: 17px;
+      }
+
+      .description {
+        margin-top: 18px;
+      }
+
+      .promise {
+        margin-top: 23px;
+      }
+
+      .preview-wrap {
+        min-height: 350px;
+      }
+
+      .footer {
+        min-height: 76px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .brand {
+        gap: 8px;
+        font-size: 15px;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+      }
+
+      .status {
+        gap: 7px;
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+
+      .footer {
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 0;
+      }
+
+      .powered-by {
+        gap: 8px;
+      }
     }
   </style>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8689860288402776"
+     crossorigin="anonymous"></script>
 </head>
 <body>
-<div id="app-root"></div>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Budget Buddy home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H20v14H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M4.5 8H18M16 13h4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="16" cy="13" r=".8" fill="#fff"/>
+          </svg>
+        </span>
+        <span>Budget Buddy</span>
+      </a>
+      <div class="status"><span class="status-dot" aria-hidden="true"></span>Coming soon</div>
+    </header>
+
+    <main>
+      <section class="hero-copy" aria-labelledby="page-title">
+        <p class="eyebrow">A little more clarity. A lot less stress.</p>
+        <h1 id="page-title">Your money,<br />in <span>good company.</span></h1>
+        <p class="description">
+          Meet Budget Buddy: a simpler, friendlier way to plan your spending,
+          keep your goals in sight, and feel good about what comes next.
+        </p>
+        <div class="promise">
+          <span class="promise-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="m5 12.5 4.2 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>A happier budget is on its way.</span>
+        </div>
+      </section>
+
+      <div class="preview-wrap" role="img" aria-label="Preview of a monthly budget with spending progress and categories">
+        <div class="budget-card" aria-hidden="true">
+          <div class="card-heading">
+            <div>
+              <p class="card-label">YOUR BUDGET</p>
+              <p class="card-month">Monthly overview</p>
+            </div>
+            <span class="more-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+              </svg>
+            </span>
+          </div>
+          <p class="total">$2,450</p>
+          <p class="total-caption">of $3,650 planned</p>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+          <div class="progress-labels"><span>67% of your plan</span><span>$1,200 left</span></div>
+          <hr class="card-divider" />
+          <div class="category">
+            <span class="category-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M4 10h16l-1.5 9h-13L4 10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M8 10a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="1.7"/>
+              </svg>
+            </span>
+            <span class="category-name">Groceries</span>
+            <span class="category-amount">$420</span>
+          </div>
+          <div class="category">
+            <span class="category-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M4 17.5h16M6 17.5l1-7h10l1 7M9 10.5V7h6v3.5M10 14h.01M14 14h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="category-name">Home</span>
+            <span class="category-amount">$980</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p class="footer-note">A brighter way to budget is coming.</p>
+      <div class="powered-by">
+        <span class="powered-by-label">Powered by</span>
+        <svg class="aale-logo" viewBox="0 0 150 36" role="img" aria-label="AAALE LLC">
+          <g fill="none" stroke="#2563eb" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6">
+            <path d="M5 27 13 7l8 20M8 20h10"/>
+            <path d="m24 27 8-20 8 20M27 20h10"/>
+          </g>
+          <text x="44" y="24" fill="#17243b" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="1.5">ALE</text>
+          <text x="92" y="23" fill="#64748b" font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1">LLC</text>
+          <path d="M45 29h49" stroke="#bfdbfe" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </footer>
+  </div>
 </body>
 </html>
