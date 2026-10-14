@@ -15,6 +15,7 @@
 - Never commit `.env` files or credentials. Use `BudgetBuddy.Api/.env.example` for configuration names.
 
 ## Validation
+- Do not run tests automatically; the user will run them after changes. Run a test command only when the user explicitly asks.
 - Client: `npx tsc --noEmit`, `npm test`, and `npm run web`.
 - API: from `BudgetBuddy.Api`, run `npm test` and `npm run check`.
 - For API or schema changes, keep database-independent contract tests in `BudgetBuddy.Api/server.test.js`; use PostgreSQL-backed checks when Docker is available.
