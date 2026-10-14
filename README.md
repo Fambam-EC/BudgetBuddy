@@ -68,6 +68,17 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
 
+### Deploy the static website to Cloudflare Pages
+
+The root `index.html` is a standalone landing page. Build a Pages output containing that file and its two Open Sans fonts, then deploy it with Wrangler:
+
+```powershell
+npm run build:pages
+npx wrangler@4 pages deploy .\dist --config .\wrangler.jsonc --project-name=budgetbuddy
+```
+
+Or run both steps with `npm run deploy:pages`. The Wrangler configuration sets the Pages output directory to `dist` and does not invoke Expo or the React Native build. If the existing Pages project has a different project slug, change `name` in `wrangler.jsonc` and the `--project-name` in the deploy script to match it. Attach `budgetbuddy.me` to that Pages project in Cloudflare to serve the landing page at the domain root.
+
 ### Public account deletion, support, and privacy pages
 
 The Express API serves the account-deletion page at `https://api.budgetbuddy.me/delete-account` (also available at `/account-deletion`), the support page at `https://api.budgetbuddy.me/support`, and the privacy policy at `https://api.budgetbuddy.me/privacy-policy` (also available at `/privacy`). These pages are included in the API project and require no separate build.
