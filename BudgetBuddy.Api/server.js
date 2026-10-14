@@ -65,14 +65,6 @@ app.get(['/delete-account', '/account-deletion'], (req, res) => {
   return res.sendFile(path.join(__dirname, 'public', 'delete-account.html'));
 });
 
-app.get('/support', (req, res) => {
-  return res.sendFile(path.join(__dirname, '..', 'support.html'));
-});
-
-app.get(['/policy', '/privacy', '/privacy-policy'], (req, res) => {
-  return res.sendFile(path.join(__dirname, '..', 'policy.html'));
-});
-
 app.get('/forgot-password', (req, res) => {
   return res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
 });

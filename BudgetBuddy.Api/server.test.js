@@ -90,7 +90,7 @@ test('registration preflight allows standard API request headers', async () => {
   );
 });
 
-test('account deletion, support, and privacy pages are publicly available', async () => {
+test('account deletion and password reset pages are publicly available', async () => {
   const deletionResponse = await fetch(`${baseUrl}/delete-account`);
   assert.equal(deletionResponse.status, 200);
   assert.match(deletionResponse.headers.get('content-type'), /text\/html/);
@@ -103,32 +103,16 @@ test('account deletion, support, and privacy pages are publicly available', asyn
   const aliasResponse = await fetch(`${baseUrl}/account-deletion`);
   assert.equal(aliasResponse.status, 200);
 
-  const supportResponse = await fetch(`${baseUrl}/support`);
-  assert.equal(supportResponse.status, 200);
-  assert.match(supportResponse.headers.get('content-type'), /text\/html/);
-  const supportPage = await supportResponse.text();
-  assert.match(supportPage, /BudgetBuddy Support/);
-  assert.match(supportPage, /support@budgetbuddy\.me/);
-  assert.match(supportPage, /href="https:\/\/api\.budgetbuddy\.me\/delete-account"/);
-  assert.match(supportPage, /href="\/policy"/);
-
-  const privacyResponse = await fetch(`${baseUrl}/privacy-policy`);
-  assert.equal(privacyResponse.status, 200);
-  assert.match(privacyResponse.headers.get('content-type'), /text\/html/);
-  const privacyPage = await privacyResponse.text();
-  assert.match(privacyPage, /BudgetBuddy Privacy Policy/);
-  assert.match(privacyPage, /Resend/);
-  assert.match(privacyPage, /href="https:\/\/api\.budgetbuddy\.me\/delete-account"/);
-
-  const privacyAliasResponse = await fetch(`${baseUrl}/privacy`);
-  assert.equal(privacyAliasResponse.status, 200);
-
-  const policyResponse = await fetch(`${baseUrl}/policy`);
-  assert.equal(policyResponse.status, 200);
-
   const resetResponse = await fetch(`${baseUrl}/forgot-password`);
   assert.equal(resetResponse.status, 200);
   assert.match(await resetResponse.text(), /fetch\('\/forgot-password'/);
+});
+
+test('support and privacy pages are no longer served by the API', async () => {
+  for (const route of ['/support', '/policy', '/privacy', '/privacy-policy']) {
+    const response = await fetch(`${baseUrl}${route}`);
+    assert.equal(response.status, 404, `${route} should not be served by the API`);
+  }
 });
 
 test('budget endpoints reject requests without a JWT', async () => {
