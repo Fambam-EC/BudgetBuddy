@@ -126,7 +126,7 @@ function BudgetInvitationComponent({ email, localOnly = false, onBudgetAccepted 
                 pressed && styles.pressed,
               ]}
             >
-              {busyInvitationId === invitation.id && <ActivityIndicator size="small" color="#176b45" />}
+              {busyInvitationId === invitation.id && <ActivityIndicator size="small" color="#FFFFFF" />}
               <Text style={styles.accept}>
                 {busyInvitationId === invitation.id ? 'Working...' : 'Accept'}
               </Text>
@@ -186,17 +186,19 @@ const styles = StyleSheet.create({
   },
   invitationCard: {
     alignItems: 'center',
-    borderColor: '#000',
+    backgroundColor: '#1F2937',
+    borderColor: '#1F2937',
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'space-between',
     marginHorizontal: 8,
     marginVertical: 3,
     padding: 8,
   },
-  budgetName: { color: '#1F2937', flex: 1, fontFamily: 'OpenSans-Bold', fontSize: 12 },
-  actions: { flexDirection: 'row', gap: 6 },
+  budgetName: { color: '#FFFFFF', flex: 1, flexShrink: 1, fontFamily: 'OpenSans-Bold', fontSize: 12 },
+  actions: { flexDirection: 'row', flexShrink: 0, gap: 6 },
   actionButton: {
     alignItems: 'center',
     borderRadius: 8,
@@ -205,18 +207,18 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: 'center',
     minHeight: 32,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
   acceptButton: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#176B45',
     borderColor: '#176B45',
   },
   declineButton: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#999',
+    backgroundColor: '#B42318',
+    borderColor: '#B42318',
   },
-  accept: { color: '#176B45', fontFamily: 'OpenSans-Bold', fontSize: 11 },
-  reject: { color: '#555', fontFamily: 'OpenSans-Bold', fontSize: 11 },
+  accept: { color: '#FFFFFF', fontFamily: 'OpenSans-Bold', fontSize: 11 },
+  reject: { color: '#FFFFFF', fontFamily: 'OpenSans-Bold', fontSize: 11 },
   disabledButton: { opacity: 0.6 },
   pressed: { opacity: 0.75 },
   error: {
