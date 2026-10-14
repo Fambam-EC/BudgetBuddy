@@ -77,7 +77,7 @@ npm run build:worker
 npx wrangler@4 deploy --config .\wrangler.jsonc
 ```
 
-Or run both steps with `npm run deploy:worker`. The Wrangler configuration serves `dist` as Worker static assets and uses `index.html` as the fallback for paths that do not match a file, so client-side SPA routes resolve to the app entry page. This build publishes the standalone root landing page; it does not bundle the React Native Web app. Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare for the domain root to use it.
+Or run both steps with `npm run deploy:worker`. The Wrangler configuration serves `dist` as Worker static assets and uses `index.html` as the fallback for paths that do not match a file, so client-side SPA routes resolve to the app entry page. This build publishes the standalone root landing page; it does not bundle the React Native Web app, by design.  Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare for the domain root to use it.
 
 ### Public account deletion, support, and privacy pages
 
