@@ -9,8 +9,8 @@
     "start": "react-native start",
     "test": "jest",
     "web": "webpack serve --mode=development --config webpack.config.js",
-    "build:pages": "node scripts/build-pages.js",
-    "deploy:pages": "npm run build:pages && npx wrangler@4 pages deploy ./dist --config wrangler.jsonc --project-name=budgetbuddy"
+    "build:worker": "node scripts/build-static-site.js",
+    "deploy:worker": "npm run build:worker && npx wrangler@4 deploy --config wrangler.jsonc"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.0",

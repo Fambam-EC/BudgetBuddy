@@ -68,16 +68,16 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
 
-### Deploy the static website to Cloudflare Pages
+### Deploy the static website to the Cloudflare Worker
 
-The root `index.html` is a standalone landing page. Build a Pages output containing that file and its two Open Sans fonts, then deploy it with Wrangler:
+The root `index.html` is a standalone landing page. Build a static asset directory containing that file and its two Open Sans fonts, then deploy it to the existing `budgetbuddy` Worker:
 
 ```powershell
-npm run build:pages
-npx wrangler@4 pages deploy .\dist --config .\wrangler.jsonc --project-name=budgetbuddy
+npm run build:worker
+npx wrangler@4 deploy --config .\wrangler.jsonc
 ```
 
-Or run both steps with `npm run deploy:pages`. The Wrangler configuration sets the Pages output directory to `dist` and does not invoke Expo or the React Native build. If the existing Pages project has a different project slug, change `name` in `wrangler.jsonc` and the `--project-name` in the deploy script to match it. Attach `budgetbuddy.me` to that Pages project in Cloudflare to serve the landing page at the domain root.
+Or run both steps with `npm run deploy:worker`. The Wrangler configuration serves `dist` as Worker static assets and uses `index.html` as the fallback for paths that do not match a file, so client-side SPA routes resolve to the app entry page. This build publishes the standalone root landing page; it does not bundle the React Native Web app. Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare for the domain root to use it.
 
 ### Public account deletion, support, and privacy pages
 
