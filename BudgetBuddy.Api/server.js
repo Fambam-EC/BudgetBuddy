@@ -69,6 +69,10 @@ app.get('/support', (req, res) => {
   return res.sendFile(path.join(__dirname, 'public', 'support.html'));
 });
 
+app.get(['/privacy', '/privacy-policy'], (req, res) => {
+  return res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
+});
+
 app.get('/forgot-password', (req, res) => {
   return res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
 });

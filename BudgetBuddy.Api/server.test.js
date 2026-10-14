@@ -90,7 +90,7 @@ test('registration preflight allows standard API request headers', async () => {
   );
 });
 
-test('account deletion and support pages are publicly available', async () => {
+test('account deletion, support, and privacy pages are publicly available', async () => {
   const deletionResponse = await fetch(`${baseUrl}/delete-account`);
   assert.equal(deletionResponse.status, 200);
   assert.match(deletionResponse.headers.get('content-type'), /text\/html/);
@@ -109,7 +109,19 @@ test('account deletion and support pages are publicly available', async () => {
   const supportPage = await supportResponse.text();
   assert.match(supportPage, /BudgetBuddy Support/);
   assert.match(supportPage, /support@budgetbuddy\.me/);
-  assert.match(supportPage, /href="\/delete-account"/);
+  assert.match(supportPage, /href="https:\/\/api\.budgetbuddy\.me\/delete-account"/);
+  assert.match(supportPage, /href="\/privacy-policy"/);
+
+  const privacyResponse = await fetch(`${baseUrl}/privacy-policy`);
+  assert.equal(privacyResponse.status, 200);
+  assert.match(privacyResponse.headers.get('content-type'), /text\/html/);
+  const privacyPage = await privacyResponse.text();
+  assert.match(privacyPage, /BudgetBuddy Privacy Policy/);
+  assert.match(privacyPage, /Resend/);
+  assert.match(privacyPage, /href="https:\/\/api\.budgetbuddy\.me\/delete-account"/);
+
+  const privacyAliasResponse = await fetch(`${baseUrl}/privacy`);
+  assert.equal(privacyAliasResponse.status, 200);
 
   const resetResponse = await fetch(`${baseUrl}/forgot-password`);
   assert.equal(resetResponse.status, 200);
