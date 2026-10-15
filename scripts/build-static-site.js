@@ -13,7 +13,7 @@ fs.copyFileSync(
   path.join(outputDirectory, 'index.html'),
 );
 
-for (const page of ['policy.html', 'support.html', 'jsonvalidator.html', 'postman.html']) {
+for (const page of ['policy.html', 'support.html', 'jsonvalidator.html', 'requestlab.html']) {
   fs.copyFileSync(
     path.join(projectRoot, page),
     path.join(outputDirectory, page),
