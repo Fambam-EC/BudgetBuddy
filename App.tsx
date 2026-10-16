@@ -793,13 +793,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     setEditableBudgetAmount(budget.toFixed(2));
   }, [budget]);
   
-  return (
-      <ReanimatedSwipeable
-        friction={2}
-        enableTrackpadTwoFingerGesture
-        rightThreshold={40}
-        renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
-        >
+  const itemContent = (
   <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, styles.flex]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
     <TextInput
@@ -883,8 +877,34 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       )}
     </Pressable>
   </View>
-  </ReanimatedSwipeable>
-)};
+ );
+
+ if (Platform.OS === 'web') {
+   return (
+     <View style={styles.row}>
+       {itemContent}
+       <Pressable
+         accessibilityRole="button"
+         accessibilityLabel={`Delete ${description}`}
+         style={[styles.rightAction, styles.center]}
+         onPress={() => callDeleteWithId(id)}>
+         <Text style={styles.center}>Delete</Text>
+       </Pressable>
+     </View>
+   );
+ }
+
+ return (
+   <ReanimatedSwipeable
+     friction={2}
+     enableTrackpadTwoFingerGesture
+     rightThreshold={40}
+     renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
+   >
+     {itemContent}
+   </ReanimatedSwipeable>
+ );
+};
 
 function HistoryComponent({userEmail}: {userEmail: string}){
   const [historyItems, setHistoryItems] = useState<HistoryItemModel[]>([]);
