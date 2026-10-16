@@ -706,6 +706,32 @@ type BudgetData = {
     updateDueDate?: (date: Date) => void;
 };
 
+function normalizeCurrencyAmount(value: unknown): number {
+  const amount = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
+function normalizeBudgetItems(value: unknown): BudgetData[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.map((item, index) => {
+    const budgetItem = item && typeof item === 'object'
+      ? item as Partial<BudgetData>
+      : {};
+    const date = typeof budgetItem.date === 'string' ? new Date(budgetItem.date) : new Date();
+
+    return {
+      id: typeof budgetItem.id === 'string' && budgetItem.id
+        ? budgetItem.id
+        : String(index + 1),
+      description: typeof budgetItem.description === 'string' ? budgetItem.description : '',
+      budget: normalizeCurrencyAmount(budgetItem.budget),
+      amount: normalizeCurrencyAmount(budgetItem.amount),
+      date: Number.isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0],
+    };
+  });
+}
+
 type HistoryItemList = {
   id: string;
   budgetId: string;
@@ -742,8 +768,8 @@ let totalBudgetAmount = Number(0);
 
 const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateDueDate}: BudgetData) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [amountAdded, setAmountAdded] = useState<number>(0);
-  const [editableBudget, setEditableBudgetAmount] = useState<number>(budget);
+  const [amountAdded, setAmountAdded] = useState<string>('');
+  const [editableBudget, setEditableBudgetAmount] = useState<string>(budget.toFixed(2));
   const [dueDate, setDueDate] = useState<Date>(new Date(date));
   const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
@@ -762,6 +788,10 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   useEffect(() => {
     setDueDate(new Date(date))
   }, [date])
+
+  useEffect(() => {
+    setEditableBudgetAmount(budget.toFixed(2));
+  }, [budget]);
   
   return (
       <ReanimatedSwipeable
@@ -787,16 +817,23 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
       value={editableBudget.toString()}
       placeholder={editableBudget.toString()}
-      keyboardType={'numeric'}
+      keyboardType="decimal-pad"
       onChangeText={(text) => {
-        setEditableBudgetAmount(Number(text))
+        setEditableBudgetAmount(text)
       }}
       onSubmitEditing={() => {
-        adjustBudgetAmount && adjustBudgetAmount(Number(editableBudget))
+        const parsedBudget = Number(editableBudget);
+        if (editableBudget.trim() && Number.isFinite(parsedBudget) && /^\d*\.?\d{0,2}$/.test(editableBudget)) {
+          const roundedBudget = normalizeCurrencyAmount(parsedBudget);
+          setEditableBudgetAmount(roundedBudget.toFixed(2));
+          adjustBudgetAmount && adjustBudgetAmount(roundedBudget);
+        } else {
+          setEditableBudgetAmount(budget.toFixed(2));
+        }
       }}
       />
     <View style={[styles.flex, styles.center, styles.zeroWidthForPadding]}>
-      <Text style={[styles.customFont]}>{amount}</Text>
+      <Text style={[styles.customFont]}>{amount.toFixed(2)}</Text>
     </View>
     <Pressable 
       style={[styles.rowContent, styles.zeroWidthForPadding]}
@@ -830,13 +867,17 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       {isEditing && (
       <TextInput
       style={{textAlign: 'center'}}
-      keyboardType={'numeric'}
+      keyboardType="decimal-pad"
       autoFocus={true}
-      onChangeText={(text) => setAmountAdded(Number(text))}
+      value={amountAdded}
+      onChangeText={setAmountAdded}
       onSubmitEditing={() => {
-      addAmount && addAmount(amountAdded)
+      const parsedAmount = Number(amountAdded);
+      if (amountAdded.trim() && Number.isFinite(parsedAmount) && /^\d*\.?\d{0,2}$/.test(amountAdded)) {
+        addAmount && addAmount(normalizeCurrencyAmount(parsedAmount));
+      }
       toggleEdit()
-      setAmountAdded(0)
+      setAmountAdded('')
         }
       }/>
       )}
@@ -1004,7 +1045,7 @@ async function GetBudgetItems(userEmail: string): Promise<BudgetData[]> {
   try{
     let budgetItem = storage.getString(accountStorageKey(budget_items_key, userEmail))
       if (budgetItem){
-        return JSON.parse(budgetItem) as BudgetData[];
+        return normalizeBudgetItems(JSON.parse(budgetItem));
       }
       else {
         return [];
@@ -1019,7 +1060,8 @@ async function GetBudget(userEmail: string): Promise<Budget | null> {
   try {
     const storedBudget = storage.getString(accountStorageKey(budget_key, userEmail));
     if (storedBudget) {
-      return JSON.parse(storedBudget) as Budget;
+      const parsedBudget = JSON.parse(storedBudget) as Budget;
+      return {...parsedBudget, budgetItems: normalizeBudgetItems(parsedBudget.budgetItems)};
     }
 
     const localBudgets = GetLocalBudgets(userEmail);
@@ -1425,11 +1467,10 @@ function TableHeader(){
 }
 
 function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => void}){
-  const [newBudgetItem, setNewBudgetItem] = useState<BudgetData>({id: '', description: '', budget: 0, amount: 0, date: ''});
   const [budgetDescription, setBudgetDescription] = useState<string>('');
   const [budgetDate, setBudgetDate] = useState<string>('');
   const [budgetSetDate, setBudgetSetDate] = useState<Date>(new Date());
-  const [budgetAmount, setBudgetAmount] = useState<number>(0);
+  const [budgetAmount, setBudgetAmount] = useState<string>('');
   const [isAddingItem, setIsAddingItem] = useState<boolean>(false);
   const [showError, setShowError] = useState<boolean>(false);
   const [showEditDate, setShowEditDate]  = useState<boolean>(false);
@@ -1437,20 +1478,35 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
       setIsAddingItem(!isAddingItem);
   }
 
-  const isInvalidEntry = () => {
-    if(budgetDescription.trim() === '' || budgetAmount <= 0 || !budgetSetDate){
-      return true;
+  const parsedBudgetAmount = Number(budgetAmount);
+  const isInvalidEntry = () => (
+    budgetDescription.trim() === '' ||
+    !budgetAmount.trim() ||
+    !Number.isFinite(parsedBudgetAmount) ||
+    parsedBudgetAmount <= 0 ||
+    !/^\d*\.?\d{0,2}$/.test(budgetAmount) ||
+    !budgetSetDate ||
+    Number.isNaN(budgetSetDate.getTime())
+  );
+
+  const saveNewBudgetItem = () => {
+    if (isInvalidEntry()) {
+      setShowError(true);
+      return;
     }
-  }
-  React.useEffect(() => {
-    setNewBudgetItem({
+
+    addBudgetItem({
       id: '',
-      description: budgetDescription,
-      budget: budgetAmount,
+      description: budgetDescription.trim(),
+      budget: normalizeCurrencyAmount(parsedBudgetAmount),
       amount: 0,
-      date: budgetSetDate.toISOString().split('T')[0]
+      date: budgetSetDate.toISOString().split('T')[0],
     });
-  }, [budgetDescription, budgetAmount, budgetSetDate]);
+    setShowError(false);
+    setIsAddingItem(false);
+    setBudgetDescription('');
+    setBudgetAmount('');
+  }
   return (
     <View>
             {isAddingItem && (
@@ -1463,9 +1519,9 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
           />
           <TextInput
             placeholder="Amount"
-            keyboardType="numeric"
-            value={budgetAmount.toString() }
-            onChangeText={(text) => setBudgetAmount(Number(text))}
+            keyboardType="decimal-pad"
+            value={budgetAmount}
+            onChangeText={setBudgetAmount}
             style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
           {/* <TextInput
@@ -1504,16 +1560,7 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
           </View>
           <Pressable
           style={[styles.rowContent, styles.center, styles.zeroWidthForPadding]}
-            onPress={() => {
-              if(isInvalidEntry()){
-                setShowError(true);
-                return;
-              }
-              setShowError(false);
-              addBudgetItem(newBudgetItem);
-              setIsAddingItem(false);
-              setNewBudgetItem({id: '', description: '', budget: 0, amount: 0, date: new Date(budgetSetDate).toISOString().split('T')[0]});
-            }}>
+            onPress={saveNewBudgetItem}>
             <Text style={[styles.boldText, styles.budgetHeader]}>Add</Text>
               </Pressable>
     </View>
@@ -1606,7 +1653,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetId(currentBudget.budgetId || UUID());
         setBudgetTitle(currentBudget.name || '');
         setBudgetOwnerEmail(currentBudget.ownerEmail || userEmail);
-        setBudgetData(currentBudget.budgetItems || []);
+        setBudgetData(normalizeBudgetItems(currentBudget.budgetItems));
       }
     } catch (error) {
       console.log(error);
@@ -1664,7 +1711,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
         setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
-        setBudgetData(localBudget.budgetItems || []);
+        setBudgetData(normalizeBudgetItems(localBudget.budgetItems));
         return;
       }
 
@@ -1682,7 +1729,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
-        setBudgetData(result.budgetItems || []);
+        setBudgetData(normalizeBudgetItems(result.budgetItems));
       } catch (error) {
         const localBudget = GetLocalBudgets(userEmail).find(
           (budget) => budget.budgetId === selectedBudget.budgetId,
@@ -1693,7 +1740,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           setBudgetId(localBudget.budgetId);
           setBudgetTitle(localBudget.name);
           setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
-          setBudgetData(localBudget.budgetItems || []);
+          setBudgetData(normalizeBudgetItems(localBudget.budgetItems));
           return;
         }
         Alert.alert(
@@ -1712,7 +1759,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
-        setBudgetData(result.budgetItems || []);
+        setBudgetData(normalizeBudgetItems(result.budgetItems));
         UpsertLocalBudget(result, userEmail);
         await loadAvailableBudgets();
         setShowMenuButtons(false);
@@ -1733,7 +1780,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setBudgetId(result.budgetId);
       setBudgetTitle(result.name);
       setBudgetOwnerEmail(result.ownerEmail || userEmail);
-      setBudgetData(result.budgetItems || []);
+      setBudgetData(normalizeBudgetItems(result.budgetItems));
       UpsertLocalBudget(result, userEmail);
       await loadAvailableBudgets();
       setShowMenuButtons(false);
@@ -1954,7 +2001,10 @@ const removeBudgetItem = (id: string) => {
 
 
 const addBudgetItem = (budgetItem: BudgetData) =>{
-  const largestExistingId = budgetData.reduce((maxId, item) => Math.max(maxId, parseInt(item.id)), 0);
+  const largestExistingId = budgetData.reduce((maxId, item) => {
+    const itemId = Number.parseInt(item.id, 10);
+    return Number.isFinite(itemId) ? Math.max(maxId, itemId) : maxId;
+  }, 0);
     const itemWithId = { ...budgetItem, id: (largestExistingId + 1).toString() };
               let budgetDataWithAddedItem = budgetData.concat(itemWithId)
               saveCurrentTransaction({
