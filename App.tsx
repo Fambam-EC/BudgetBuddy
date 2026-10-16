@@ -944,13 +944,7 @@ function HistoryComponent({userEmail}: {userEmail: string}){
   const renderHistoryItem = ({item}: {item: HistoryItemList}) => {
     const isExpanded = item.id === expandedHistoryItemId;
     const trimmedTitle = item.budgetName;
-    return (
-      <ReanimatedSwipeable
-        friction={2}
-        enableTrackpadTwoFingerGesture
-        rightThreshold={40}
-        renderRightActions={(progress, drag) => (RightAction(progress, drag, item.id, () => callDeleteHistoryItemWithId(item.id)))}
-        >
+    const historyItemContent = (
         <Pressable onPress={() => toggleExpandHistoryItem(item.id)}>
       <View style={[styles.rowPadding, styles.rowBorder, styles.flex]}>
         { !isExpanded && (
@@ -973,6 +967,33 @@ function HistoryComponent({userEmail}: {userEmail: string}){
         )}
       </View>
       </Pressable>
+    );
+
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.row}>
+          <View style={styles.flex}>{historyItemContent}</View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${trimmedTitle}`}
+            style={[styles.rightAction, styles.center]}
+            onPress={() => callDeleteHistoryItemWithId(item.id)}>
+            <Text style={styles.center}>Delete</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <ReanimatedSwipeable
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        renderRightActions={(progress, drag) => (
+          RightAction(progress, drag, item.id, () => callDeleteHistoryItemWithId(item.id))
+        )}
+      >
+        {historyItemContent}
       </ReanimatedSwipeable>
     );
   }
