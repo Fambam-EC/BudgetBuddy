@@ -19,7 +19,7 @@ import {
   TouchableOpacity
 } from "react-native";
 
-import { storage }from './Helpers/storage';
+import { storage } from './Helpers/storage';
 
 import DatePicker from './Helpers/DatePicker';
 import {
@@ -41,6 +41,16 @@ import { BudgetProvider } from "./Helpers/BudgetDataContext";
 import { getAcceptedLocalBudget } from './Helpers/localBudgetSharing';
 import {v4 as UUID} from 'uuid';
 import { apiHeaders, apiUrl, authTokenKey } from './Helpers/api';
+
+declare const window: {
+  location: {pathname: string};
+  history: {
+    pushState: (state: object, unused: string, url: string) => void;
+    replaceState: (state: object, unused: string, url: string) => void;
+  };
+  addEventListener: (type: 'popstate', listener: () => void) => void;
+  removeEventListener: (type: 'popstate', listener: () => void) => void;
+};
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -67,6 +77,12 @@ const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const isLocalOnlyMode = false;
+
+function isForgotPasswordRoute(): boolean {
+  return Platform.OS === 'web'
+    && typeof window !== 'undefined'
+    && window.location.pathname.replace(/\/+$/, '') === '/forgot-password';
+}
 
 function accountStorageKey(key: string, email: string): string {
   return `${key}:${encodeURIComponent(email.trim().toLowerCase())}`;
@@ -406,8 +422,32 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
-  const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(false);
+  const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(isForgotPasswordRoute);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const handlePopState = () => {
+      setForgotPasswordScreenActive(isForgotPasswordRoute());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const openForgotPassword = () => {
+    setForgotPasswordScreenActive(true);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/forgot-password');
+    }
+  };
+
+  const closeForgotPassword = () => {
+    setForgotPasswordScreenActive(false);
+    if (isForgotPasswordRoute()) {
+      window.history.replaceState({}, '', '/');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -489,7 +529,7 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
 
           <TouchableOpacity
             style={styles.forgotPassword}
-            onPress={() => setForgotPasswordScreenActive(true)}
+            onPress={openForgotPassword}
           >
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
@@ -517,7 +557,7 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
       </KeyboardAvoidingView>}
       {signUpScreenActive  && <SignUpScreen isActiveToggle={() => setSignUpScreenActive(false)}/>}
       {forgotPasswordScreenActive && (
-        <ForgotPasswordScreen onBack={() => setForgotPasswordScreenActive(false)} />
+        <ForgotPasswordScreen onBack={closeForgotPassword} />
       )}
     </SafeAreaView>
   );

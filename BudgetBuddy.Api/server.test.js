@@ -74,7 +74,7 @@ test('startServer initializes the database before binding the API to loopback', 
 
 test('registration preflight allows local and production web app origins', async () => {
   for (const origin of ['http://localhost:8080', 'https://budgetbuddy.me']) {
-    const response = await fetch(`${baseUrl}/register`, {
+    const response = await fetch(`${baseUrl}/login`, {
       method: 'OPTIONS',
       headers: {
         Origin: origin,

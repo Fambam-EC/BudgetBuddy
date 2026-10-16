@@ -64,7 +64,7 @@ The API and PostgreSQL stay on the local machine; Cloudflare Tunnel publishes on
    cloudflared tunnel run budgetbuddy-api
    ```
 
-6. If browser clients call the API from a different website, add that website's HTTPS origin to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
+6. Ensure `CORS_ORIGINS` in `BudgetBuddy.Api/.env` includes `https://budgetbuddy.me` (it is included in `.env.example`). After changing CORS settings or the API's CORS code, restart the API process so the preflight handler loads the updated allowlist. The client API URL is `https://api.budgetbuddy.me`. Native clients do not require a CORS origin.
 
 The tunnel process must stay running for the API to remain reachable. Never expose PostgreSQL through the tunnel or commit tunnel credentials or `.env` files.
 
@@ -87,7 +87,7 @@ The API's existing Cloudflare Tunnel continues to serve `api.budgetbuddy.me`; th
 
 The deletion page lets a user sign in with their BudgetBuddy credentials and explicitly confirm permanent account deletion. It calls the existing `/login` and authenticated `DELETE /account` endpoints. In Play Console, enter `https://api.budgetbuddy.me/delete-account` in the account-deletion URL field and complete the Data deletion section to match the data actually deleted by the app. The in-app deletion path remains available in the app menu.
 
-The support page provides password-reset guidance, links to account deletion and the privacy policy, and a contact link for `support@budgetbuddy.me`. Account-related links point to the existing API host. The password-reset form at `/forgot-password` uses the existing API email flow. Ensure the support mailbox can receive requests and password-reset email is configured before publishing the pages.
+The support page provides password-reset guidance, links to account deletion and the privacy policy, and a contact link for `support@budgetbuddy.me`. The password-reset link opens the web app at `/forgot-password`, which submits through the existing API email flow; account deletion remains on the API host. The API also retains its standalone `/forgot-password` form for compatibility. Ensure the support mailbox can receive requests and password-reset email is configured before publishing the pages.
 
 Start the Web client from the project root with `npm run web`. For native targets, run `npm start`, then use `npm run android` or `npm run ios` with the corresponding development environment configured.
 
