@@ -70,7 +70,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-test('starts in local web mode without making API requests', async () => {
+test('starts without a saved session and does not make an API request', async () => {
   expect(typeof App).toBe('function');
   const fetchMock = jest.fn();
   const originalFetch = globalThis.fetch;

@@ -72,22 +72,24 @@ test('startServer initializes the database before binding the API to loopback', 
   }
 });
 
-test('registration preflight allows standard API request headers', async () => {
-  const response = await fetch(`${baseUrl}/register`, {
-    method: 'OPTIONS',
-    headers: {
-      Origin: 'http://localhost:8080',
-      'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'accept,content-type,authorization',
-    },
-  });
+test('registration preflight allows local and production web app origins', async () => {
+  for (const origin of ['http://localhost:8080', 'https://budgetbuddy.me']) {
+    const response = await fetch(`${baseUrl}/register`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'accept,content-type,authorization',
+      },
+    });
 
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:8080');
-  assert.equal(
-    response.headers.get('access-control-allow-headers'),
-    'Accept,Content-Type,Authorization,Access-Control-Allow-Origin',
-  );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('access-control-allow-origin'), origin);
+    assert.equal(
+      response.headers.get('access-control-allow-headers'),
+      'Accept,Content-Type,Authorization,Access-Control-Allow-Origin',
+    );
+  }
 });
 
 test('account deletion and password reset pages are publicly available', async () => {

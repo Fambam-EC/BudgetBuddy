@@ -66,8 +66,7 @@ const budget_key = '@budget_key';
 const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const isLocalOnlyMode = Platform.OS === 'web';
-const localOnlyUserEmail = 'anonymous@budgetbuddy.local';
+const isLocalOnlyMode = false;
 
 function accountStorageKey(key: string, email: string): string {
   return `${key}:${encodeURIComponent(email.trim().toLowerCase())}`;
@@ -526,9 +525,9 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
-  const [isAuthenticated, setIsAuthenticated] = useState(isLocalOnlyMode);
-  const [userEmail, setUserEmail] = useState(isLocalOnlyMode ? localOnlyUserEmail : '');
-  const [isRestoringSession, setIsRestoringSession] = useState(!isLocalOnlyMode);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [passwordResetLink, setPasswordResetLink] = useState<{email: string; token: string} | null>(null);
 
   useEffect(() => {

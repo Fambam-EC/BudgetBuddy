@@ -16,6 +16,7 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
 
 const defaultCorsOrigins = [
   'https://api.budgetbuddy.me',
+  'https://budgetbuddy.me',
 ];
 
 const corsOptions = {

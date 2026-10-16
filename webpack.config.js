@@ -1,7 +1,6 @@
 const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const { emit } = require("process");
 const appDirectory = path.resolve(__dirname);
 const { presets, plugins } = require(`${appDirectory}/babel.config.js`);
 const compileNodeModules = [
@@ -108,12 +107,15 @@ const jsIconLoaderConfiguration = {
   loader: 'babel-loader'
 };
 
-module.exports = {
+module.exports = (_env, argv = {}) => ({
   entry: {
     app: path.join(__dirname, "index.web.js"),
   },
   output: {
     filename: "rnw.bundle.js",
+    path: path.resolve(__dirname, "dist"),
+    publicPath: "/",
+    clean: true,
   },
   resolve: {
     extensions: [".web.tsx", ".web.ts", ".tsx", ".ts", ".web.js", ".js", ".mjs"],
@@ -140,10 +142,15 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: path.join(__dirname, "index.html"),
     }),
-    new webpack.HotModuleReplacementPlugin(),
     new webpack.DefinePlugin({
-      __DEV__: JSON.stringify(true),
-      process: { env: {} } 
+      __DEV__: JSON.stringify(argv.mode !== "production"),
+      "process.env.NODE_ENV": JSON.stringify(argv.mode || "development"),
     }),
   ],
-};
+  devServer: {
+    historyApiFallback: true,
+    static: {
+      directory: path.resolve(__dirname, "dist"),
+    },
+  },
+});
