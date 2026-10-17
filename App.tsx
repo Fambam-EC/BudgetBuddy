@@ -83,9 +83,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const isLocalOnlyMode = false;
 
 function isForgotPasswordRoute(): boolean {
-  return Platform.OS === 'web'
-    && typeof window !== 'undefined'
-    && window.location.pathname.replace(/\/+$/, '') === '/forgot-password';
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  const pathname = window.location?.pathname;
+  return typeof pathname === 'string' && pathname.replace(/\/+$/, '') === '/forgot-password';
 }
 
 function accountStorageKey(key: string, email: string): string {
@@ -430,7 +433,8 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (typeof window.addEventListener !== 'function') return;
 
     const handlePopState = () => {
       setForgotPasswordScreenActive(isForgotPasswordRoute());
@@ -441,14 +445,14 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
 
   const openForgotPassword = () => {
     setForgotPasswordScreenActive(true);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
       window.history.pushState({}, '', '/forgot-password');
     }
   };
 
   const closeForgotPassword = () => {
     setForgotPasswordScreenActive(false);
-    if (isForgotPasswordRoute()) {
+    if (isForgotPasswordRoute() && typeof window !== 'undefined' && window.history) {
       window.history.replaceState({}, '', '/');
     }
   };
