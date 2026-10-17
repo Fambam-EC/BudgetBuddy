@@ -778,11 +778,22 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       setIsEditing(!isEditing);
   }
   const callDeleteWithId = (itemId: string) => {
-    onDeleteConfirm && onDeleteConfirm(id)
+    onDeleteConfirm && onDeleteConfirm(itemId)
   }
 
   const callAdjustDueDate = (newDate: Date) => {
     updateDueDate && updateDueDate(newDate)
+  }
+
+  const submitAddedAmount = () => {
+    const parsedAmount = Number(amountAdded);
+    if (!amountAdded.trim() || !Number.isFinite(parsedAmount) || !/^\d*\.?\d{0,2}$/.test(amountAdded)) {
+      return;
+    }
+
+    addAmount && addAmount(normalizeCurrencyAmount(parsedAmount));
+    setIsEditing(false);
+    setAmountAdded('');
   }
 
   useEffect(() => {
@@ -794,7 +805,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   }, [budget]);
   
   const itemContent = (
-  <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, styles.flex]}>
+  <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, {alignSelf: 'stretch'}]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
     <TextInput
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
@@ -854,28 +865,34 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       </View>
     )}
     </Pressable>
-    <Pressable style={styles.rowContent} onPress={() => {
-      toggleEdit()
-      }}>{!isEditing &&
-      <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>}
-      {isEditing && (
-      <TextInput
-      style={{textAlign: 'center'}}
-      keyboardType="decimal-pad"
-      autoFocus={true}
-      value={amountAdded}
-      onChangeText={setAmountAdded}
-      onSubmitEditing={() => {
-      const parsedAmount = Number(amountAdded);
-      if (amountAdded.trim() && Number.isFinite(parsedAmount) && /^\d*\.?\d{0,2}$/.test(amountAdded)) {
-        addAmount && addAmount(normalizeCurrencyAmount(parsedAmount));
-      }
-      toggleEdit()
-      setAmountAdded('')
-        }
-      }/>
-      )}
-    </Pressable>
+    {!isEditing ? (
+      <Pressable
+        style={styles.rowContent}
+        accessibilityRole="button"
+        accessibilityLabel="Add amount"
+        onPress={toggleEdit}
+      >
+        <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>
+      </Pressable>
+    ) : (
+      <View style={[styles.rowContent, styles.row]}>
+        <TextInput
+          style={[styles.rowContent, {textAlign: 'center'}]}
+          keyboardType="decimal-pad"
+          autoFocus={true}
+          value={amountAdded}
+          onChangeText={setAmountAdded}
+          onSubmitEditing={submitAddedAmount}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add amount"
+          onPress={submitAddedAmount}
+        >
+          <Text style={[styles.customFont, styles.bigCross]}>✓</Text>
+        </Pressable>
+      </View>
+    )}
   </View>
  );
 
@@ -884,7 +901,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
      friction={2}
      enableTrackpadTwoFingerGesture
      rightThreshold={40}
-     renderRightActions={(progress, drag) => (RightAction(progress, drag, id, () => callDeleteWithId(id)))}
+     renderRightActions={(progress, drag) => (RightAction(progress, drag, id, callDeleteWithId))}
    >
      {itemContent}
    </ReanimatedSwipeable>
@@ -2128,7 +2145,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               }}
               adjustBudgetAmount={(amount: number) => {updateBudgetAmount(item.id, amount)}}
               onDeleteConfirm={(id: string) => {
-                removeBudgetItem(item.id)
+                removeBudgetItem(id)
               }}
               updateBudgetDescription={(description: string) => {
                 updateBudgetDescription(item.id, description)
