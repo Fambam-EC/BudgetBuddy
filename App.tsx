@@ -879,21 +879,6 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   </View>
  );
 
- if (Platform.OS === 'web') {
-   return (
-     <View style={styles.row}>
-       {itemContent}
-       <Pressable
-         accessibilityRole="button"
-         accessibilityLabel={`Delete ${description}`}
-         style={[styles.rightAction, styles.center]}
-         onPress={() => callDeleteWithId(id)}>
-         <Text style={styles.center}>Delete</Text>
-       </Pressable>
-     </View>
-   );
- }
-
  return (
    <ReanimatedSwipeable
      friction={2}
@@ -968,21 +953,6 @@ function HistoryComponent({userEmail}: {userEmail: string}){
       </View>
       </Pressable>
     );
-
-    if (Platform.OS === 'web') {
-      return (
-        <View style={styles.row}>
-          <View style={styles.flex}>{historyItemContent}</View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Delete ${trimmedTitle}`}
-            style={[styles.rightAction, styles.center]}
-            onPress={() => callDeleteHistoryItemWithId(item.id)}>
-            <Text style={styles.center}>Delete</Text>
-          </Pressable>
-        </View>
-      );
-    }
 
     return (
       <ReanimatedSwipeable
