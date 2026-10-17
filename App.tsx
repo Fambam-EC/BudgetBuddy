@@ -52,7 +52,11 @@ declare const window: {
   removeEventListener: (type: 'popstate', listener: () => void) => void;
 };
 
-function RightAction(prog: SharedValue<number>, drag: SharedValue<number>, itemId: string, callDelete:(deleteId: string) => void) {
+function RightAction({drag, itemId, callDelete}: {
+  drag: SharedValue<number>;
+  itemId: string;
+  callDelete: (deleteId: string) => void;
+}) {
   const styleAnimation = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: drag.value + 50 }],
@@ -901,7 +905,9 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
      friction={2}
      enableTrackpadTwoFingerGesture
      rightThreshold={40}
-     renderRightActions={(progress, drag) => (RightAction(progress, drag, id, callDeleteWithId))}
+     renderRightActions={(_, drag) => (
+       <RightAction drag={drag} itemId={id} callDelete={callDeleteWithId} />
+     )}
    >
      {itemContent}
    </ReanimatedSwipeable>
@@ -976,8 +982,12 @@ function HistoryComponent({userEmail}: {userEmail: string}){
         friction={2}
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
-        renderRightActions={(progress, drag) => (
-          RightAction(progress, drag, item.id, () => callDeleteHistoryItemWithId(item.id))
+        renderRightActions={(_, drag) => (
+          <RightAction
+            drag={drag}
+            itemId={item.id}
+            callDelete={callDeleteHistoryItemWithId}
+          />
         )}
       >
         {historyItemContent}
