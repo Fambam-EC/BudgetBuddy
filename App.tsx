@@ -777,6 +777,7 @@ let totalBudgetAmount = Number(0);
 const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateDueDate}: BudgetData) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<string>('');
+  const [isAmountInvalid, setIsAmountInvalid] = useState<boolean>(false);
   const [editableBudget, setEditableBudgetAmount] = useState<string>(budget.toFixed(2));
   const [dueDate, setDueDate] = useState<Date>(new Date(date));
   const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
@@ -794,14 +795,17 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   }
 
   const submitAddedAmount = () => {
-    const parsedAmount = Number(amountAdded);
-    if (!amountAdded.trim() || !Number.isFinite(parsedAmount) || !/^\d*\.?\d{0,2}$/.test(amountAdded)) {
+    const normalizedAmount = amountAdded.trim();
+    const parsedAmount = Number(normalizedAmount);
+    if (!normalizedAmount || !Number.isFinite(parsedAmount) || !/^\d*\.?\d{0,2}$/.test(normalizedAmount)) {
+      setIsAmountInvalid(true);
       return;
     }
 
     addAmount && addAmount(normalizeCurrencyAmount(parsedAmount));
     setIsEditing(false);
     setAmountAdded('');
+    setIsAmountInvalid(false);
   }
 
   useEffect(() => {
@@ -896,12 +900,15 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
           keyboardType="decimal-pad"
           autoFocus={true}
           value={amountAdded}
-          onChangeText={setAmountAdded}
+          onChangeText={(value) => {
+            setAmountAdded(value);
+            setIsAmountInvalid(false);
+          }}
           onSubmitEditing={submitAddedAmount}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Add amount"
+          accessibilityLabel="Submit amount"
           onPress={submitAddedAmount}
         >
           <Text style={[styles.customFont, styles.bigCross]}>✓</Text>
@@ -911,10 +918,21 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   </View>
  );
 
+ const itemWithValidation = (
+   <View>
+     {itemContent}
+     {isEditing && isAmountInvalid && (
+       <Text style={[styles.customFont, styles.errorText]}>
+         Enter an amount with up to two decimal places.
+       </Text>
+     )}
+   </View>
+ );
+
  if (Platform.OS === 'web') {
    return (
      <View style={styles.webSwipeableRow}>
-       {itemContent}
+       {itemWithValidation}
        <Pressable
          accessibilityRole="button"
          accessibilityLabel={`Delete ${description || 'budget item'}`}
@@ -936,7 +954,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
        <RightAction drag={drag} itemId={id} callDelete={callDeleteWithId} />
      )}
    >
-     {itemContent}
+     {itemWithValidation}
    </ReanimatedSwipeable>
  );
 };
