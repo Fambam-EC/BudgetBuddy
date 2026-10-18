@@ -1658,49 +1658,54 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [availableBudgets, setAvailableBudgets] = useState<Budget[]>([]);
 
   const getCurrentBudget = async () => {
+    let currentBudget: Budget | null = null;
+    const applyCurrentBudget = (loadedBudget: Budget) => {
+      skipInitialBudgetSave.current = true;
+      setBudgetId(loadedBudget.budgetId || UUID());
+      setBudgetTitle(loadedBudget.name || '');
+      setBudgetOwnerEmail(loadedBudget.ownerEmail || userEmail);
+      setBudgetData(normalizeBudgetItems(loadedBudget.budgetItems));
+    };
+
     try {
       const localBudgets = GetLocalBudgets(userEmail);
       if (localBudgets.length > 0) {
         setAvailableBudgets(localBudgets);
       }
 
-      let currentBudget = await GetBudget(userEmail);
-      if (currentBudget && !isLocalOnlyMode) {
-        const cachedBudget = currentBudget;
-        try {
-          const response = await fetch(
-            `${apiUrl}/budgets/${encodeURIComponent(cachedBudget.budgetId)}`,
-            { headers: apiHeaders() },
-          );
-          const result = await response.json();
-          if (!response.ok) {
-            throw new Error(result.error || 'Unable to refresh the current budget.');
-          }
-          const refreshedBudget = result as Budget;
-          currentBudget = refreshedBudget;
-          UpsertLocalBudget(refreshedBudget, userEmail);
-          storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(refreshedBudget));
-          storage.set(
-            accountStorageKey(budget_items_key, userEmail),
-            JSON.stringify(refreshedBudget.budgetItems || []),
-          );
-          storage.set(accountStorageKey(title_key, userEmail), refreshedBudget.name);
-        } catch (error) {
-          console.log('Unable to refresh the current budget from the server', error);
-        }
-      }
-
+      currentBudget = await GetBudget(userEmail);
       if (currentBudget) {
-        skipInitialBudgetSave.current = true;
-        setBudgetId(currentBudget.budgetId || UUID());
-        setBudgetTitle(currentBudget.name || '');
-        setBudgetOwnerEmail(currentBudget.ownerEmail || userEmail);
-        setBudgetData(normalizeBudgetItems(currentBudget.budgetItems));
+        applyCurrentBudget(currentBudget);
       }
     } catch (error) {
       console.log(error);
     } finally {
       setIsLoadingBudget(false);
+    }
+
+    if (!currentBudget || isLocalOnlyMode) return;
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/budgets/${encodeURIComponent(currentBudget.budgetId)}`,
+        { headers: apiHeaders() },
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to refresh the current budget.');
+      }
+
+      const refreshedBudget = result as Budget;
+      UpsertLocalBudget(refreshedBudget, userEmail);
+      storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(refreshedBudget));
+      storage.set(
+        accountStorageKey(budget_items_key, userEmail),
+        JSON.stringify(refreshedBudget.budgetItems || []),
+      );
+      storage.set(accountStorageKey(title_key, userEmail), refreshedBudget.name);
+      applyCurrentBudget(refreshedBudget);
+    } catch (error) {
+      console.log('Unable to refresh the current budget from the server', error);
     }
   };
 
