@@ -813,7 +813,14 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   }, [budget]);
   
   const itemContent = (
-  <View style={[styles.budgetContainer, styles.rowBorder, styles.rowPadding, styles.rowContainer, {alignSelf: 'stretch'}]}>
+  <View style={[
+    styles.budgetContainer,
+    styles.rowBorder,
+    styles.rowPadding,
+    styles.rowContainer,
+    {alignSelf: 'stretch'},
+    Platform.OS === 'web' ? styles.webBudgetContent : null,
+  ]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
     <TextInput
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
@@ -904,8 +911,24 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   </View>
  );
 
+ if (Platform.OS === 'web') {
+   return (
+     <View style={styles.webSwipeableRow}>
+       {itemContent}
+       <Pressable
+         accessibilityRole="button"
+         accessibilityLabel={`Delete ${description || 'budget item'}`}
+         style={[styles.rightAction, styles.center]}
+         onPress={() => callDeleteWithId(id)}
+       >
+         <Text style={styles.webDeleteText}>Delete</Text>
+       </Pressable>
+     </View>
+   );
+ }
+
  return (
-   <ReanimatedSwipeable
+  <ReanimatedSwipeable
      friction={2}
      enableTrackpadTwoFingerGesture
      rightThreshold={40}
@@ -957,7 +980,10 @@ function HistoryComponent({userEmail}: {userEmail: string}){
     const isExpanded = item.id === expandedHistoryItemId;
     const trimmedTitle = item.budgetName;
     const historyItemContent = (
-        <Pressable onPress={() => toggleExpandHistoryItem(item.id)}>
+        <Pressable
+          style={Platform.OS === 'web' ? styles.webHistoryContent : undefined}
+          onPress={() => toggleExpandHistoryItem(item.id)}
+        >
       <View style={[styles.rowPadding, styles.rowBorder, styles.flex]}>
         { !isExpanded && (
           <View style={[styles.center]}><Text>{trimmedTitle}</Text></View>
@@ -980,6 +1006,22 @@ function HistoryComponent({userEmail}: {userEmail: string}){
       </View>
       </Pressable>
     );
+
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.webSwipeableRow}>
+          {historyItemContent}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${trimmedTitle || 'budget history'}`}
+            style={[styles.rightAction, styles.center]}
+            onPress={() => { void callDeleteHistoryItemWithId(item.id); }}
+          >
+            <Text style={styles.webDeleteText}>Delete</Text>
+          </Pressable>
+        </View>
+      );
+    }
 
     return (
       <ReanimatedSwipeable
@@ -2390,6 +2432,21 @@ const styles = StyleSheet.create({
       flex: 1,
     },
   rightAction: { width: 50, height: 48, backgroundColor: 'red', borderRadius: 10 },
+  webSwipeableRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  webBudgetContent: {
+    flex: 1,
+  },
+  webHistoryContent: {
+    flex: 1,
+  },
+  webDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   separator: {
     width: '100%',
     borderTopWidth: 1,
