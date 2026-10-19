@@ -57,6 +57,12 @@ test('startup initialization creates every application table', async () => {
     ),
     'startup should add total_income to existing budgets',
   );
+  assert.ok(
+    statements.some((statement) =>
+      statement.includes('ALTER TABLE budget_history ADD COLUMN IF NOT EXISTS total_budget'),
+    ),
+    'startup should add total_budget to existing history entries',
+  );
 });
 
 test('startServer initializes the database before binding the API to loopback', async () => {
@@ -168,6 +174,65 @@ test('budget save persists total income with the budget record', async () => {
     assert.equal(savedBudget.parameters[4], 4625.75);
   } finally {
     pool.query = originalQuery;
+  }
+});
+
+test('history archive persists and returns its total budget', async () => {
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  let archivedHistory;
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+  pool.connect = async () => ({
+    query: async (statement, parameters = []) => {
+      const query = String(statement);
+      if (query === 'BEGIN' || query === 'COMMIT' || query === 'ROLLBACK') {
+        return { rows: [], rowCount: 0 };
+      }
+      if (query.includes('SELECT b.owner_email')) {
+        return {
+          rows: [{ owner_email: 'owner@example.com', is_collaborator: false }],
+          rowCount: 1,
+        };
+      }
+      if (query.includes('INSERT INTO budget_history')) {
+        archivedHistory = { query, parameters };
+        return {
+          rows: [{ historyId: 'history-1', totalBudget: 1250 }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 1 };
+    },
+    release: () => {},
+  });
+
+  try {
+    const token = jwt.sign({ sub: 'owner@example.com' }, process.env.JWT_SECRET);
+    const response = await fetch(`${baseUrl}/history`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        historyId: 'history-1',
+        budgetId: 'budget-1',
+        budgetName: 'Household',
+        budgetItems: [
+          { id: '1', description: 'Rent', budget: 1000 },
+          { id: '2', description: 'Utilities', budget: 250 },
+        ],
+        totalBudget: 1250,
+      }),
+    });
+
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).totalBudget, 1250);
+    assert.match(archivedHistory.query, /budget_items, total_budget/);
+    assert.equal(archivedHistory.parameters[5], 1250);
+  } finally {
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
   }
 });
 

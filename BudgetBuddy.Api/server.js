@@ -175,8 +175,26 @@ async function ensureBudgetTables() {
       budget_id TEXT NOT NULL,
       budget_name TEXT NOT NULL,
       budget_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      total_budget NUMERIC,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE budget_history ADD COLUMN IF NOT EXISTS total_budget NUMERIC
+  `);
+  await pool.query(`
+    UPDATE budget_history
+    SET total_budget = COALESCE((
+      SELECT SUM((item->>'budget')::numeric)
+      FROM jsonb_array_elements(budget_items) AS item
+    ), 0)
+    WHERE total_budget IS NULL
+  `);
+  await pool.query(`
+    ALTER TABLE budget_history ALTER COLUMN total_budget SET DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE budget_history ALTER COLUMN total_budget SET NOT NULL
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS budget_history_owner_created_idx
@@ -710,6 +728,7 @@ app.get('/history', requireAuthentication, async (req, res) => {
     const result = await pool.query(
       `SELECT history_id AS "historyId", budget_id AS "budgetId",
               budget_name AS "budgetName", budget_items AS "budgetItems",
+              total_budget AS "totalBudget",
               created_at AS "createdAt"
        FROM budget_history
        WHERE LOWER(owner_email) = $1
@@ -724,14 +743,15 @@ app.get('/history', requireAuthentication, async (req, res) => {
 });
 
 app.post('/history', requireAuthentication, async (req, res) => {
-  const { historyId, budgetId, budgetName, budgetItems } = req.body || {};
+  const { historyId, budgetId, budgetName, budgetItems, totalBudget } = req.body || {};
   if (
     typeof historyId !== 'string' || !historyId.trim() ||
     typeof budgetId !== 'string' || !budgetId.trim() ||
     typeof budgetName !== 'string' || !budgetName.trim() ||
-    !Array.isArray(budgetItems)
+    !Array.isArray(budgetItems) ||
+    (totalBudget !== undefined && (typeof totalBudget !== 'number' || !Number.isFinite(totalBudget)))
   ) {
-    return res.status(400).json({ error: 'A historyId, budgetId, budgetName, and budgetItems are required' });
+    return res.status(400).json({ error: 'A historyId, budgetId, budgetName, budgetItems, and valid totalBudget are required' });
   }
 
   let client;
@@ -757,13 +777,24 @@ app.post('/history', requireAuthentication, async (req, res) => {
     }
 
     const result = await client.query(
-      `INSERT INTO budget_history (history_id, owner_email, budget_id, budget_name, budget_items)
-       VALUES ($1, $2, $3, $4, $5::jsonb)
+      `INSERT INTO budget_history (history_id, owner_email, budget_id, budget_name, budget_items, total_budget)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
        ON CONFLICT (history_id) DO NOTHING
        RETURNING history_id AS "historyId", budget_id AS "budgetId",
                  budget_name AS "budgetName", budget_items AS "budgetItems",
+                 total_budget AS "totalBudget",
                  created_at AS "createdAt"`,
-      [historyId.trim(), req.user.email, budgetId.trim(), budgetName.trim(), JSON.stringify(budgetItems)],
+      [
+        historyId.trim(),
+        req.user.email,
+        budgetId.trim(),
+        budgetName.trim(),
+        JSON.stringify(budgetItems),
+        totalBudget ?? budgetItems.reduce((sum, item) => {
+          const amount = Number(item?.budget);
+          return Number.isFinite(amount) ? sum + amount : sum;
+        }, 0),
+      ],
     );
     if (result.rowCount === 0) {
       await client.query('ROLLBACK');

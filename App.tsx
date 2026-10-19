@@ -721,6 +721,14 @@ function normalizeCurrencyAmount(value: unknown): number {
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
 }
 
+function sumBudgetAmounts(items: unknown): number {
+  if (!Array.isArray(items)) return 0;
+  return normalizeCurrencyAmount(items.reduce((total: number, item: unknown) => {
+    if (!item || typeof item !== 'object') return total;
+    return total + normalizeCurrencyAmount((item as {budget?: unknown}).budget);
+  }, 0));
+}
+
 function normalizeBudgetIncome(value: unknown): number {
   if (value === null || value === undefined || value === '') return DEFAULT_TOTAL_INCOME;
   const amount = typeof value === 'number' ? value : Number(value);
@@ -752,6 +760,7 @@ type HistoryItemList = {
   id: string;
   budgetId: string;
   budgetName: string;
+  totalBudget: number;
   items: HistoryItemModel[];
 }
 type HistoryItemModel = {
@@ -782,6 +791,7 @@ let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
 const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateDueDate}: BudgetData) => {
+  const isPaidInFull = budget === amount;
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<string>('');
   const [isAmountInvalid, setIsAmountInvalid] = useState<boolean>(false);
@@ -830,6 +840,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     styles.rowPadding,
     styles.rowContainer,
     {alignSelf: 'stretch'},
+    isPaidInFull ? styles.paidInFullBudgetRow : null,
     Platform.OS === 'web' ? styles.webBudgetContent : null,
   ]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
@@ -901,9 +912,17 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
         <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>
       </Pressable>
     ) : (
-      <View style={[styles.rowContent, styles.row]}>
+      <View style={[
+        styles.rowContent,
+        styles.row,
+        Platform.OS === 'web' ? styles.webAmountEditor : null,
+      ]}>
         <TextInput
-          style={[styles.rowContent, {textAlign: 'center'}]}
+          style={[
+            styles.rowContent,
+            {textAlign: 'center'},
+            Platform.OS === 'web' ? styles.webAmountInput : null,
+          ]}
           keyboardType="decimal-pad"
           autoFocus={true}
           value={amountAdded}
@@ -914,6 +933,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
           onSubmitEditing={submitAddedAmount}
         />
         <Pressable
+          style={Platform.OS === 'web' ? styles.webAmountSubmit : undefined}
           accessibilityRole="button"
           accessibilityLabel="Submit amount"
           onPress={submitAddedAmount}
@@ -926,7 +946,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
  );
 
  const itemWithValidation = (
-   <View>
+   <View style={Platform.OS === 'web' ? styles.webBudgetItem : undefined}>
      {itemContent}
      {isEditing && isAmountInvalid && (
        <Text style={[styles.customFont, styles.errorText]}>
@@ -1025,7 +1045,12 @@ function HistoryComponent({userEmail}: {userEmail: string}){
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
-            ListHeaderComponent={() => <View style={[styles.center]}><Text>{trimmedTitle}</Text></View> }
+            ListHeaderComponent={() => (
+              <View style={styles.center}>
+                <Text>{trimmedTitle}</Text>
+                <Text>Total Budget: $ {item.totalBudget.toFixed(2)}</Text>
+              </View>
+            )}
             />
         )}
       </View>
@@ -1083,10 +1108,14 @@ function HistoryComponent({userEmail}: {userEmail: string}){
           budgetId: string;
           budgetName: string;
           budgetItems: HistoryItemModel[];
+          totalBudget?: number;
         }) => ({
           id: entry.historyId,
           budgetId: entry.budgetId,
           budgetName: entry.budgetName,
+          totalBudget: normalizeCurrencyAmount(
+            entry.totalBudget ?? sumBudgetAmounts(entry.budgetItems),
+          ),
           items: entry.budgetItems,
         })));
       }
@@ -1144,6 +1173,9 @@ async function GetBudgetHistoryItemsFromStorage(userEmail: string){
       id: item,
       budgetId: parsed.budgetId || item.substring(historyItemPrefix.length),
       budgetName: parsed.budgetName || 'Budget history',
+      totalBudget: normalizeCurrencyAmount(
+        parsed.totalBudget ?? sumBudgetAmounts(Array.isArray(parsed) ? parsed : (parsed.items || [])),
+      ),
       items: Array.isArray(parsed) ? parsed : (parsed.items || []),
     };
   });
@@ -1428,6 +1460,7 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
       storage.set(`${accountHistoryPrefix(budget.ownerEmail)}${historyId}`, JSON.stringify({
         budgetId: budget.budgetId,
         budgetName: budget.name,
+        totalBudget: sumBudgetAmounts(budget.budgetItems),
         items: budget.budgetItems,
       }));
       return true;
@@ -1457,6 +1490,7 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
         budgetId: budget.budgetId,
         budgetName: budget.name,
         budgetItems: budget.budgetItems,
+        totalBudget: sumBudgetAmounts(budget.budgetItems),
       }),
     });
     const historyResult = await historyResponse.json();
@@ -1467,6 +1501,7 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
     storage.set(`${accountHistoryPrefix(budget.ownerEmail)}${historyId}`, JSON.stringify({
       budgetId: budget.budgetId,
       budgetName: budget.name,
+      totalBudget: sumBudgetAmounts(budget.budgetItems),
       items: budget.budgetItems,
     }));
     return true;
@@ -1782,44 +1817,50 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     };
 
     try {
-      const localBudgets = GetLocalBudgets(userEmail);
-      if (localBudgets.length > 0) {
-        setAvailableBudgets(localBudgets);
+      try {
+        const localBudgets = GetLocalBudgets(userEmail);
+        if (localBudgets.length > 0) {
+          setAvailableBudgets(localBudgets);
+        }
+
+        currentBudget = await GetBudget(userEmail);
+        if (currentBudget) {
+          applyCurrentBudget(currentBudget);
+        }
+      } catch (error) {
+        console.log(error);
       }
 
-      currentBudget = await GetBudget(userEmail);
-      if (currentBudget) {
-        applyCurrentBudget(currentBudget);
+      if (!currentBudget || isLocalOnlyMode) return;
+
+      try {
+        const response = await fetch(
+          `${apiUrl}/budgets/${encodeURIComponent(currentBudget.budgetId)}`,
+          { headers: apiHeaders() },
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Unable to refresh the current budget.');
+        }
+
+        const refreshedBudget = {
+          ...result,
+          budgetItems: normalizeBudgetItems(result.budgetItems),
+          totalIncome: normalizeBudgetIncome(result.totalIncome ?? currentBudget.totalIncome),
+        } as Budget;
+        UpsertLocalBudget(refreshedBudget, userEmail);
+        storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(refreshedBudget));
+        storage.set(
+          accountStorageKey(budget_items_key, userEmail),
+          JSON.stringify(refreshedBudget.budgetItems),
+        );
+        storage.set(accountStorageKey(title_key, userEmail), refreshedBudget.name);
+        applyCurrentBudget(refreshedBudget);
+      } catch (error) {
+        console.log('Unable to refresh the current budget from the server', error);
       }
-    } catch (error) {
-      console.log(error);
     } finally {
       setIsLoadingBudget(false);
-    }
-
-    if (!currentBudget || isLocalOnlyMode) return;
-
-    try {
-      const response = await fetch(
-        `${apiUrl}/budgets/${encodeURIComponent(currentBudget.budgetId)}`,
-        { headers: apiHeaders() },
-      );
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Unable to refresh the current budget.');
-      }
-
-      const refreshedBudget = result as Budget;
-      UpsertLocalBudget(refreshedBudget, userEmail);
-      storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(refreshedBudget));
-      storage.set(
-        accountStorageKey(budget_items_key, userEmail),
-        JSON.stringify(refreshedBudget.budgetItems || []),
-      );
-      storage.set(accountStorageKey(title_key, userEmail), refreshedBudget.name);
-      applyCurrentBudget(refreshedBudget);
-    } catch (error) {
-      console.log('Unable to refresh the current budget from the server', error);
     }
   };
 
@@ -2190,6 +2231,10 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
+  const sortedBudgetData = [...budgetData].sort(
+    (first, second) =>
+      Number(first.budget === first.amount) - Number(second.budget === second.amount),
+  );
 
   const deleteAccount = async () => {
     setIsDeletingAccount(true);
@@ -2276,7 +2321,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             </View>
             <TableHeader />
         <FlatList
-            data={budgetData}
+                data={sortedBudgetData}
             renderItem={({item}) => <BudgetItem
               id={item.id}
               description={item.description}
@@ -2447,6 +2492,9 @@ const styles = StyleSheet.create({
         borderColor: '#000',
         borderRadius: 10
     },
+    paidInFullBudgetRow: {
+      backgroundColor: '#F0F0F0',
+    },
     rowPadding: {
         padding: 10,
         marginVertical: 4,
@@ -2517,9 +2565,25 @@ const styles = StyleSheet.create({
   webSwipeableRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    width: '100%',
   },
   webBudgetContent: {
     flex: 1,
+  },
+  webBudgetItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  webAmountEditor: {
+    minWidth: 0,
+  },
+  webAmountInput: {
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  webAmountSubmit: {
+    flexShrink: 0,
+    paddingHorizontal: 6,
   },
   webHistoryContent: {
     flex: 1,
