@@ -84,9 +84,9 @@ test('startServer initializes the database before binding the API to loopback', 
   }
 });
 
-test('registration preflight allows local and production web app origins', async () => {
+test('budget preflight allows local and production web app origins', async () => {
   for (const origin of ['http://localhost:8080', 'https://budgetbuddy.me']) {
-    const response = await fetch(`${baseUrl}/login`, {
+    const response = await fetch(`${baseUrl}/budgets`, {
       method: 'OPTIONS',
       headers: {
         Origin: origin,
@@ -99,8 +99,9 @@ test('registration preflight allows local and production web app origins', async
     assert.equal(response.headers.get('access-control-allow-origin'), origin);
     assert.equal(
       response.headers.get('access-control-allow-headers'),
-      'Accept,Content-Type,Authorization,Access-Control-Allow-Origin',
+      'Accept,Content-Type,Authorization',
     );
+    assert.match(response.headers.get('access-control-allow-methods'), /POST/);
   }
 });
 

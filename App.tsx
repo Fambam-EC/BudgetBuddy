@@ -816,7 +816,12 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   const submitAddedAmount = () => {
     const normalizedAmount = amountAdded.trim();
     const parsedAmount = Number(normalizedAmount);
-    if (!normalizedAmount || !Number.isFinite(parsedAmount) || !/^\d*\.?\d{0,2}$/.test(normalizedAmount)) {
+    if (
+      !normalizedAmount ||
+      !Number.isFinite(parsedAmount) ||
+      !/^-?\d*\.?\d{0,2}$/.test(normalizedAmount) ||
+      amount + parsedAmount < 0
+    ) {
       setIsAmountInvalid(true);
       return;
     }
@@ -925,7 +930,13 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
             {textAlign: 'center'},
             Platform.OS === 'web' ? styles.webAmountInput : null,
           ]}
-          keyboardType="decimal-pad"
+          keyboardType={
+            Platform.OS === 'web'
+              ? 'default'
+              : Platform.OS === 'ios'
+                ? 'numbers-and-punctuation'
+                : 'numeric'
+          }
           autoFocus={true}
           value={amountAdded}
           onChangeText={(value) => {
@@ -952,7 +963,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
      {itemContent}
      {isEditing && isAmountInvalid && (
        <Text style={[styles.customFont, styles.errorText]}>
-         Enter an amount with up to two decimal places.
+         Enter an amount with up to two decimal places. The paid amount cannot be less than zero.
        </Text>
      )}
    </View>
