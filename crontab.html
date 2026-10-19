@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Crontab Schedule Occurrences</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0b1020;
+      --panel: #11182b;
+      --panel-border: #29344d;
+      --text: #edf2ff;
+      --muted: #9aa8c2;
+      --accent: #8b7cff;
+      --error: #ff7f91;
+      --success: #5de0a0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 30px 16px;
+      background: radial-gradient(ellipse at top left, #182142 0, transparent 42%), var(--background);
+      color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(100%, 760px);
+      margin: 0 auto;
+    }
+    header { margin: 0 0 22px; }
+    h1 { margin: 0; font-size: clamp(24px, 5vw, 32px); letter-spacing: -.03em; }
+    header p, .hint, .timezone { color: var(--muted); }
+    header p { margin: 6px 0 0; }
+    section {
+      margin-top: 16px;
+      padding: 20px;
+      border: 1px solid var(--panel-border);
+      border-radius: 15px;
+      background: linear-gradient(180deg, #131b2e, var(--panel));
+      box-shadow: 0 18px 50px #0002;
+    }
+    label { display: block; margin-bottom: 7px; font-weight: 650; }
+    input, button { font: inherit; }
+    input {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 12px;
+      border: 1px solid #34415d;
+      border-radius: 9px;
+      outline: none;
+      background: #0b1222;
+      color: var(--text);
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #8b7cff20; }
+    .schedule-input {
+      font: 17px ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .03em;
+    }
+    .fields { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 14px; }
+    .hint { margin: 7px 0 0; font-size: 12px; }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 160px auto;
+      gap: 14px;
+      align-items: end;
+      margin-top: 17px;
+    }
+    button {
+      min-height: 46px;
+      padding: 0 17px;
+      border: 0;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #9486ff, #6959e8);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    .timezone { margin: 12px 0 0; font-size: 12px; }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+    .examples button {
+      min-height: auto;
+      padding: 6px 9px;
+      border: 1px solid #34415d;
+      background: #19233a;
+      color: #cbd5e1;
+      font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    #status {
+      display: none;
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+    }
+    #status.error {
+      display: block;
+      border: 1px solid #733444;
+      background: #3c202d;
+      color: var(--error);
+    }
+    #status.success {
+      display: block;
+      border: 1px solid #216246;
+      background: #12352b;
+      color: var(--success);
+    }
+    #occurrences { margin: 0; padding-left: 25px; }
+    #occurrences li { padding: 5px 0 5px 4px; }
+    #occurrences time { font-variant-numeric: tabular-nums; }
+    .empty { color: var(--muted); }
+    details { margin-top: 17px; color: var(--muted); font-size: 13px; }
+    summary { color: var(--text); cursor: pointer; font-weight: 650; }
+    .field-guide { margin: 10px 0 0; }
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #0b1222;
+      color: #c4bdff;
+      font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    @media (max-width: 600px) {
+      body { padding: 22px 12px; }
+      section { padding: 16px; }
+      .fields, .controls { grid-template-columns: 1fr; gap: 12px; }
+      .controls button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Crontab Schedule Occurrences</h1>
+      <p>Enter a five-field cron schedule to see its next run dates and times.</p>
+    </header>
+
+    <form id="cron-form">
+      <section aria-labelledby="schedule-heading">
+        <div class="fields">
+          <div>
+            <label id="schedule-heading" for="schedule">Cron schedule</label>
+            <input
+              class="schedule-input"
+              id="schedule"
+              name="schedule"
+              type="text"
+              value="0 9 * * 1-5"
+              placeholder="minute hour day-of-month month day-of-week"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            >
+            <p class="hint">Use the standard five fields: minute hour day-of-month month day-of-week.</p>
+          </div>
+          <div>
+            <label for="count">Occurrences</label>
+            <input id="count" name="count" type="number" value="10" min="1" max="100" required>
+            <p class="hint">Choose 1 to 100 dates.</p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div>
+            <label for="start">Start searching from</label>
+            <input id="start" name="start" type="datetime-local" required>
+          </div>
+          <p class="timezone" id="timezone"></p>
+          <button type="submit">Show occurrences</button>
+        </div>
+
+        <div class="examples" aria-label="Example schedules">
+          <button type="button" data-schedule="*/15 * * * *">Every 15 minutes</button>
+          <button type="button" data-schedule="0 9 * * 1-5">Weekdays at 9 AM</button>
+          <button type="button" data-schedule="30 8 1 * *">First day monthly</button>
+          <button type="button" data-schedule="0 0 * * 0">Every Sunday</button>
+        </div>
+
+        <details>
+          <summary>Schedule syntax</summary>
+          <p class="field-guide">
+            Each field supports <code>*</code>, comma-separated values, ranges, and steps:
+            <code>1,5,10</code>, <code>1-5</code>, <code>*/15</code>, or <code>1-30/5</code>.
+            Month and weekday names (such as <code>JAN</code> and <code>MON</code>) are supported.
+            Sunday may be <code>0</code> or <code>7</code>. If both day-of-month and day-of-week
+            are restricted, either one may match, as in standard cron.
+          </p>
+        </details>
+      </section>
+
+      <section aria-labelledby="results-heading">
+        <h2 id="results-heading">Next occurrences</h2>
+        <div id="status" role="status" aria-live="polite"></div>
+        <ol id="occurrences"></ol>
+      </section>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById('cron-form');
+    const scheduleInput = document.getElementById('schedule');
+    const countInput = document.getElementById('count');
+    const startInput = document.getElementById('start');
+    const statusBox = document.getElementById('status');
+    const occurrencesList = document.getElementById('occurrences');
+    const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone';
+
+    document.getElementById('timezone').textContent = `Dates are shown in your local timezone: ${timezoneName}.`;
+
+    function toLocalDateTimeInput(date) {
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return localDate.toISOString().slice(0, 16);
+    }
+
+    function showStatus(message, type) {
+      statusBox.textContent = message;
+      statusBox.className = type;
+    }
+
+    const monthNames = {
+      JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+      JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
+    };
+    const weekdayNames = {
+      SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6,
+    };
+
+    function parseField(source, {name, min, max, names = {}, sundayAlias = false}) {
+      const values = new Set();
+      const parts = source.split(',');
+      const fieldMax = sundayAlias ? 7 : max;
+      if (parts.some((part) => part === '')) {
+        throw new Error(`${name} contains an empty list item.`);
+      }
+
+      const parseValue = (text) => {
+        const token = text.toUpperCase();
+        const value = Object.prototype.hasOwnProperty.call(names, token)
+          ? names[token]
+          : /^\d+$/.test(token) ? Number(token) : NaN;
+        const maximum = sundayAlias ? 7 : max;
+        if (!Number.isInteger(value) || value < min || value > maximum) {
+          throw new Error(`${name} value "${text}" must be from ${min} to ${maximum}.`);
+        }
+        return value;
+      };
+
+      for (const part of parts) {
+        const stepParts = part.split('/');
+        if (stepParts.length > 2 || (stepParts.length === 2 && !/^\d+$/.test(stepParts[1]))) {
+          throw new Error(`${name} has an invalid step in "${part}".`);
+        }
+        const step = stepParts.length === 2 ? Number(stepParts[1]) : 1;
+        if (step < 1) throw new Error(`${name} steps must be at least 1.`);
+
+        const base = stepParts[0];
+        let start;
+        let end;
+        if (base === '*') {
+          start = min;
+          end = max;
+        } else if (base.includes('-')) {
+          const rangeParts = base.split('-');
+          if (rangeParts.length !== 2) {
+            throw new Error(`${name} has an invalid range in "${part}".`);
+          }
+          start = parseValue(rangeParts[0]);
+          end = parseValue(rangeParts[1]);
+          if (end < start || end > fieldMax) {
+            throw new Error(`${name} range "${base}" is invalid.`);
+          }
+        } else {
+          start = parseValue(base);
+          end = stepParts.length === 2 ? fieldMax : start;
+        }
+
+        for (let value = start; value <= end; value += step) {
+          values.add(sundayAlias && value === 7 ? 0 : value);
+        }
+      }
+
+      return {values, isWildcard: source === '*'};
+    }
+
+    function parseSchedule(expression) {
+      const fields = expression.trim().split(/\s+/);
+      if (fields.length !== 5) {
+        throw new Error('Enter exactly five fields: minute hour day-of-month month day-of-week.');
+      }
+
+      const minute = parseField(fields[0], {name: 'Minute', min: 0, max: 59});
+      const hour = parseField(fields[1], {name: 'Hour', min: 0, max: 23});
+      const dayOfMonth = parseField(fields[2], {name: 'Day of month', min: 1, max: 31});
+      const month = parseField(fields[3], {name: 'Month', min: 1, max: 12, names: monthNames});
+      const dayOfWeek = parseField(fields[4], {
+        name: 'Day of week',
+        min: 0,
+        max: 6,
+        names: weekdayNames,
+        sundayAlias: true,
+      });
+
+      return {minute, hour, dayOfMonth, month, dayOfWeek};
+    }
+
+    function matchesSchedule(date, schedule) {
+      if (!schedule.minute.values.has(date.getMinutes())) return false;
+      if (!schedule.hour.values.has(date.getHours())) return false;
+      if (!schedule.month.values.has(date.getMonth() + 1)) return false;
+
+      const matchesDayOfMonth = schedule.dayOfMonth.values.has(date.getDate());
+      const matchesDayOfWeek = schedule.dayOfWeek.values.has(date.getDay());
+      if (!schedule.dayOfMonth.isWildcard && !schedule.dayOfWeek.isWildcard) {
+        return matchesDayOfMonth || matchesDayOfWeek;
+      }
+      return matchesDayOfMonth && matchesDayOfWeek;
+    }
+
+    function findOccurrences(schedule, startDate, count) {
+      const occurrences = [];
+      const start = new Date(startDate);
+      start.setSeconds(0, 0);
+      if (start < startDate) start.setMinutes(start.getMinutes() + 1);
+
+      const horizon = new Date(start);
+      horizon.setFullYear(horizon.getFullYear() + 20);
+
+      for (let timestamp = start.getTime(); timestamp <= horizon.getTime(); timestamp += 60000) {
+        const candidate = new Date(timestamp);
+        if (matchesSchedule(candidate, schedule)) {
+          occurrences.push(candidate);
+          if (occurrences.length === count) return occurrences;
+        }
+      }
+      return occurrences;
+    }
+
+    function renderOccurrences(dates, requestedCount) {
+      occurrencesList.replaceChildren();
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short',
+      });
+
+      for (const date of dates) {
+        const item = document.createElement('li');
+        const time = document.createElement('time');
+        time.dateTime = date.toISOString();
+        time.textContent = formatter.format(date);
+        item.append(time);
+        occurrencesList.append(item);
+      }
+
+      if (dates.length === 0) {
+        occurrencesList.innerHTML = '<li class="empty">No occurrences found in the next 20 years.</li>';
+        showStatus('The schedule is valid, but no matching date was found in the search window.', 'success');
+      } else {
+        const resultText = `Showing ${dates.length} of ${requestedCount} requested occurrence${requestedCount === 1 ? '' : 's'}.`;
+        showStatus(
+          dates.length < requestedCount
+            ? `${resultText} Search covered the next 20 years.`
+            : resultText,
+          'success',
+        );
+      }
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      occurrencesList.replaceChildren();
+
+      const requestedCount = Number(countInput.value);
+      const startDate = new Date(startInput.value);
+      if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 100) {
+        showStatus('Choose between 1 and 100 occurrences.', 'error');
+        return;
+      }
+      if (!startInput.value || Number.isNaN(startDate.getTime())) {
+        showStatus('Choose a valid start date and time.', 'error');
+        return;
+      }
+
+      try {
+        const schedule = parseSchedule(scheduleInput.value);
+        renderOccurrences(findOccurrences(schedule, startDate, requestedCount), requestedCount);
+      } catch (error) {
+        showStatus(error instanceof Error ? error.message : 'Unable to parse the schedule.', 'error');
+      }
+    });
+
+    document.querySelectorAll('[data-schedule]').forEach((button) => {
+      button.addEventListener('click', () => {
+        scheduleInput.value = button.dataset.schedule;
+        form.requestSubmit();
+      });
+    });
+
+    const now = new Date();
+    now.setSeconds(0, 0);
+    now.setMinutes(now.getMinutes() + 1);
+    startInput.value = toLocalDateTimeInput(now);
+    form.requestSubmit();
+  </script>
+</body>
+</html>
