@@ -1546,7 +1546,7 @@ function BudgetHeader({
       , [currentBudgetTitle])
 
   useEffect(() => {
-    setTotalSetBudgetAmount(totalIncome);
+    setTotalBudgetAmount(totalIncome);
     setTotalIncomeInput(totalIncome.toFixed(2));
   }, [totalIncome]);
 
@@ -1588,11 +1588,11 @@ function BudgetHeader({
               if (totalIncomeInput.trim() !== '' && Number.isFinite(parsedAmount)) {
                 const normalizedAmount = normalizeCurrencyAmount(parsedAmount);
                 onTotalIncomeChange(normalizedAmount);
-                setTotalSetBudgetAmount(normalizedAmount);
+                setTotalBudgetAmount(normalizedAmount);
                 setTotalIncomeInput(normalizedAmount.toFixed(2));
               } else {
                 setTotalIncomeInput(totalIncome.toFixed(2));
-                setTotalSetBudgetAmount(totalIncome);
+                setTotalBudgetAmount(totalIncome);
               }
             }}
           />
