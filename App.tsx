@@ -82,6 +82,7 @@ const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const isLocalOnlyMode = false;
 const DEFAULT_TOTAL_INCOME = 2000;
+const budgetSaveRequests = new Map<string, Promise<void>>();
 
 function isForgotPasswordRoute(): boolean {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -701,6 +702,7 @@ type Budget = {
   ownerEmail: string;
   budgetItems: BudgetData[];
   totalIncome: number;
+  pendingSync?: boolean;
 }
 
 type BudgetData = {
@@ -1287,13 +1289,16 @@ function UpsertLocalBudget(budget: Budget, userEmail: string): Budget[] {
 }
 
 async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
-  UpsertLocalBudget(budget, userEmail);
-  storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(budget));
+  const budgetToSave = {...budget, pendingSync: !isLocalOnlyMode};
+  UpsertLocalBudget(budgetToSave, userEmail);
+  const activeBudgetKey = accountStorageKey(budget_key, userEmail);
+  storage.set(activeBudgetKey, JSON.stringify(budgetToSave));
   storage.set(accountStorageKey(budget_items_key, userEmail), JSON.stringify(budget.budgetItems));
   storage.set(accountStorageKey(title_key, userEmail), budget.name);
   if (isLocalOnlyMode) return;
 
-  try {
+  const previousSave = budgetSaveRequests.get(budget.budgetId) ?? Promise.resolve();
+  const saveRequest = previousSave.catch(() => undefined).then(async () => {
     const response = await fetch(`${apiUrl}/budgets`, {
       method: 'POST',
       headers: apiHeaders(true),
@@ -1308,9 +1313,30 @@ async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
       const result = await response.json().catch(() => ({}));
       throw new Error(result.error || 'Unable to save budget');
     }
-
+  });
+  budgetSaveRequests.set(budget.budgetId, saveRequest);
+  try {
+    await saveRequest;
+    const storedBudget = storage.getString(activeBudgetKey);
+    const latestLocalBudget = storedBudget
+      ? JSON.parse(storedBudget) as Budget
+      : null;
+    if (
+      latestLocalBudget?.budgetId === budget.budgetId &&
+      latestLocalBudget.name === budget.name &&
+      latestLocalBudget.totalIncome === budget.totalIncome &&
+      JSON.stringify(latestLocalBudget.budgetItems) === JSON.stringify(budget.budgetItems)
+    ) {
+      const syncedBudget = {...latestLocalBudget, pendingSync: false};
+      UpsertLocalBudget(syncedBudget, userEmail);
+      storage.set(activeBudgetKey, JSON.stringify(syncedBudget));
+    }
   } catch (error) {
     console.error('Failed to save budget to server', error);
+  } finally {
+    if (budgetSaveRequests.get(budget.budgetId) === saveRequest) {
+      budgetSaveRequests.delete(budget.budgetId);
+    }
   }
 }
 
@@ -1832,6 +1858,10 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       }
 
       if (!currentBudget || isLocalOnlyMode) return;
+      if (currentBudget.pendingSync) {
+        void SaveBudget(currentBudget, userEmail);
+        return;
+      }
 
       try {
         const response = await fetch(
@@ -1908,6 +1938,21 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (!localBudget) return;
+        await ClearTransactionData(userEmail);
+        setTransactionData([]);
+        setBudgetId(localBudget.budgetId);
+        setBudgetTitle(localBudget.name);
+        setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
+        setBudgetData(normalizeBudgetItems(localBudget.budgetItems));
+        setTotalIncome(normalizeBudgetIncome(localBudget.totalIncome));
+        return;
+      }
+
+      const localBudget = GetLocalBudgets(userEmail).find(
+        (budget) => budget.budgetId === selectedBudget.budgetId,
+      );
+      if (localBudget?.pendingSync) {
+        await SaveBudget(localBudget, userEmail);
         await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
@@ -2084,7 +2129,12 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     }
     if (!budgetId || !budgetTitle.trim()) return;
     void SaveBudget(budget, userEmail);
-  }, [budgetId, budgetTitle, budgetData, totalIncome, userEmail, isLoadingBudget]);
+  }, [budgetId, budgetTitle, budgetData, userEmail, isLoadingBudget]);
+
+  const updateTotalIncome = (amount: number) => {
+    setTotalIncome(amount);
+    void SaveBudget({...budget, totalIncome: amount}, userEmail);
+  };
 
   useEffect(() => {
     function checkIfShowCloseButton(){
@@ -2313,7 +2363,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 budgetedTotal={totalBudgetAmount}
                 currentBudgetTitle={budgetTitle}
                 totalIncome={totalIncome}
-                onTotalIncomeChange={setTotalIncome}
+                onTotalIncomeChange={updateTotalIncome}
                 getTitleFunction={getTitle}
                 onTitleChange={recordBudgetTitleChange}
                 userEmail={userEmail}
