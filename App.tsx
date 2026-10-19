@@ -81,6 +81,7 @@ const budgets_key = '@budgets_key';
 const transaction_items_key = '@transaction_items_key';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const isLocalOnlyMode = false;
+const DEFAULT_TOTAL_INCOME = 2000;
 
 function isForgotPasswordRoute(): boolean {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -699,6 +700,7 @@ type Budget = {
   name: string;
   ownerEmail: string;
   budgetItems: BudgetData[];
+  totalIncome: number;
 }
 
 type BudgetData = {
@@ -717,6 +719,12 @@ type BudgetData = {
 function normalizeCurrencyAmount(value: unknown): number {
   const amount = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
+function normalizeBudgetIncome(value: unknown): number {
+  if (value === null || value === undefined || value === '') return DEFAULT_TOTAL_INCOME;
+  const amount = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : DEFAULT_TOTAL_INCOME;
 }
 
 function normalizeBudgetItems(value: unknown): BudgetData[] {
@@ -770,7 +778,6 @@ const HistoryItem = ({description, budget, amount, date}: HistoryItemModel) => {
 }
 
 const todaysDate = new Date();
-let totalIncomeAmount = 2000;
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
@@ -1163,12 +1170,20 @@ async function GetBudget(userEmail: string): Promise<Budget | null> {
     const storedBudget = storage.getString(accountStorageKey(budget_key, userEmail));
     if (storedBudget) {
       const parsedBudget = JSON.parse(storedBudget) as Budget;
-      return {...parsedBudget, budgetItems: normalizeBudgetItems(parsedBudget.budgetItems)};
+      return {
+        ...parsedBudget,
+        budgetItems: normalizeBudgetItems(parsedBudget.budgetItems),
+        totalIncome: normalizeBudgetIncome(parsedBudget.totalIncome),
+      };
     }
 
     const localBudgets = GetLocalBudgets(userEmail);
     if (localBudgets.length > 0) {
-      const firstBudget = localBudgets[0];
+      const firstBudget = {
+        ...localBudgets[0],
+        budgetItems: normalizeBudgetItems(localBudgets[0].budgetItems),
+        totalIncome: normalizeBudgetIncome(localBudgets[0].totalIncome),
+      };
       storage.set(accountStorageKey(budget_key, userEmail), JSON.stringify(firstBudget));
       storage.set(accountStorageKey(budget_items_key, userEmail), JSON.stringify(firstBudget.budgetItems));
       storage.set(accountStorageKey(title_key, userEmail), firstBudget.name);
@@ -1181,6 +1196,7 @@ async function GetBudget(userEmail: string): Promise<Budget | null> {
       name,
       ownerEmail: userEmail,
       budgetItems: items,
+      totalIncome: DEFAULT_TOTAL_INCOME,
     };
   } catch (error) {
     console.error('Failed to load budget', error);
@@ -1253,6 +1269,7 @@ async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
         budgetId: budget.budgetId,
         name: budget.name,
         budgetItems: budget.budgetItems,
+        totalIncome: budget.totalIncome,
       }),
     });
     if (!response.ok) {
@@ -1423,6 +1440,7 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
         budgetId: budget.budgetId,
         name: budget.name,
         budgetItems: budget.budgetItems,
+        totalIncome: budget.totalIncome,
       }),
     });
     const saveResult = await saveResponse.json();
@@ -1494,10 +1512,27 @@ async function ClearTransactionData(userEmail: string){
   }
 }
 
-function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle, getTitleFunction, onTitleChange, userEmail}: 
-  {budgetAmountRemaining?: number, budgetedTotal?: number, currentBudgetTitle: string, getTitleFunction?: () => void, onTitleChange?: (title: string, previousTitle: string) => void, userEmail: string}){
-  const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncomeAmount);
-  const [totalIncomeInput, setTotalIncomeInput] = useState(totalIncomeAmount.toFixed(2));
+function BudgetHeader({
+  budgetAmountRemaining,
+  budgetedTotal,
+  currentBudgetTitle,
+  totalIncome,
+  onTotalIncomeChange,
+  getTitleFunction,
+  onTitleChange,
+  userEmail,
+}: {
+  budgetAmountRemaining?: number;
+  budgetedTotal?: number;
+  currentBudgetTitle: string;
+  totalIncome: number;
+  onTotalIncomeChange: (amount: number) => void;
+  getTitleFunction?: () => void;
+  onTitleChange?: (title: string, previousTitle: string) => void;
+  userEmail: string;
+}) {
+  const [totalSetBudgetAmount, setTotalBudgetAmount] = useState(totalIncome);
+  const [totalIncomeInput, setTotalIncomeInput] = useState(totalIncome.toFixed(2));
   const [savedTitle, setSavedTitle] = useState<string>(currentBudgetTitle);
   const potentialSurplus = totalSetBudgetAmount - (budgetedTotal ?? 0);
 
@@ -1509,6 +1544,11 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
       setSavedTitle(currentBudgetTitle)
     }
       , [currentBudgetTitle])
+
+  useEffect(() => {
+    setTotalSetBudgetAmount(totalIncome);
+    setTotalIncomeInput(totalIncome.toFixed(2));
+  }, [totalIncome]);
 
     return (
         <View style={[styles.container, styles.tableHeaderPadding]}>
@@ -1543,7 +1583,18 @@ function BudgetHeader( {budgetAmountRemaining, budgetedTotal, currentBudgetTitle
                 setTotalBudgetAmount(parsedAmount);
               }
             }}
-            onEndEditing={() => setTotalIncomeInput(totalSetBudgetAmount.toFixed(2))}
+            onEndEditing={() => {
+              const parsedAmount = Number(totalIncomeInput);
+              if (totalIncomeInput.trim() !== '' && Number.isFinite(parsedAmount)) {
+                const normalizedAmount = normalizeCurrencyAmount(parsedAmount);
+                onTotalIncomeChange(normalizedAmount);
+                setTotalSetBudgetAmount(normalizedAmount);
+                setTotalIncomeInput(normalizedAmount.toFixed(2));
+              } else {
+                setTotalIncomeInput(totalIncome.toFixed(2));
+                setTotalSetBudgetAmount(totalIncome);
+              }
+            }}
           />
         </View>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
@@ -1700,6 +1751,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
   const [budgetId, setBudgetId] = useState<string>('');
   const [budgetOwnerEmail, setBudgetOwnerEmail] = useState<string>(userEmail);
+  const [totalIncome, setTotalIncome] = useState<number>(DEFAULT_TOTAL_INCOME);
   const [transactionData, setTransactionData] = useState<TransactionData[]>([]);
   const [budgetTitle, setBudgetTitle] = useState<string>('');
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
@@ -1714,6 +1766,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     name: budgetTitle,
     ownerEmail: budgetOwnerEmail,
     budgetItems: budgetData,
+    totalIncome,
   };
   const [availableBudgets, setAvailableBudgets] = useState<Budget[]>([]);
 
@@ -1725,6 +1778,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setBudgetTitle(loadedBudget.name || '');
       setBudgetOwnerEmail(loadedBudget.ownerEmail || userEmail);
       setBudgetData(normalizeBudgetItems(loadedBudget.budgetItems));
+      setTotalIncome(normalizeBudgetIncome(loadedBudget.totalIncome));
     };
 
     try {
@@ -1819,6 +1873,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetTitle(localBudget.name);
         setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
         setBudgetData(normalizeBudgetItems(localBudget.budgetItems));
+        setTotalIncome(normalizeBudgetIncome(localBudget.totalIncome));
         return;
       }
 
@@ -1837,6 +1892,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetTitle(result.name);
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
         setBudgetData(normalizeBudgetItems(result.budgetItems));
+        setTotalIncome(normalizeBudgetIncome(result.totalIncome));
       } catch (error) {
         const localBudget = GetLocalBudgets(userEmail).find(
           (budget) => budget.budgetId === selectedBudget.budgetId,
@@ -1848,6 +1904,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           setBudgetTitle(localBudget.name);
           setBudgetOwnerEmail(localBudget.ownerEmail || userEmail);
           setBudgetData(normalizeBudgetItems(localBudget.budgetItems));
+          setTotalIncome(normalizeBudgetIncome(localBudget.totalIncome));
           return;
         }
         Alert.alert(
@@ -1867,6 +1924,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetTitle(result.name);
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
         setBudgetData(normalizeBudgetItems(result.budgetItems));
+        setTotalIncome(normalizeBudgetIncome(result.totalIncome));
         UpsertLocalBudget(result, userEmail);
         await loadAvailableBudgets();
         setShowMenuButtons(false);
@@ -1888,6 +1946,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setBudgetTitle(result.name);
       setBudgetOwnerEmail(result.ownerEmail || userEmail);
       setBudgetData(normalizeBudgetItems(result.budgetItems));
+      setTotalIncome(normalizeBudgetIncome(result.totalIncome));
       UpsertLocalBudget(result, userEmail);
       await loadAvailableBudgets();
       setShowMenuButtons(false);
@@ -1899,11 +1958,13 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         name,
         ownerEmail: userEmail,
         budgetItems: [],
+        totalIncome: DEFAULT_TOTAL_INCOME,
       };
       setBudgetId(newBudget.budgetId);
       setBudgetOwnerEmail(newBudget.ownerEmail);
       setBudgetTitle(newBudget.name);
       setBudgetData(newBudget.budgetItems);
+      setTotalIncome(newBudget.totalIncome);
       setTransactionData([]);
       await SaveBudget(newBudget, userEmail);
       setAvailableBudgets((currentBudgets) => [newBudget, ...currentBudgets]);
@@ -1982,7 +2043,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     }
     if (!budgetId || !budgetTitle.trim()) return;
     void SaveBudget(budget, userEmail);
-  }, [budgetId, budgetTitle, budgetData, userEmail, isLoadingBudget]);
+  }, [budgetId, budgetTitle, budgetData, totalIncome, userEmail, isLoadingBudget]);
 
   useEffect(() => {
     function checkIfShowCloseButton(){
@@ -2008,6 +2069,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     });
     SaveBudgetItems(emptyBudgetData, userEmail);
     setBudgetData(emptyBudgetData);
+    setTotalIncome(DEFAULT_TOTAL_INCOME);
     setBudgetId(UUID());
     setBudgetTitle('');
     Alert.alert("Budget Closed", "Your current budget has been closed to history and a new one has been created.")
@@ -2205,6 +2267,8 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}
                 currentBudgetTitle={budgetTitle}
+                totalIncome={totalIncome}
+                onTotalIncomeChange={setTotalIncome}
                 getTitleFunction={getTitle}
                 onTitleChange={recordBudgetTitleChange}
                 userEmail={userEmail}

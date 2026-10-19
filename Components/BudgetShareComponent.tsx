@@ -12,6 +12,7 @@ type ShareBudgetProps = {
     budget: {
         budgetId: string;
         name: string;
+        totalIncome: number;
         budgetItems: LocalBudgetSnapshot['budgetItems'];
         ownerEmail: string;
     };
@@ -48,6 +49,7 @@ function ShareBudgetComponent({ budget, localOnly = false }: ShareBudgetProps) {
                     budgetId: budget.budgetId,
                     name: budget.name,
                     budgetItems: budget.budgetItems,
+                    totalIncome: budget.totalIncome,
                 }),
             });
             const budgetResult = await budgetResponse.json();

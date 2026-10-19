@@ -140,12 +140,16 @@ async function ensureBudgetTables() {
       name TEXT NOT NULL,
       owner_email TEXT,
       budget_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      total_income NUMERIC NOT NULL DEFAULT 2000,
       is_archived BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
   await pool.query(`
     ALTER TABLE budgets ADD COLUMN IF NOT EXISTS owner_email TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE budgets ADD COLUMN IF NOT EXISTS total_income NUMERIC NOT NULL DEFAULT 2000
   `);
   await pool.query(`
     ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE
@@ -572,16 +576,17 @@ app.get('/budget-invitation', (req, res) => {
 });
 
 app.post('/budgets', requireAuthentication, async (req, res) => {
-  const { budgetId, name, budgetItems } = req.body || {};
+  const { budgetId, name, budgetItems, totalIncome } = req.body || {};
   if (
     typeof budgetId !== 'string' ||
     !budgetId.trim() ||
     typeof name !== 'string' ||
     !name.trim() ||
-    !Array.isArray(budgetItems)
+    !Array.isArray(budgetItems) ||
+    (totalIncome !== undefined && (typeof totalIncome !== 'number' || !Number.isFinite(totalIncome)))
   ) {
     return res.status(400).json({
-      error: 'budgetId, name, and budgetItems are required',
+      error: 'budgetId, name, budgetItems, and a valid totalIncome are required',
     });
   }
 
@@ -608,17 +613,25 @@ app.post('/budgets', requireAuthentication, async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO budgets (budget_id, name, owner_email, budget_items, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, NOW())
+      `INSERT INTO budgets (budget_id, name, owner_email, budget_items, total_income, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5, NOW())
        ON CONFLICT (budget_id)
        DO UPDATE SET name = EXCLUDED.name,
                      owner_email = COALESCE(budgets.owner_email, EXCLUDED.owner_email),
                      budget_items = EXCLUDED.budget_items,
+                     total_income = EXCLUDED.total_income,
                      is_archived = FALSE,
                      updated_at = NOW()
        RETURNING budget_id AS "budgetId", name, owner_email AS "ownerEmail",
-                 budget_items AS "budgetItems", updated_at AS "updatedAt"`,
-      [budgetId.trim(), name.trim(), req.user.email, JSON.stringify(budgetItems)],
+                 budget_items AS "budgetItems", total_income AS "totalIncome",
+                 updated_at AS "updatedAt"`,
+      [
+        budgetId.trim(),
+        name.trim(),
+        req.user.email,
+        JSON.stringify(budgetItems),
+        totalIncome ?? 2000,
+      ],
     );
     return res.status(200).json(result.rows[0]);
   } catch (err) {
@@ -632,7 +645,8 @@ app.get('/budgets', requireAuthentication, async (req, res) => {
     await ensureBudgetTables();
     const result = await pool.query(
       `SELECT b.budget_id AS "budgetId", b.name, b.owner_email AS "ownerEmail",
-              b.budget_items AS "budgetItems", b.updated_at AS "updatedAt"
+              b.budget_items AS "budgetItems", b.total_income AS "totalIncome",
+              b.updated_at AS "updatedAt"
        FROM budgets b
        WHERE b.is_archived = FALSE
          AND (LOWER(b.owner_email) = LOWER($1)
@@ -663,7 +677,8 @@ app.get('/budgets/:budgetId', requireAuthentication, async (req, res) => {
     await ensureBudgetTables();
     const result = await pool.query(
       `SELECT b.budget_id AS "budgetId", b.name, b.owner_email AS "ownerEmail",
-              b.budget_items AS "budgetItems", b.updated_at AS "updatedAt"
+              b.budget_items AS "budgetItems", b.total_income AS "totalIncome",
+              b.updated_at AS "updatedAt"
        FROM budgets b
        WHERE b.budget_id = $1
          AND b.is_archived = FALSE

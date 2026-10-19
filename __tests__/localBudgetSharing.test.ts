@@ -28,6 +28,7 @@ test('local invitations can be shared, accepted, and loaded by their recipient',
     budgetId: 'budget-1',
     name: 'Household',
     ownerEmail: 'owner@example.com',
+    totalIncome: 2000,
     budgetItems: [
       {id: '1', description: 'Rent', budget: 1200, amount: 0, date: '2026-10-01'},
     ],

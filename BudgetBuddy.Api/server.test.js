@@ -51,6 +51,12 @@ test('startup initialization creates every application table', async () => {
       `startup should create ${tableName}`,
     );
   }
+  assert.ok(
+    statements.some((statement) =>
+      statement.includes('ALTER TABLE budgets ADD COLUMN IF NOT EXISTS total_income'),
+    ),
+    'startup should add total_income to existing budgets',
+  );
 });
 
 test('startServer initializes the database before binding the API to loopback', async () => {
@@ -120,6 +126,49 @@ test('support and privacy pages are no longer served by the API', async () => {
 test('budget endpoints reject requests without a JWT', async () => {
   const response = await fetch(`${baseUrl}/budgets`);
   assert.equal(response.status, 401);
+});
+
+test('budget save persists total income with the budget record', async () => {
+  const originalQuery = pool.query;
+  let savedBudget;
+  pool.query = async (statement, parameters = []) => {
+    const query = String(statement);
+    if (query.includes('SELECT b.owner_email')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (query.includes('INSERT INTO budgets')) {
+      savedBudget = { query, parameters };
+      return {
+        rows: [{ budgetId: 'budget-income', totalIncome: 4625.75 }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  };
+
+  try {
+    const token = jwt.sign({ sub: 'owner@example.com' }, process.env.JWT_SECRET);
+    const response = await fetch(`${baseUrl}/budgets`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        budgetId: 'budget-income',
+        name: 'Household',
+        budgetItems: [],
+        totalIncome: 4625.75,
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).totalIncome, 4625.75);
+    assert.match(savedBudget.query, /budget_items, total_income, updated_at/);
+    assert.equal(savedBudget.parameters[4], 4625.75);
+  } finally {
+    pool.query = originalQuery;
+  }
 });
 
 test('account deletion removes owned data and the account in one transaction', async () => {

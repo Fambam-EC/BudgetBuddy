@@ -15,6 +15,7 @@ export type LocalBudgetSnapshot = {
   budgetId: string;
   name: string;
   ownerEmail: string;
+  totalIncome: number;
   budgetItems: {
     id: string;
     description: string;
