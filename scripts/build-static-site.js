@@ -8,6 +8,10 @@ const fontDirectory = path.join(outputDirectory, 'assets', 'fonts');
 const pages = ['policy.html', 'support.html', 'jsonvalidator.html', 'requestlab.html', 'crontab.html', 'learncss.html'];
 
 fs.mkdirSync(fontDirectory, { recursive: true });
+fs.copyFileSync(
+  path.join(projectRoot, 'ads.txt'),
+  path.join(outputDirectory, 'ads.txt'),
+);
 
 for (const page of pages) {
   fs.copyFileSync(
