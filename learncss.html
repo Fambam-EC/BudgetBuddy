@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f7f2">
+  <meta name="description" content="Learn CSS from your first selector to advanced layout, responsive design, accessibility, and cascade techniques with hands-on examples.">
+  <title>Learn CSS: Interactive Lessons from Beginner to Expert</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #18332a;
+      background: #f4f7f2;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      --green: #1d6249;
+      --green-dark: #164b39;
+      --muted: #53645b;
+      --border: #dbe5db;
+      --surface: #fff;
+      --soft: #edf5ee;
+      --code: #18332a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    body { margin: 0; }
+    button, select, textarea { font: inherit; }
+    a { color: var(--green); }
+    a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid #65a982;
+      outline-offset: 3px;
+    }
+    .hero {
+      padding: clamp(42px, 8vw, 88px) 20px 48px;
+      color: #fff;
+      background: linear-gradient(135deg, #164b39, #287254);
+    }
+    .hero-inner, main, footer { width: min(100% - 40px, 1040px); margin: 0 auto; }
+    .eyebrow { margin: 0 0 12px; color: #c6ead2; font-size: .8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { max-width: 760px; margin: 0; font-size: clamp(2.25rem, 7vw, 4.5rem); line-height: 1.04; letter-spacing: -.045em; }
+    .hero p:last-child { max-width: 680px; margin: 20px 0 0; color: #e5f2e8; font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.7; }
+    main { padding: 34px 0 64px; }
+    .path {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 26px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    .path a {
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: var(--soft);
+      font-size: .88rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .path a:hover { background: #dcecdf; }
+    .lesson {
+      margin: 18px 0;
+      padding: clamp(20px, 4vw, 34px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgb(24 51 42 / 4%);
+    }
+    .lesson-heading { display: flex; align-items: flex-start; gap: 14px; }
+    .number {
+      display: grid;
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--soft);
+      color: var(--green);
+      font-weight: 800;
+    }
+    .level { margin: 1px 0 5px; color: var(--green); font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.75rem); letter-spacing: -.02em; }
+    h3 { margin: 24px 0 8px; font-size: 1.05rem; }
+    p { color: var(--muted); line-height: 1.7; }
+    .lesson-heading + p { margin: 16px 0; }
+    .example {
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdfb;
+    }
+    .example-label { margin: 0 0 12px; color: #53645b; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .control {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .control:hover { background: var(--green-dark); }
+    .control.secondary { background: #fff; color: var(--green); }
+    .control.secondary:hover { background: var(--soft); }
+    .demo-note { margin: 12px 0 0; font-size: .92rem; }
+    .code {
+      overflow-x: auto;
+      margin: 14px 0 0;
+      padding: 16px;
+      border-radius: 10px;
+      background: var(--code);
+      color: #e5f2e8;
+      font: .9rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+      tab-size: 2;
+    }
+    .sample-card {
+      max-width: 310px;
+      padding: 16px;
+      border: 2px solid #b9cabe;
+      border-radius: 10px;
+      background: white;
+      transition: background-color .2s, border-color .2s, transform .2s;
+    }
+    .sample-card p { margin: 8px 0 0; }
+    .sample-card.is-highlighted { border-color: var(--green); background: #e6f4e9; transform: translateY(-3px); }
+    .box-model {
+      width: min(100%, 390px);
+      margin: 0 auto;
+      padding: 16px;
+      border: 2px dashed #6d937a;
+      background: #e6f4e9;
+      text-align: center;
+    }
+    .box-model-content { padding: 14px; background: #fff; }
+    .box-model-content p { margin: 5px 0; }
+    .flex-demo { display: flex; min-height: 116px; align-items: center; justify-content: flex-start; gap: 10px; padding: 12px; border-radius: 8px; background: #edf5ee; transition: justify-content .2s; }
+    .flex-demo.is-centered { justify-content: center; }
+    .flex-item { display: grid; width: 56px; height: 56px; place-items: center; border-radius: 8px; background: #287254; color: white; font-weight: 800; }
+    .grid-demo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; transition: grid-template-columns .2s; }
+    .grid-demo.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-item { padding: 16px 8px; border-radius: 8px; background: #edf5ee; color: var(--green-dark); text-align: center; font-weight: 700; }
+    .responsive-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 620px; margin: auto; transition: max-width .2s; }
+    .responsive-demo.is-narrow { max-width: 340px; grid-template-columns: 1fr; }
+    .responsive-card { padding: 18px; border: 1px solid var(--border); border-radius: 9px; background: white; }
+    .responsive-card strong { display: block; margin-bottom: 6px; }
+    .motion-demo { display: inline-grid; width: 64px; height: 64px; place-items: center; border-radius: 16px; background: #e6f4e9; color: var(--green); font-size: 1.5rem; }
+    .motion-demo.is-moving { animation: float 1s ease-in-out infinite alternate; }
+    @keyframes float { to { transform: translateY(-12px) rotate(8deg); background: #cce8d2; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+    .playground { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+    .playground label { display: block; margin-bottom: 8px; font-weight: 750; }
+    .playground textarea {
+      display: block;
+      width: 100%;
+      min-height: 230px;
+      resize: vertical;
+      padding: 14px;
+      border: 1px solid #2d5743;
+      border-radius: 10px;
+      background: #18332a;
+      color: #e5f2e8;
+      font: .88rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+      tab-size: 2;
+    }
+    .preview-frame { display: block; width: 100%; min-height: 230px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+    .status { min-height: 1.5em; margin: 10px 0 0; font-size: .9rem; }
+    .tip { padding: 14px 16px; border-left: 4px solid #65a982; border-radius: 0 8px 8px 0; background: var(--soft); }
+    .tip p { margin: 0; }
+    footer { padding: 0 0 36px; color: var(--muted); font-size: .9rem; text-align: center; }
+    @media (max-width: 620px) {
+      .hero-inner, main, footer { width: min(100% - 24px, 1040px); }
+      .playground { grid-template-columns: 1fr; }
+      .path { gap: 8px; }
+      .path a { font-size: .82rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">A hands-on learning path</p>
+      <h1>Learn CSS by making things.</h1>
+      <p>Start with your first selector, build real layouts, and work up to the cascade and responsive systems. Try each example, change the code, and see what happens.</p>
+    </div>
+  </header>
+  <main>
+    <nav class="path" aria-label="Lesson navigation">
+      <a href="#selectors">1. Selectors</a>
+      <a href="#box-model">2. Box model</a>
+      <a href="#specificity">3. Specificity</a>
+      <a href="#flexbox">4. Flexbox</a>
+      <a href="#grid">5. Grid</a>
+      <a href="#responsive">6. Responsive</a>
+      <a href="#motion">7. Motion</a>
+      <a href="#advanced">8. Expert tools</a>
+    </nav>
+
+    <section class="lesson" id="selectors" aria-labelledby="selectors-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">1</span><div><p class="level">Beginner · Foundations</p><h2 id="selectors-title">Select an element and style it</h2></div></div>
+      <p>A CSS rule has a <strong>selector</strong> (what to match) and declarations (what to change). A class selector starts with a dot and can be reused on many elements.</p>
+      <pre class="code"><code>.welcome-card {
+  color: #164b39;
+  background-color: #e6f4e9;
+}</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: turn the card style on and off</p>
+        <div class="controls"><button class="control" type="button" data-toggle-class="is-highlighted" data-target="basic-card" aria-pressed="false">Apply the class</button></div>
+        <div class="sample-card" id="basic-card"><strong>Hello, CSS!</strong><p>This element changes when its class changes.</p></div>
+        <p class="demo-note" id="basic-status" aria-live="polite">The card has its default styles.</p>
+      </div>
+      <div class="tip"><p><strong>Remember:</strong> HTML gives content structure; CSS describes how selected elements should look.</p></div>
+    </section>
+
+    <section class="lesson" id="box-model" aria-labelledby="box-model-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">2</span><div><p class="level">Beginner · Layout basics</p><h2 id="box-model-title">Understand the box model</h2></div></div>
+      <p>Every element is a box: <strong>content</strong> sits inside <strong>padding</strong>, then the <strong>border</strong>, then the outside <strong>margin</strong>. <code>box-sizing: border-box</code> makes declared widths include padding and border.</p>
+      <pre class="code"><code>* { box-sizing: border-box; }
+.card { padding: 16px; border: 2px solid; margin: 12px; }</code></pre>
+      <div class="example">
+        <p class="example-label">Explore: adjust the inside padding</p>
+        <label for="padding-range">Padding: <output id="padding-output" for="padding-range">16px</output></label>
+        <input id="padding-range" type="range" min="4" max="36" value="16">
+        <div class="box-model" id="box-model-demo"><div class="box-model-content"><strong>Content</strong><p>Green area shows padding. Dashed line shows the border.</p></div></div>
+      </div>
+    </section>
+
+    <section class="lesson" id="specificity" aria-labelledby="specificity-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">3</span><div><p class="level">Intermediate · The cascade</p><h2 id="specificity-title">Learn selectors and specificity</h2></div></div>
+      <p>Selectors target elements in different ways. A type selector like <code>p</code> matches tags; <code>.notice</code> matches a class; <code>#summary</code> matches an ID. When rules conflict, the cascade considers origin, importance, specificity, and source order.</p>
+      <pre class="code"><code>p { color: #53645b; }          /* type */
+.notice { color: #1d6249; }    /* class wins over type */
+#summary { color: #164b39; }   /* ID is more specific */</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: compare which selector wins</p>
+        <div class="controls" role="group" aria-label="Choose a selector rule">
+          <button class="control secondary selector-choice" type="button" data-selector="type" aria-pressed="true">Type: p</button>
+          <button class="control secondary selector-choice" type="button" data-selector="class" aria-pressed="false">Class: .notice</button>
+          <button class="control secondary selector-choice" type="button" data-selector="id" aria-pressed="false">ID: #summary</button>
+        </div>
+        <div class="sample-card" id="specificity-demo"><strong>Specificity in action</strong><p id="specificity-copy">Choose a rule to see its style applied.</p></div>
+        <p class="demo-note" id="specificity-status" aria-live="polite">The type selector p is active.</p>
+      </div>
+      <div class="tip"><p><strong>Good practice:</strong> prefer simple classes for reusable styling. IDs are best kept for unique page targets and JavaScript hooks.</p></div>
+    </section>
+
+    <section class="lesson" id="flexbox" aria-labelledby="flexbox-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">4</span><div><p class="level">Intermediate · One-dimensional layout</p><h2 id="flexbox-title">Arrange items with Flexbox</h2></div></div>
+      <p>Flexbox lays items out along one axis. Use <code>justify-content</code> for the main axis, <code>align-items</code> for the cross axis, and <code>gap</code> for consistent spacing.</p>
+      <pre class="code"><code>.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: change the main-axis alignment</p>
+        <div class="controls"><button class="control" type="button" id="flex-toggle" aria-pressed="false">Center the items</button></div>
+        <div class="flex-demo" id="flex-demo" aria-label="Three flex items"><span class="flex-item">A</span><span class="flex-item">B</span><span class="flex-item">C</span></div>
+        <p class="demo-note" id="flex-status" aria-live="polite">Items are aligned at the start of the row.</p>
+      </div>
+    </section>
+
+    <section class="lesson" id="grid" aria-labelledby="grid-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">5</span><div><p class="level">Intermediate · Two-dimensional layout</p><h2 id="grid-title">Build layouts with CSS Grid</h2></div></div>
+      <p>Grid controls rows and columns together. Define tracks with <code>grid-template-columns</code>; fractional units (<code>fr</code>) distribute available space. <code>minmax()</code> and <code>auto-fit</code> help make flexible grids.</p>
+      <pre class="code"><code>.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: switch between two and three columns</p>
+        <div class="controls"><button class="control" type="button" id="grid-toggle" aria-pressed="false">Use three columns</button></div>
+        <div class="grid-demo" id="grid-demo" aria-label="Grid with four cards">
+          <div class="grid-item">One</div><div class="grid-item">Two</div><div class="grid-item">Three</div><div class="grid-item">Four</div>
+        </div>
+        <p class="demo-note" id="grid-status" aria-live="polite">The grid has two equal columns.</p>
+      </div>
+    </section>
+
+    <section class="lesson" id="responsive" aria-labelledby="responsive-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">6</span><div><p class="level">Advanced · Responsive design</p><h2 id="responsive-title">Adapt to the available space</h2></div></div>
+      <p>Media queries apply rules when the viewport matches a condition. Start with a layout that works in a narrow space, then add breakpoints when the content needs them—not for a particular device model.</p>
+      <pre class="code"><code>.cards { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 42rem) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: preview a narrow layout</p>
+        <div class="controls"><button class="control" type="button" id="responsive-toggle" aria-pressed="false">Preview narrow layout</button></div>
+        <div class="responsive-demo" id="responsive-demo">
+          <div class="responsive-card"><strong>First card</strong><span>Grid items adapt to their container.</span></div>
+          <div class="responsive-card"><strong>Second card</strong><span>One column is easier to read in a narrow space.</span></div>
+        </div>
+        <p class="demo-note" id="responsive-status" aria-live="polite">Previewing a wide layout with two columns.</p>
+      </div>
+      <div class="tip"><p><strong>Pro tip:</strong> container queries let a component adapt to its own space, using <code>@container</code>, rather than the whole viewport.</p></div>
+    </section>
+
+    <section class="lesson" id="motion" aria-labelledby="motion-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">7</span><div><p class="level">Advanced · Motion and interaction</p><h2 id="motion-title">Add thoughtful transitions and animation</h2></div></div>
+      <p>Use transitions for changes between states and keyframes for multi-step motion. Keep movement subtle, avoid using animation to communicate information by itself, and respect reduced-motion preferences.</p>
+      <pre class="code"><code>.button { transition: transform 160ms ease; }
+.button:hover { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms; }
+}</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: start and stop the animation</p>
+        <div class="controls"><button class="control" type="button" id="motion-toggle" aria-pressed="false">Start animation</button><span class="motion-demo" id="motion-demo" aria-hidden="true">✦</span></div>
+      </div>
+    </section>
+
+    <section class="lesson" id="advanced" aria-labelledby="advanced-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">8</span><div><p class="level">Expert · Maintainable CSS</p><h2 id="advanced-title">Use modern tools and practice in a live playground</h2></div></div>
+      <p>Custom properties centralize design decisions. Cascade layers make groups of styles predictable, and container queries make reusable components respond to their own size.</p>
+      <pre class="code"><code>@layer reset, components, utilities;
+
+:root { --accent: #1d6249; }
+@layer components {
+  .panel { border-color: var(--accent); }
+}
+
+.card-list { container-type: inline-size; }
+@container (min-width: 32rem) {
+  .card { display: grid; grid-template-columns: 1fr 2fr; }
+}</code></pre>
+      <div class="tip"><p><strong>Think like an expert:</strong> build a small, consistent set of rules; keep selectors easy to override; check keyboard focus and color contrast; and use browser devtools to inspect computed styles and layout.</p></div>
+      <h3>CSS playground</h3>
+      <p>Edit the CSS, then apply it to the isolated preview. This editor changes only the preview—not this page.</p>
+      <div class="playground">
+        <div>
+          <label for="css-editor">Your CSS</label>
+          <textarea id="css-editor" spellcheck="false" aria-describedby="playground-help">body {
+  font-family: system-ui, sans-serif;
+  padding: 20px;
+  color: #18332a;
+}
+.play-card {
+  max-width: 280px;
+  padding: 18px;
+  border: 2px solid #1d6249;
+  border-radius: 12px;
+  background: #e6f4e9;
+}
+.play-card button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #1d6249;
+  color: white;
+}</textarea>
+          <p class="demo-note" id="playground-help">Try changing <code>background</code>, <code>padding</code>, or <code>border-radius</code>.</p>
+          <div class="controls">
+            <button class="control" type="button" id="apply-css">Apply CSS</button>
+            <button class="control secondary" type="button" id="reset-css">Reset example</button>
+          </div>
+          <p class="status" id="playground-status" aria-live="polite">Ready to style the preview.</p>
+        </div>
+        <div>
+          <p class="example-label">Live preview</p>
+          <iframe class="preview-frame" id="css-preview" title="Preview of your CSS" sandbox="allow-same-origin" srcdoc="<!doctype html><html lang=&quot;en&quot;><head><meta charset=&quot;utf-8&quot;><style id=&quot;playground-css&quot;></style></head><body><div class=&quot;play-card&quot;><h2>A little card</h2><p>Your CSS styles this preview.</p><button type=&quot;button&quot;>A sample button</button></div></body></html>"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>Keep experimenting: inspect a page, change one rule, and observe the result.</footer>
+  <script>
+    const toggleButtons = document.querySelectorAll("[data-toggle-class]");
+    toggleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = document.getElementById(button.dataset.target);
+        const isActive = target.classList.toggle(button.dataset.toggleClass);
+        button.setAttribute("aria-pressed", String(isActive));
+        document.getElementById("basic-status").textContent = isActive
+          ? "The welcome-card class is applied."
+          : "The card has its default styles.";
+        button.textContent = isActive ? "Remove the class" : "Apply the class";
+      });
+    });
+
+    const paddingRange = document.getElementById("padding-range");
+    paddingRange.addEventListener("input", () => {
+      const padding = `${paddingRange.value}px`;
+      document.getElementById("padding-output").textContent = padding;
+      document.getElementById("box-model-demo").style.padding = padding;
+    });
+
+    const specificityStyles = {
+      type: { color: "#53645b", label: "The type selector p is active." },
+      class: { color: "#1d6249", label: "The class selector .notice is active." },
+      id: { color: "#164b39", label: "The ID selector #summary is active." },
+    };
+    document.querySelectorAll(".selector-choice").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".selector-choice").forEach((choice) => {
+          choice.setAttribute("aria-pressed", String(choice === button));
+        });
+        const selection = specificityStyles[button.dataset.selector];
+        document.getElementById("specificity-copy").style.color = selection.color;
+        document.getElementById("specificity-status").textContent = selection.label;
+      });
+    });
+
+    const flexToggle = document.getElementById("flex-toggle");
+    flexToggle.addEventListener("click", () => {
+      const isCentered = document.getElementById("flex-demo").classList.toggle("is-centered");
+      flexToggle.setAttribute("aria-pressed", String(isCentered));
+      flexToggle.textContent = isCentered ? "Align items at the start" : "Center the items";
+      document.getElementById("flex-status").textContent = isCentered
+        ? "Items are centered along the main axis."
+        : "Items are aligned at the start of the row.";
+    });
+
+    const gridToggle = document.getElementById("grid-toggle");
+    gridToggle.addEventListener("click", () => {
+      const isThreeColumns = document.getElementById("grid-demo").classList.toggle("is-three");
+      gridToggle.setAttribute("aria-pressed", String(isThreeColumns));
+      gridToggle.textContent = isThreeColumns ? "Use two columns" : "Use three columns";
+      document.getElementById("grid-status").textContent = isThreeColumns
+        ? "The grid has three equal columns."
+        : "The grid has two equal columns.";
+    });
+
+    const responsiveToggle = document.getElementById("responsive-toggle");
+    responsiveToggle.addEventListener("click", () => {
+      const isNarrow = document.getElementById("responsive-demo").classList.toggle("is-narrow");
+      responsiveToggle.setAttribute("aria-pressed", String(isNarrow));
+      responsiveToggle.textContent = isNarrow ? "Preview wide layout" : "Preview narrow layout";
+      document.getElementById("responsive-status").textContent = isNarrow
+        ? "Previewing a narrow layout with one column."
+        : "Previewing a wide layout with two columns.";
+    });
+
+    const motionToggle = document.getElementById("motion-toggle");
+    motionToggle.addEventListener("click", () => {
+      const isMoving = document.getElementById("motion-demo").classList.toggle("is-moving");
+      motionToggle.setAttribute("aria-pressed", String(isMoving));
+      motionToggle.textContent = isMoving ? "Stop animation" : "Start animation";
+    });
+
+    const editor = document.getElementById("css-editor");
+    const preview = document.getElementById("css-preview");
+    const initialCSS = editor.value;
+    const applyCSS = () => {
+      preview.contentDocument.getElementById("playground-css").textContent = editor.value;
+      document.getElementById("playground-status").textContent = "CSS applied to the preview.";
+    };
+    document.getElementById("apply-css").addEventListener("click", applyCSS);
+    document.getElementById("reset-css").addEventListener("click", () => {
+      editor.value = initialCSS;
+      applyCSS();
+      document.getElementById("playground-status").textContent = "Example CSS restored.";
+    });
+    preview.addEventListener("load", applyCSS);
+  </script>
+</body>
+</html>
