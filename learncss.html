@@ -156,12 +156,25 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
-    .playground { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
-    .playground label { display: block; margin-bottom: 8px; font-weight: 750; }
-    .playground textarea {
+    .playground { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 18px; }
+    .editor-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .editor-tab {
+      min-height: 40px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--green-dark);
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .editor-tab[aria-selected="true"] { border-color: var(--green); background: var(--green); color: #fff; }
+    .editor-pane[hidden] { display: none; }
+    .editor-pane label { display: block; margin-bottom: 8px; font-weight: 750; }
+    .editor-pane textarea {
       display: block;
       width: 100%;
-      min-height: 230px;
+      min-height: 390px;
       resize: vertical;
       padding: 14px;
       border: 1px solid #2d5743;
@@ -171,14 +184,38 @@
       font: .88rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
       tab-size: 2;
     }
-    .preview-frame { display: block; width: 100%; min-height: 230px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+    .preview-frame { display: block; width: 100%; height: 490px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+    .playground-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+    .auto-run { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; }
+    .auto-run input { width: 18px; height: 18px; accent-color: var(--green); }
     .status { min-height: 1.5em; margin: 10px 0 0; font-size: .9rem; }
+    .status.is-error { color: #a62c2c; }
+    .color-samples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .color-sample { min-height: 92px; display: grid; place-items: center; padding: 12px; border-radius: 9px; font-weight: 750; text-align: center; }
+    .color-sample.light { background: #e6f4e9; color: #164b39; }
+    .color-sample.brand { background: #1d6249; color: #fff; }
+    .color-sample.dark { background: #18332a; color: #e5f2e8; }
+    .type-sample { max-width: 540px; }
+    .type-sample h3 { margin-top: 0; font-size: clamp(1.5rem, 4vw, 2.2rem); line-height: 1.1; }
+    .type-sample p { font-size: 1.05rem; line-height: 1.8; }
+    .position-demo { position: relative; min-height: 155px; padding: 18px; border: 1px dashed #91aa98; border-radius: 10px; background: #f7fbf7; }
+    .position-badge { position: absolute; top: 10px; right: 10px; padding: 6px 9px; border-radius: 999px; background: #1d6249; color: #fff; font-size: .8rem; font-weight: 750; }
+    .form-demo { display: grid; max-width: 420px; gap: 12px; }
+    .form-demo label { display: grid; gap: 5px; font-weight: 700; }
+    .form-demo input, .form-demo select { min-height: 42px; padding: 8px 10px; border: 1px solid #9aada0; border-radius: 7px; background: #fff; color: #18332a; }
+    .form-demo input:focus, .form-demo select:focus { outline: 3px solid #b8dfc2; border-color: #1d6249; }
+    .selector-demo li { margin: 6px 0; }
+    .selector-demo li:first-child { color: #1d6249; font-weight: 800; }
+    .selector-demo li:nth-child(even) { padding: 4px 8px; border-radius: 5px; background: #edf5ee; }
     .tip { padding: 14px 16px; border-left: 4px solid #65a982; border-radius: 0 8px 8px 0; background: var(--soft); }
     .tip p { margin: 0; }
     footer { padding: 0 0 36px; color: var(--muted); font-size: .9rem; text-align: center; }
     @media (max-width: 620px) {
       .hero-inner, main, footer { width: min(100% - 24px, 1040px); }
       .playground { grid-template-columns: 1fr; }
+      .editor-pane textarea { min-height: 300px; }
+      .preview-frame { height: 380px; }
+      .color-samples { grid-template-columns: 1fr; }
       .path { gap: 8px; }
       .path a { font-size: .82rem; }
     }
@@ -202,6 +239,11 @@
       <a href="#responsive">6. Responsive</a>
       <a href="#motion">7. Motion</a>
       <a href="#advanced">8. Expert tools</a>
+      <a href="#typography">9. Typography</a>
+      <a href="#colors">10. Color</a>
+      <a href="#positioning">11. Positioning</a>
+      <a href="#forms">12. Forms</a>
+      <a href="#selectors-in-depth">13. More selectors</a>
     </nav>
 
     <section class="lesson" id="selectors" aria-labelledby="selectors-title">
@@ -336,40 +378,146 @@
 }</code></pre>
       <div class="tip"><p><strong>Think like an expert:</strong> build a small, consistent set of rules; keep selectors easy to override; check keyboard focus and color contrast; and use browser devtools to inspect computed styles and layout.</p></div>
       <h3>CSS playground</h3>
-      <p>Edit the CSS, then apply it to the isolated preview. This editor changes only the preview—not this page.</p>
+      <p>Write a complete page using HTML, CSS, and JavaScript. Run it in an isolated preview; your code does not change this lesson page.</p>
       <div class="playground">
         <div>
-          <label for="css-editor">Your CSS</label>
-          <textarea id="css-editor" spellcheck="false" aria-describedby="playground-help">body {
-  font-family: system-ui, sans-serif;
-  padding: 20px;
+          <div class="editor-tabs" role="tablist" aria-label="Playground code editors">
+            <button class="editor-tab" id="tab-html" type="button" role="tab" aria-selected="true" aria-controls="panel-html" data-editor-tab="html">HTML</button>
+            <button class="editor-tab" id="tab-css" type="button" role="tab" aria-selected="false" aria-controls="panel-css" data-editor-tab="css" tabindex="-1">CSS</button>
+            <button class="editor-tab" id="tab-js" type="button" role="tab" aria-selected="false" aria-controls="panel-js" data-editor-tab="js" tabindex="-1">JavaScript</button>
+          </div>
+          <div class="editor-pane" id="panel-html" role="tabpanel" aria-labelledby="tab-html" data-editor-panel="html">
+            <label for="html-editor">HTML</label>
+            <textarea id="html-editor" spellcheck="false" aria-describedby="playground-help"><main class="card">
+  <p class="eyebrow">A tiny idea</p>
+  <h1>Hello, web!</h1>
+  <p>Edit this page with HTML, CSS, and JavaScript.</p>
+  <button id="hello-button" type="button">Say hello</button>
+  <p id="message" aria-live="polite"></p>
+</main></textarea>
+          </div>
+          <div class="editor-pane" id="panel-css" role="tabpanel" aria-labelledby="tab-css" data-editor-panel="css" hidden>
+            <label for="css-editor">CSS</label>
+            <textarea id="css-editor" spellcheck="false">* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 24px;
+  font: 16px/1.6 system-ui, sans-serif;
   color: #18332a;
+  background: #f4f7f2;
 }
-.play-card {
-  max-width: 280px;
-  padding: 18px;
-  border: 2px solid #1d6249;
-  border-radius: 12px;
-  background: #e6f4e9;
+.card {
+  max-width: 460px;
+  margin: 20px auto;
+  padding: 28px;
+  border: 1px solid #dbe5db;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 12px 35px rgb(24 51 42 / 12%);
 }
-.play-card button {
-  padding: 8px 12px;
+.eyebrow { color: #1d6249; font-size: .8rem; font-weight: 800; text-transform: uppercase; }
+button {
+  padding: 10px 16px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #1d6249;
   color: white;
-}</textarea>
-          <p class="demo-note" id="playground-help">Try changing <code>background</code>, <code>padding</code>, or <code>border-radius</code>.</p>
-          <div class="controls">
-            <button class="control" type="button" id="apply-css">Apply CSS</button>
-            <button class="control secondary" type="button" id="reset-css">Reset example</button>
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { background: #164b39; }</textarea>
           </div>
-          <p class="status" id="playground-status" aria-live="polite">Ready to style the preview.</p>
+          <div class="editor-pane" id="panel-js" role="tabpanel" aria-labelledby="tab-js" data-editor-panel="js" hidden>
+            <label for="js-editor">JavaScript</label>
+            <textarea id="js-editor" spellcheck="false">const button = document.querySelector("#hello-button");
+const message = document.querySelector("#message");
+
+            if (button && message) {
+              button.addEventListener("click", () => {
+                message.textContent = "Nice work — your JavaScript is running!";
+              });
+            }</textarea>
+          </div>
+          <p class="demo-note" id="playground-help">Edit the markup, styles, or behavior, then run the page. You can enter an HTML fragment or a complete document.</p>
+          <div class="playground-toolbar">
+            <button class="control" type="button" id="run-code">Run code</button>
+            <button class="control secondary" type="button" id="reset-code">Reset example</button>
+            <label class="auto-run"><input id="auto-run" type="checkbox" checked> Run as I type</label>
+          </div>
+          <p class="status" id="playground-status" aria-live="polite">Ready. Edit any panel or press Run code.</p>
         </div>
         <div>
-          <p class="example-label">Live preview</p>
-          <iframe class="preview-frame" id="css-preview" title="Preview of your CSS" sandbox="allow-same-origin" srcdoc="<!doctype html><html lang=&quot;en&quot;><head><meta charset=&quot;utf-8&quot;><style id=&quot;playground-css&quot;></style></head><body><div class=&quot;play-card&quot;><h2>A little card</h2><p>Your CSS styles this preview.</p><button type=&quot;button&quot;>A sample button</button></div></body></html>"></iframe>
+          <p class="example-label">Page preview</p>
+          <iframe class="preview-frame" id="html-preview" title="Live HTML, CSS, and JavaScript preview" sandbox="allow-scripts"></iframe>
         </div>
+      </div>
+    </section>
+
+    <section class="lesson" id="typography" aria-labelledby="typography-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">9</span><div><p class="level">Beginner · Readable interfaces</p><h2 id="typography-title">Make text clear and expressive</h2></div></div>
+      <p>Typography is more than choosing a font. Set a comfortable line height, use a limited scale of sizes, and let headings wrap naturally on smaller screens.</p>
+      <pre class="code"><code>body { font-family: system-ui, sans-serif; line-height: 1.6; }
+h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.1; }
+.intro { max-width: 60ch; }</code></pre>
+      <div class="example">
+        <p class="example-label">Example: a responsive heading and readable paragraph</p>
+        <div class="type-sample"><h3>Good type helps people find their way.</h3><p>Use a clear heading, a readable measure, and enough line spacing. The <code>clamp()</code> function lets a font size grow smoothly between a minimum and maximum.</p></div>
+      </div>
+    </section>
+
+    <section class="lesson" id="colors" aria-labelledby="colors-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">10</span><div><p class="level">Beginner · Color systems</p><h2 id="colors-title">Build a palette with custom properties</h2></div></div>
+      <p>CSS custom properties store reusable values. Define them once, then use <code>var()</code> to keep buttons, links, and surfaces consistent. Check text contrast whenever you choose foreground and background colors.</p>
+      <pre class="code"><code>:root {
+  --brand: #1d6249;
+  --surface: #e6f4e9;
+  --ink: #18332a;
+}
+.button { background: var(--brand); color: white; }</code></pre>
+      <div class="example">
+        <p class="example-label">Example: three palette roles</p>
+        <div class="color-samples"><div class="color-sample light">Soft surface<br>#e6f4e9</div><div class="color-sample brand">Brand<br>#1d6249</div><div class="color-sample dark">Ink<br>#18332a</div></div>
+      </div>
+    </section>
+
+    <section class="lesson" id="positioning" aria-labelledby="positioning-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">11</span><div><p class="level">Intermediate · Layering elements</p><h2 id="positioning-title">Position elements with purpose</h2></div></div>
+      <p>Normal document flow is the best starting point. Use <code>position: relative</code> to establish a local containing block, then position small overlays with offsets. Sticky elements stay in flow until they reach their threshold.</p>
+      <pre class="code"><code>.card { position: relative; }
+.badge { position: absolute; top: .75rem; right: .75rem; }
+.toolbar { position: sticky; top: 0; }</code></pre>
+      <div class="example">
+        <p class="example-label">Example: an absolutely positioned badge</p>
+        <div class="position-demo"><span class="position-badge">New</span><strong>Card content stays in normal flow</strong><p>The badge is placed in the top-right corner of its positioned container.</p></div>
+      </div>
+    </section>
+
+    <section class="lesson" id="forms" aria-labelledby="forms-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">12</span><div><p class="level">Intermediate · Forms and states</p><h2 id="forms-title">Style accessible form controls</h2></div></div>
+      <p>Connect every control to a visible label. Keep focus indicators obvious for keyboard users, and use native input types and validation before adding custom behavior.</p>
+      <pre class="code"><code>input:focus-visible {
+  outline: 3px solid #b8dfc2;
+  border-color: #1d6249;
+}
+button:disabled { opacity: .55; cursor: not-allowed; }</code></pre>
+      <div class="example">
+        <p class="example-label">Try it: click or tab into the fields</p>
+        <form class="form-demo" onsubmit="return false">
+          <label for="demo-email">Email address<input id="demo-email" type="email" placeholder="you@example.com"></label>
+          <label for="demo-plan">Choose a plan<select id="demo-plan"><option>Starter</option><option>Team</option></select></label>
+        </form>
+      </div>
+    </section>
+
+    <section class="lesson" id="selectors-in-depth" aria-labelledby="selectors-in-depth-title">
+      <div class="lesson-heading"><span class="number" aria-hidden="true">13</span><div><p class="level">Intermediate · Selector patterns</p><h2 id="selectors-in-depth-title">Target states and relationships</h2></div></div>
+      <p>Pseudo-classes such as <code>:hover</code>, <code>:focus-visible</code>, <code>:first-child</code>, and <code>:nth-child()</code> match an element's state or position. Combinators like <code>&gt;</code> and <code>+</code> describe relationships between elements.</p>
+      <pre class="code"><code>.menu &gt; li:first-child { font-weight: 700; }
+.menu li:nth-child(even) { background: #edf5ee; }
+button:hover { filter: brightness(.9); }</code></pre>
+      <div class="example">
+        <p class="example-label">Example: structural pseudo-classes</p>
+        <ul class="selector-demo"><li>First item is bold and green</li><li>Even item gets a soft background</li><li>Regular list item</li><li>Another even item</li></ul>
       </div>
     </section>
   </main>
@@ -448,20 +596,126 @@
       motionToggle.textContent = isMoving ? "Stop animation" : "Start animation";
     });
 
-    const editor = document.getElementById("css-editor");
-    const preview = document.getElementById("css-preview");
-    const initialCSS = editor.value;
-    const applyCSS = () => {
-      preview.contentDocument.getElementById("playground-css").textContent = editor.value;
-      document.getElementById("playground-status").textContent = "CSS applied to the preview.";
+    const htmlEditor = document.getElementById("html-editor");
+    const cssEditor = document.getElementById("css-editor");
+    const jsEditor = document.getElementById("js-editor");
+    const preview = document.getElementById("html-preview");
+    const status = document.getElementById("playground-status");
+    const initialCode = {
+      html: htmlEditor.value,
+      css: cssEditor.value,
+      js: jsEditor.value,
     };
-    document.getElementById("apply-css").addEventListener("click", applyCSS);
-    document.getElementById("reset-css").addEventListener("click", () => {
-      editor.value = initialCSS;
-      applyCSS();
-      document.getElementById("playground-status").textContent = "Example CSS restored.";
+    let previewHasError = false;
+
+    function showPlaygroundStatus(message, isError = false) {
+      status.textContent = message;
+      status.classList.toggle("is-error", isError);
+    }
+
+    function encodeScript(source) {
+      const bytes = new TextEncoder().encode(source);
+      const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+      return btoa(binary);
+    }
+
+    function runPlayground(successMessage = "Preview updated.") {
+      try {
+        previewHasError = false;
+        const documentToPreview = new DOMParser().parseFromString(htmlEditor.value, "text/html");
+        if (!documentToPreview.querySelector('meta[charset]')) {
+          const charset = documentToPreview.createElement("meta");
+          charset.setAttribute("charset", "utf-8");
+          documentToPreview.head.prepend(charset);
+        }
+        if (!documentToPreview.querySelector('meta[name="viewport"]')) {
+          const viewport = documentToPreview.createElement("meta");
+          viewport.name = "viewport";
+          viewport.content = "width=device-width, initial-scale=1";
+          documentToPreview.head.append(viewport);
+        }
+
+        const errorReporter = documentToPreview.createElement("script");
+        errorReporter.textContent = `window.addEventListener("error", function (event) {
+  parent.postMessage({ type: "playground-error", message: event.message || "A preview script failed." }, "*");
+});
+window.addEventListener("unhandledrejection", function (event) {
+  const reason = event.reason && event.reason.message ? event.reason.message : String(event.reason);
+  parent.postMessage({ type: "playground-error", message: reason }, "*");
+});`;
+        documentToPreview.head.prepend(errorReporter);
+
+        const styles = documentToPreview.createElement("style");
+        styles.textContent = cssEditor.value;
+        documentToPreview.head.append(styles);
+
+        if (jsEditor.value.trim()) {
+          const userScript = documentToPreview.createElement("script");
+          userScript.src = `data:text/javascript;base64,${encodeScript(jsEditor.value)}`;
+          documentToPreview.body.append(userScript);
+        }
+
+        preview.onload = () => {
+          if (!previewHasError) showPlaygroundStatus(successMessage);
+        };
+        showPlaygroundStatus("Running your page…");
+        preview.srcdoc = `<!doctype html>${documentToPreview.documentElement.outerHTML}`;
+      } catch (error) {
+        showPlaygroundStatus(`Could not run the preview: ${error.message}`, true);
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.source !== preview.contentWindow || !event.data || event.data.type !== "playground-error") return;
+      previewHasError = true;
+      showPlaygroundStatus(`Preview error: ${event.data.message}`, true);
     });
-    preview.addEventListener("load", applyCSS);
+
+    const editorTabs = Array.from(document.querySelectorAll("[data-editor-tab]"));
+    const editorPanels = Array.from(document.querySelectorAll("[data-editor-panel]"));
+    function selectEditor(name, focusTab = false) {
+      editorTabs.forEach((tab) => {
+        const isSelected = tab.dataset.editorTab === name;
+        tab.setAttribute("aria-selected", String(isSelected));
+        tab.tabIndex = isSelected ? 0 : -1;
+        if (isSelected && focusTab) tab.focus();
+      });
+      editorPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.editorPanel !== name;
+      });
+    }
+    editorTabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => selectEditor(tab.dataset.editorTab));
+      tab.addEventListener("keydown", (event) => {
+        let nextIndex;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % editorTabs.length;
+        if (event.key === "ArrowLeft") nextIndex = (index - 1 + editorTabs.length) % editorTabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = editorTabs.length - 1;
+        if (nextIndex !== undefined) {
+          event.preventDefault();
+          selectEditor(editorTabs[nextIndex].dataset.editorTab, true);
+        }
+      });
+    });
+
+    document.getElementById("run-code").addEventListener("click", runPlayground);
+    document.getElementById("reset-code").addEventListener("click", () => {
+      htmlEditor.value = initialCode.html;
+      cssEditor.value = initialCode.css;
+      jsEditor.value = initialCode.js;
+      runPlayground("Starter example restored.");
+    });
+
+    let runTimer;
+    [htmlEditor, cssEditor, jsEditor].forEach((editor) => {
+      editor.addEventListener("input", () => {
+        if (!document.getElementById("auto-run").checked) return;
+        window.clearTimeout(runTimer);
+        runTimer = window.setTimeout(runPlayground, 350);
+      });
+    });
+    runPlayground();
   </script>
 </body>
 </html>
