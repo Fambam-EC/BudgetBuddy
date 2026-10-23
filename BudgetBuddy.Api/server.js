@@ -45,6 +45,32 @@ const corsOptions = {
 
 const SALT_ROUNDS = 10;
 
+const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_REQUIREMENTS =
+  'at least 12 characters, including an uppercase letter, a lowercase letter, a number, and a special character';
+
+function getPasswordError(password) {
+  if (typeof password !== 'string' || password.length === 0) {
+    return 'A password is required';
+  }
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be ${PASSWORD_REQUIREMENTS}`;
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must include at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must include at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must include at least one number';
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return 'Password must include at least one special character';
+  }
+  return null;
+}
+
 app.use(cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
@@ -265,9 +291,13 @@ app.delete('/account', requireAuthentication, async (req, res) => {
 app.post('/register', async (req, res) => {
   try{
     await ensureUsersTable();
-    const { email, password } = req.body;
-    if (!isValidEmail(email) || typeof password !== 'string' || password.length < 6){
-      return res.status(400).json({ error: 'A valid email and password of at least 6 characters are required' });
+    const { email, password } = req.body || {};
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'A valid email is required' });
+    }
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
     }
 
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -450,6 +480,7 @@ app.get('/reset-password', (req, res) => {
     label { display: block; font-weight: 600; margin: 16px 0 6px; }
     input, button { box-sizing: border-box; font: inherit; padding: 11px; width: 100%; }
     button { background: #176b45; border: 0; border-radius: 6px; color: #fff; cursor: pointer; margin-top: 20px; }
+    .hint { color: #4b5563; font-size: 13px; margin: 6px 0 0; }
     #status { min-height: 24px; }
   </style>
 </head>
@@ -462,9 +493,10 @@ app.get('/reset-password', (req, res) => {
       <input id="email" type="email" value="${escapeHtml(email)}" readonly>
       <input id="token" type="hidden" value="${escapeHtml(token)}">
       <label for="password">New password</label>
-      <input id="password" type="password" minlength="6" autocomplete="new-password" required>
+      <input id="password" type="password" minlength="12" autocomplete="new-password" required>
+      <p class="hint">At least 12 characters, including an uppercase letter, a lowercase letter, a number, and a special character.</p>
       <label for="confirm-password">Confirm new password</label>
-      <input id="confirm-password" type="password" minlength="6" autocomplete="new-password" required>
+      <input id="confirm-password" type="password" minlength="12" autocomplete="new-password" required>
       <button type="submit">Update password</button>
     </form>
     <p id="status" role="status" aria-live="polite"></p>
@@ -474,6 +506,11 @@ app.get('/reset-password', (req, res) => {
       event.preventDefault();
       const password = document.getElementById('password').value;
       const status = document.getElementById('status');
+      const meetsComplexity = [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].every((rule) => rule.test(password));
+      if (password.length < 12 || !meetsComplexity) {
+        status.textContent = 'Password must be at least 12 characters and include an uppercase letter, a lowercase letter, a number, and a special character.';
+        return;
+      }
       if (password !== document.getElementById('confirm-password').value) {
         status.textContent = 'Passwords do not match.';
         return;
@@ -508,13 +545,15 @@ app.post('/reset-password', async (req, res) => {
   if (
     !isValidEmail(email) ||
     typeof token !== 'string' ||
-    !/^[a-f0-9]{64}$/i.test(token) ||
-    typeof password !== 'string' ||
-    password.length < 6
+    !/^[a-f0-9]{64}$/i.test(token)
   ) {
     return res.status(400).json({
-      error: 'A valid email, reset token, and password of at least 6 characters are required',
+      error: 'A valid email and reset token are required',
     });
+  }
+  const passwordError = getPasswordError(password);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   const normalizedEmail = email.trim().toLowerCase();

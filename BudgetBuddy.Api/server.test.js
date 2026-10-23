@@ -334,7 +334,7 @@ test('password reset consumes a valid token and updates the password in one tran
       body: JSON.stringify({
         email: 'Person@Example.com',
         token: 'a'.repeat(64),
-        password: 'new-password',
+        password: 'New-Password1',
       }),
     });
 
@@ -349,6 +349,61 @@ test('password reset consumes a valid token and updates the password in one tran
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;
+  }
+});
+
+test('registration rejects passwords that do not meet the complexity policy', async () => {
+  const originalQuery = pool.query;
+  let insertAttempted = false;
+  pool.query = async (statement) => {
+    if (String(statement).includes('INSERT INTO users')) {
+      insertAttempted = true;
+    }
+    return { rows: [], rowCount: 0 };
+  };
+
+  try {
+    const tooShort = await fetch(`${baseUrl}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'person@example.com', password: 'Short1!' }),
+    });
+    assert.equal(tooShort.status, 400);
+    assert.match((await tooShort.json()).error, /at least 12 characters/);
+
+    const missingClasses = await fetch(`${baseUrl}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'person@example.com', password: 'alllowercase1!' }),
+    });
+    assert.equal(missingClasses.status, 400);
+    assert.match((await missingClasses.json()).error, /uppercase/);
+
+    assert.equal(insertAttempted, false);
+  } finally {
+    pool.query = originalQuery;
+  }
+});
+
+test('password reset rejects passwords that do not meet the complexity policy', async () => {
+  const originalQuery = pool.query;
+  pool.query = async () => ({ rows: [], rowCount: 0 });
+
+  try {
+    const response = await fetch(`${baseUrl}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'person@example.com',
+        token: 'd'.repeat(64),
+        password: 'new-password',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /uppercase/);
+  } finally {
+    pool.query = originalQuery;
   }
 });
 
@@ -373,7 +428,7 @@ test('password reset rejects expired or already-used tokens without changing a p
       body: JSON.stringify({
         email: 'person@example.com',
         token: 'b'.repeat(64),
-        password: 'new-password',
+        password: 'New-Password1',
       }),
     });
 
@@ -442,6 +497,8 @@ test('password reset landing page submits valid email and token to the reset end
   assert.match(html, new RegExp(`value="${token}"`));
   assert.match(html, /fetch\('\/reset-password'/);
   assert.match(html, /Passwords do not match/);
+  assert.match(html, /minlength="12"/);
+  assert.match(html, /At least 12 characters/);
 });
 
 test('password reset landing page rejects missing or invalid link parameters', async () => {

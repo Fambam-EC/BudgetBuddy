@@ -20,6 +20,11 @@ import {
 } from "react-native";
 
 import { storage } from './Helpers/storage';
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+  validatePassword,
+} from './Helpers/PasswordValidator';
 
 import DatePicker from './Helpers/DatePicker';
 import {
@@ -139,11 +144,9 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert(
-        'Invalid password',
-        'Password must be at least 6 characters.'
-      );
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      Alert.alert('Invalid password', passwordError);
       return;
     }
 
@@ -196,7 +199,7 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Enter your password"
+            placeholder="Create a strong password"
             placeholderTextColor="#9CA3AF"
             secureTextEntry={!showPassword}
             value={password}
@@ -211,6 +214,7 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
             </Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.passwordHint}>{PASSWORD_REQUIREMENTS}</Text>
 
         <TouchableOpacity
           style={styles.signUpButton}
@@ -335,8 +339,9 @@ function ResetPasswordScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleResetPassword = async () => {
-    if (password.length < 6) {
-      Alert.alert('Invalid password', 'Password must be at least 6 characters.');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      Alert.alert('Invalid password', passwordError);
       return;
     }
     if (password !== confirmPassword) {
@@ -386,7 +391,7 @@ function ResetPasswordScreen({
           <Text style={styles.label}>New password</Text>
           <TextInput
             style={styles.input}
-            placeholder="At least 6 characters"
+            placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
             placeholderTextColor="#999"
             secureTextEntry
             autoCapitalize="none"
@@ -394,6 +399,7 @@ function ResetPasswordScreen({
             value={password}
             onChangeText={setPassword}
           />
+          <Text style={styles.passwordHint}>{PASSWORD_REQUIREMENTS}</Text>
         </View>
         <View style={styles.inputWrapper}>
           <Text style={styles.label}>Confirm password</Text>
@@ -798,6 +804,7 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   const [amountAdded, setAmountAdded] = useState<string>('');
   const [isAmountInvalid, setIsAmountInvalid] = useState<boolean>(false);
   const [editableBudget, setEditableBudgetAmount] = useState<string>(budget.toFixed(2));
+  const lastCommittedBudget = useRef<string | null>(null);
   const [dueDate, setDueDate] = useState<Date>(new Date(date));
   const [isEditingDueDate, setIsEditingDueDate] = useState<boolean>(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(true);
@@ -839,6 +846,29 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
   useEffect(() => {
     setEditableBudgetAmount(budget.toFixed(2));
   }, [budget]);
+
+  const commitBudgetAmount = () => {
+    const normalizedBudget = editableBudget.trim();
+    const parsedBudget = Number(normalizedBudget);
+    if (
+      normalizedBudget &&
+      Number.isFinite(parsedBudget) &&
+      /^\d*\.?\d{0,2}$/.test(normalizedBudget)
+    ) {
+      const roundedBudget = normalizeCurrencyAmount(parsedBudget);
+      const committedValue = roundedBudget.toFixed(2);
+      setEditableBudgetAmount(committedValue);
+      if (
+        roundedBudget !== budget &&
+        lastCommittedBudget.current !== committedValue
+      ) {
+        lastCommittedBudget.current = committedValue;
+        adjustBudgetAmount && adjustBudgetAmount(roundedBudget);
+      }
+    } else {
+      setEditableBudgetAmount(budget.toFixed(2));
+    }
+  };
   
   const itemContent = (
   <View style={[
@@ -868,18 +898,11 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       placeholder={editableBudget.toString()}
       keyboardType="decimal-pad"
       onChangeText={(text) => {
+        lastCommittedBudget.current = null;
         setEditableBudgetAmount(text)
       }}
-      onSubmitEditing={() => {
-        const parsedBudget = Number(editableBudget);
-        if (editableBudget.trim() && Number.isFinite(parsedBudget) && /^\d*\.?\d{0,2}$/.test(editableBudget)) {
-          const roundedBudget = normalizeCurrencyAmount(parsedBudget);
-          setEditableBudgetAmount(roundedBudget.toFixed(2));
-          adjustBudgetAmount && adjustBudgetAmount(roundedBudget);
-        } else {
-          setEditableBudgetAmount(budget.toFixed(2));
-        }
-      }}
+      onBlur={commitBudgetAmount}
+      onSubmitEditing={commitBudgetAmount}
       />
     <View style={[styles.flex, styles.center, styles.zeroWidthForPadding]}>
       <Text style={[styles.customFont]}>{amount.toFixed(2)}</Text>
@@ -2813,6 +2836,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333333',
     marginBottom: 8,
+  },
+  passwordHint: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 8,
   },
   input: {
     height: 50,
