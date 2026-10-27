@@ -711,16 +711,20 @@ type Budget = {
   pendingSync?: boolean;
 }
 
+type BudgetType = 'fixed' | 'variable';
+
 type BudgetData = {
     id: string;
     description: string;
     budget: number;
     amount: number;
     date: string;
+    budgetType: BudgetType;
     onDeleteConfirm?: (id: string) => void;
     addAmount?: (amount: number) => void;
     adjustBudgetAmount?: (amount: number) => void;
     updateBudgetDescription?: (description: string) => void;
+    updateBudgetType?: (budgetType: BudgetType) => void;
     updateDueDate?: (date: Date) => void;
 };
 
@@ -735,6 +739,15 @@ function sumBudgetAmounts(items: unknown): number {
     if (!item || typeof item !== 'object') return total;
     return total + normalizeCurrencyAmount((item as {budget?: unknown}).budget);
   }, 0));
+}
+
+function sumVariableBudgetSavings(items: BudgetData[]): number {
+  return normalizeCurrencyAmount(items.reduce(
+    (total, item) => total + (
+      item.budgetType === 'variable' ? Math.max(item.budget - item.amount, 0) : 0
+    ),
+    0,
+  ));
 }
 
 function normalizeBudgetIncome(value: unknown): number {
@@ -760,6 +773,7 @@ function normalizeBudgetItems(value: unknown): BudgetData[] {
       budget: normalizeCurrencyAmount(budgetItem.budget),
       amount: normalizeCurrencyAmount(budgetItem.amount),
       date: Number.isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0],
+      budgetType: budgetItem.budgetType === 'variable' ? 'variable' : 'fixed',
     };
   });
 }
@@ -777,18 +791,33 @@ type HistoryItemModel = {
   budget: number;
   amount: number;
   date: string;
+  budgetType?: BudgetType;
 }
 type RootStackParamList = {
   'Budget Buddy': any,
   History: any
 }
 
-const HistoryItem = ({description, budget, amount, date}: HistoryItemModel) => {
+const HistoryItem = ({description, budget, amount, date, budgetType}: HistoryItemModel) => {
   return (
     <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex]}>
-      <Text style={[styles.flex, styles.customFont]}>{description}</Text>
+      <View style={[styles.flex, styles.categoryDescription]}>
+        <Text style={styles.customFont}>{description}</Text>
+        <Text style={[styles.customFont, styles.categoryType]}>
+          {budgetType === 'variable' ? 'Variable' : 'Fixed'}
+        </Text>
+      </View>
       <Text style={[styles.flex, styles.customFont]}>{budget.toFixed(2)}</Text>
-      <Text style={[styles.flex, styles.customFont]}>{amount.toFixed(2)}</Text>
+      <View style={[styles.flex, styles.categoryDescription]}>
+        <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
+          {amount.toFixed(2)}
+        </Text>
+        {budgetType === 'variable' && budget > amount && (
+          <Text style={[styles.customFont, styles.savingsText]}>
+            {normalizeCurrencyAmount(budget - amount).toFixed(2)}
+          </Text>
+        )}
+      </View>
       <Text style={[styles.flex, styles.customFont]}>{new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
     </View>
   );
@@ -798,7 +827,7 @@ const todaysDate = new Date();
 let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
-const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateDueDate}: BudgetData) => {
+const BudgetItem = ({id, description, budget, amount, date, budgetType, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateBudgetType, updateDueDate}: BudgetData) => {
   const isPaidInFull = budget === amount;
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<string>('');
@@ -881,16 +910,28 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
     Platform.OS === 'web' ? styles.webBudgetContent : null,
   ]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
-    <TextInput
-      style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
-      value={budgetDescription}
-      onChangeText={(text) => {
-        setBudgetDescription(text)
-      }}
-      onSubmitEditing={() =>{
-        updateBudgetDescription && updateBudgetDescription(budgetDescription)
-      }}
-     />
+    <View style={[styles.rowContent, styles.categoryDescription]}>
+      <TextInput
+        style={[styles.customFont, styles.zeroWidthForPadding]}
+        value={budgetDescription}
+        onChangeText={(text) => {
+          setBudgetDescription(text)
+        }}
+        onSubmitEditing={() =>{
+          updateBudgetDescription && updateBudgetDescription(budgetDescription)
+        }}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Mark ${description || 'budget item'} as ${budgetType === 'fixed' ? 'variable' : 'fixed'}`}
+        accessibilityHint="Tap to switch between fixed and variable"
+        onPress={() => updateBudgetType?.(budgetType === 'fixed' ? 'variable' : 'fixed')}
+      >
+        <Text style={[styles.customFont, styles.categoryType, styles.categoryTypeToggle]}>
+          {budgetType === 'fixed' ? 'Fixed' : 'Variable'}
+        </Text>
+      </Pressable>
+    </View>
     {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
     <TextInput
       style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
@@ -905,7 +946,14 @@ const BudgetItem = ({id, description, budget, amount, date, onDeleteConfirm, add
       onSubmitEditing={commitBudgetAmount}
       />
     <View style={[styles.flex, styles.center, styles.zeroWidthForPadding]}>
-      <Text style={[styles.customFont]}>{amount.toFixed(2)}</Text>
+      <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
+        {amount.toFixed(2)}
+      </Text>
+      {budgetType === 'variable' && budget > amount && (
+        <Text style={[styles.customFont, styles.savingsText]}>
+          {normalizeCurrencyAmount(budget - amount).toFixed(2)}
+        </Text>
+      )}
     </View>
     <Pressable 
       style={[styles.rowContent, styles.zeroWidthForPadding]}
@@ -1078,6 +1126,7 @@ function HistoryComponent({userEmail}: {userEmail: string}){
               budget={item.budget}
               amount={item.amount}
               date={item.date}
+              budgetType={item.budgetType}
                   /> }
             keyExtractor={item => item.id}
             numColumns={1}
@@ -1610,6 +1659,7 @@ async function ClearTransactionData(userEmail: string){
 function BudgetHeader({
   budgetAmountRemaining,
   budgetedTotal,
+  budgetSavings,
   currentBudgetTitle,
   totalIncome,
   onTotalIncomeChange,
@@ -1620,6 +1670,7 @@ function BudgetHeader({
 }: {
   budgetAmountRemaining?: number;
   budgetedTotal?: number;
+  budgetSavings: number;
   currentBudgetTitle: string;
   totalIncome: number;
   onTotalIncomeChange: (amount: number) => void;
@@ -1703,6 +1754,9 @@ function BudgetHeader({
         </View>
         <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
         <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.savingsText]}>
+          Potential Savings: $ {budgetSavings.toFixed(2)}
+        </Text>
         <View style={[styles.row, styles.center]}>
         <Text style={[styles.customFont, styles.headerFontSize
         ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus >= 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
@@ -1715,7 +1769,7 @@ function BudgetHeader({
 function TableHeader(){
   return (<View style={[styles.rowContainer, styles.rowPadding, styles.tableHeaderPadding]}>
           <Text
-          style={[styles.boldText, styles.rowContent, styles.customFont]}>Description</Text>
+          style={[styles.boldText, styles.rowContent, styles.customFont]}>Description / Type</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Budget</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Paid</Text>
     <Text style={[styles.boldText, styles.rowContent, styles.customFont]}>Due Date</Text>
@@ -1728,6 +1782,7 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
   const [budgetDate, setBudgetDate] = useState<string>('');
   const [budgetSetDate, setBudgetSetDate] = useState<Date>(new Date());
   const [budgetAmount, setBudgetAmount] = useState<string>('');
+  const [budgetType, setBudgetType] = useState<BudgetType>('fixed');
   const [isAddingItem, setIsAddingItem] = useState<boolean>(false);
   const [showError, setShowError] = useState<boolean>(false);
   const [showEditDate, setShowEditDate]  = useState<boolean>(false);
@@ -1758,11 +1813,13 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
       budget: normalizeCurrencyAmount(parsedBudgetAmount),
       amount: 0,
       date: budgetSetDate.toISOString().split('T')[0],
+      budgetType,
     });
     setShowError(false);
     setIsAddingItem(false);
     setBudgetDescription('');
     setBudgetAmount('');
+    setBudgetType('fixed');
   }
   return (
     <View>
@@ -1781,6 +1838,17 @@ function FooterComponent({addBudgetItem}: {addBudgetItem: (arg0: BudgetData) => 
             onChangeText={setBudgetAmount}
             style={[styles.rowContent, styles.zeroWidthForPadding]}
           />
+          <Pressable
+            style={[styles.rowContent, styles.center]}
+            accessibilityRole="button"
+            accessibilityLabel={`Budget type: ${budgetType}. Tap to switch`}
+            accessibilityHint="Tap to switch between fixed and variable"
+            onPress={() => setBudgetType(budgetType === 'fixed' ? 'variable' : 'fixed')}
+          >
+            <Text style={[styles.customFont, styles.categoryType, styles.categoryTypeToggle]}>
+              Type: {budgetType === 'fixed' ? 'Fixed' : 'Variable'}
+            </Text>
+          </Pressable>
           {/* <TextInput
             placeholder="Due Date (YYYY-MM-DD)"
             value={budgetDate}
@@ -2055,7 +2123,10 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         setBudgetOwnerEmail(result.ownerEmail || userEmail);
         setBudgetData(normalizeBudgetItems(result.budgetItems));
         setTotalIncome(normalizeBudgetIncome(result.totalIncome));
-        UpsertLocalBudget(result, userEmail);
+        UpsertLocalBudget({
+          ...result,
+          budgetItems: normalizeBudgetItems(result.budgetItems),
+        }, userEmail);
         await loadAvailableBudgets();
         setShowMenuButtons(false);
         return;
@@ -2289,6 +2360,14 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     setBudgetData(updatedItem);
     SaveBudgetItems(updatedItem, userEmail);
   };
+
+  const updateBudgetType = (id: string, budgetType: BudgetType) => {
+    const updatedItems = budgetData.map(item => (
+      item.id === id ? {...item, budgetType} : item
+    ));
+    setBudgetData(updatedItems);
+    SaveBudgetItems(updatedItems, userEmail);
+  };
   
 const updateBudgetDueDate = (id: string, newDate: Date) => {
   const updatedItem = budgetData.map(item => {
@@ -2347,6 +2426,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
 
   totalBudgetAmount = budgetData.reduce((acc, item) => acc + item.budget, 0);
   budgetRemaining = totalBudgetAmount - budgetData.reduce((acc, item) => acc + item.amount, 0);
+  const budgetSavings = sumVariableBudgetSavings(budgetData);
   const sortedBudgetData = [...budgetData].sort(
     (first, second) =>
       Number(first.budget === first.amount) - Number(second.budget === second.amount),
@@ -2427,6 +2507,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}
+                budgetSavings={budgetSavings}
                 currentBudgetTitle={budgetTitle}
                 totalIncome={totalIncome}
                 onTotalIncomeChange={updateTotalIncome}
@@ -2445,6 +2526,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               budget={item.budget}
               amount={item.amount}
               date={item.date}
+              budgetType={item.budgetType}
               addAmount={(amount: number) => {
                 updateBudgetAmountUsed(item.id, amount)
               }}
@@ -2454,6 +2536,9 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
               }}
               updateBudgetDescription={(description: string) => {
                 updateBudgetDescription(item.id, description)
+              }}
+              updateBudgetType={(budgetType: BudgetType) => {
+                updateBudgetType(item.id, budgetType)
               }}
               updateDueDate={(date: Date) => {
                 updateBudgetDueDate(item.id, date)
@@ -2678,6 +2763,30 @@ const styles = StyleSheet.create({
     flex:{
       flex: 1,
     },
+  categoryDescription: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    minWidth: 0,
+  },
+  categoryType: {
+    color: '#5B6472',
+    fontSize: 10,
+  },
+  categoryTypeToggle: {
+    textDecorationLine: 'underline',
+  },
+  savingsText: {
+    color: '#15803D',
+  },
+  overBudgetAmount: {
+    color: '#9B3A38',
+    backgroundColor: '#FCEDEA',
+    borderRadius: 4,
+    overflow: 'hidden',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
   rightAction: { width: 50, height: 48, backgroundColor: 'red', borderRadius: 10 },
   webSwipeableRow: {
     alignItems: 'center',
