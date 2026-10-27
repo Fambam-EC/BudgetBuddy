@@ -123,11 +123,41 @@
     }
     .tip { padding: 14px 16px; border-left: 4px solid #65a982; border-radius: 0 8px 8px 0; background: var(--soft); }
     .tip p { margin: 0; }
+    .interactive { margin-top: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: #f7faf7; }
+    .interactive h3 { margin: 0 0 8px; }
+    .interactive > p:first-of-type { margin-top: 0; }
+    .interactive select { min-height: 42px; max-width: 100%; padding: 8px 12px; border: 1px solid #9aada0; border-radius: 8px; background: #fff; color: #18332a; }
+    .interactive label { font-weight: 700; }
+    .interactive select:focus-visible, .interactive input:focus-visible { outline: 3px solid #65a982; outline-offset: 3px; }
+    .activity-output { min-height: 1.6em; margin: 14px 0 0; font-weight: 700; }
+    .sample-list { display: grid; gap: 12px; margin-top: 16px; }
+    .sample { padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: #fff; }
+    .sample p { margin: 0 0 10px; }
+    .sample code { overflow-wrap: anywhere; }
+    .sample-options { display: flex; flex-wrap: wrap; gap: 14px; }
+    .sample-options label { display: inline-flex; align-items: center; gap: 6px; font-size: .92rem; }
+    .sample-options input, .check-list input { width: 18px; height: 18px; accent-color: var(--green); }
+    .token-options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .token-choice { padding: 10px 14px; border: 1px solid var(--green); border-radius: 8px; background: #fff; color: var(--green-dark); font-weight: 750; cursor: pointer; }
+    .token-choice:hover, .token-choice[aria-pressed="true"] { background: var(--green); color: #fff; }
+    .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 14px; }
+    .slider-row input { grid-column: 1 / -1; width: 100%; accent-color: var(--green); }
+    .rank-value { min-width: 82px; font-weight: 800; text-align: right; }
+    .math-output { padding: 12px; border-radius: 8px; background: #edf5ee; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .preference-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .preference-choice { min-height: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: #fff; color: var(--muted); text-align: left; cursor: pointer; }
+    .preference-choice strong { display: block; margin-bottom: 6px; color: var(--green-dark); }
+    .preference-choice[aria-pressed="true"] { border-color: var(--green); box-shadow: 0 0 0 2px #1d624922; }
+    .check-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+    .check-list label { display: flex; align-items: flex-start; gap: 9px; font-weight: 500; }
+    .check-list input { flex: 0 0 18px; margin: 2px 0 0; }
     footer { padding: 0 0 36px; color: var(--muted); font-size: .9rem; text-align: center; }
     @media (max-width: 620px) {
       .hero-inner, main, footer { width: min(100% - 24px, 1040px); }
       .path { gap: 8px; }
       .path a { font-size: .82rem; }
+      .preference-options { grid-template-columns: 1fr; }
+      .interactive { padding: 16px; }
     }
   </style>
 </head>
@@ -136,7 +166,7 @@
     <div class="hero-inner">
       <p class="eyebrow">A practical guide</p>
       <h1>How to train an LLM</h1>
-      <p>From a first fine-tune to a fully custom model, this guide walks through training a large language model: the goal, the data, pretraining, fine-tuning, alignment, and evaluation.</p>
+      <p>Learn what each training stage does, when to fine-tune instead of starting from scratch, and how to measure whether a model actually improved. Try the small interactive exercises along the way.</p>
     </div>
   </header>
   <main>
@@ -153,20 +183,75 @@
       <div class="lesson-heading"><span class="number" aria-hidden="true">1</span><div><p class="level">Beginner · Foundations</p><h2 id="goal-title">Choose a goal and a starting point</h2></div></div>
       <p>Training an LLM teaches a neural network to predict the next token in a sequence. The starting point shapes everything that follows. Train from scratch when you have massive compute and curated data; most projects instead fine-tune an existing base model such as Llama, Mistral, or Qwen, which provides a strong general baseline at a fraction of the cost.</p>
       <p>Decide what the model should become. <strong>Pretraining</strong> builds broad general knowledge, <strong>fine-tuning</strong> teaches a task or domain, and <strong>alignment</strong> tunes chat behavior. Each stage uses different data and objectives, but together they form a repeatable pipeline.</p>
-      <div class="tip"><p><strong>Start from a base model.</strong> Training from scratch requires hundreds of billions of tokens and thousands of GPUs. Fine-tuning a strong base model is the practical starting point for almost any custom model.</p></div>
+      <h3>Pick a starting approach</h3>
+      <ul>
+        <li><strong>Prompting or retrieval:</strong> use these first when the task is mostly instructions or the model needs access to changing private facts.</li>
+        <li><strong>Supervised fine-tuning (SFT):</strong> useful when you need consistent formats, domain-specific language, or a repeatable task behavior.</li>
+        <li><strong>Pretraining from scratch:</strong> consider only when you need a genuinely new foundation model and have substantial, licensed data, specialist expertise, and a compute budget.</li>
+      </ul>
+      <div class="interactive">
+        <h3>Try it: choose a first experiment</h3>
+        <label for="goal-picker">What do you need to change?</label>
+        <select id="goal-picker">
+          <option value="facts">Give answers using frequently changing facts</option>
+          <option value="format">Produce a consistent format or follow a specialized task</option>
+          <option value="knowledge">Build a new general-purpose model from your own corpus</option>
+        </select>
+        <p id="goal-feedback" class="activity-output" aria-live="polite">Start with retrieval or tools: keep changing facts outside the model so they can be updated and cited.</p>
+      </div>
+      <div class="tip"><p><strong>Check before training:</strong> confirm the model license permits your intended use, remove secrets and personal data you do not have permission to use, and establish a baseline with prompting or retrieval. Training from scratch is rarely the first experiment to run.</p></div>
     </section>
 
     <section class="lesson" id="data" aria-labelledby="data-title">
       <div class="lesson-heading"><span class="number" aria-hidden="true">2</span><div><p class="level">Beginner · Data</p><h2 id="data-title">Prepare high-quality data</h2></div></div>
-      <p>Data quality beats quantity. Curate a small, clean, and deduplicated dataset, format it as JSONL with a <code>text</code> field, and split it into training and validation sets. Remove near-duplicates, filter low-quality samples, and keep a held-out set for evaluation.</p>
+      <p>Data quality beats quantity. Define what one example represents, document where it came from and what rights apply, then normalize and deduplicate it. For language modeling, JSON Lines (JSONL) stores one valid JSON object per line; instruction datasets often use separate fields for the prompt and response rather than one undifferentiated text field.</p>
+      <p>Keep training, validation, and final test data separate. Split by source, person, or document where appropriate—not just by randomly shuffling near-duplicate rows—so a document cannot leak across splits. The validation set helps you choose checkpoints and settings; use the test set only for a final, less biased check.</p>
       <pre class="code"><code>{"text": "The mitochondria is the powerhouse of the cell."}
 {"text": "Language models learn by predicting the next token in a sequence."}</code></pre>
       <div class="tip"><p><strong>Quality over quantity:</strong> a carefully curated set of thousands of examples can outperform a million scraped duplicates after cleaning.</p></div>
+      <div class="interactive">
+        <h3>Try it: review a tiny dataset</h3>
+        <p>Decide whether each record belongs in a clean training set. In a real pipeline, record why items were excluded and apply the same rules consistently.</p>
+        <form id="data-review">
+          <div class="sample-list">
+            <fieldset class="sample">
+              <legend><strong>Record 1</strong></legend>
+              <p><code>{"text":"How do I reset my password? Use the account recovery page."}</code></p>
+              <div class="sample-options"><label><input type="radio" name="sample-1" value="include"> Include</label><label><input type="radio" name="sample-1" value="exclude"> Exclude</label></div>
+            </fieldset>
+            <fieldset class="sample">
+              <legend><strong>Record 2</strong></legend>
+              <p><code>{"text":"How do I reset my password? Use the account recovery page."}</code> <span>(duplicate of record 1)</span></p>
+              <div class="sample-options"><label><input type="radio" name="sample-2" value="include"> Include</label><label><input type="radio" name="sample-2" value="exclude"> Exclude</label></div>
+            </fieldset>
+            <fieldset class="sample">
+              <legend><strong>Record 3</strong></legend>
+              <p><code>{"text":"Click the recovery link to reset your password."}</code></p>
+              <div class="sample-options"><label><input type="radio" name="sample-3" value="include"> Include</label><label><input type="radio" name="sample-3" value="exclude"> Exclude</label></div>
+            </fieldset>
+          </div>
+          <button class="control" type="submit">Review my choices</button>
+          <p id="data-feedback" class="activity-output" aria-live="polite">Choose include or exclude for each record to see the review.</p>
+        </form>
+      </div>
     </section>
 
     <section class="lesson" id="pretrain" aria-labelledby="pretrain-title">
       <div class="lesson-heading"><span class="number" aria-hidden="true">3</span><div><p class="level">Intermediate · Pretraining</p><h2 id="pretrain-title">Pretrain with next-token prediction</h2></div></div>
-      <p>The core objective is causal language modeling: given a sequence of tokens, predict the next token. Training uses the AdamW optimizer with learning rates around 1e-4 to 3e-5, gradient checkpointing, and periodic evaluation of perplexity. A full pretraining run is compute-heavy and usually runs on cloud GPU clusters.</p>
+      <p>The core objective is causal language modeling: given a sequence of tokens, predict the next token. A tokenizer turns text into tokens, which may be whole words, word pieces, or punctuation. During training, the model compares its next-token probability distribution with the known next tokens and adjusts its weights to reduce the error.</p>
+      <p>AdamW is a common optimizer. Learning rate, batch size, sequence length, warmup, and training duration depend on the model and dataset; there is no universal safe range. Gradient accumulation simulates a larger batch across smaller device batches, while gradient checkpointing trades extra computation for lower activation memory. Track both training and validation loss: if training improves while validation worsens, investigate overfitting, data leakage, and distribution mismatch.</p>
+      <div class="interactive">
+        <h3>Try it: predict the next token</h3>
+        <p>This is a reasoning exercise—not a live language model or a display of actual model probabilities. A trained model scores many possible next tokens, then decoding rules select one.</p>
+        <p><strong>Context:</strong> <span id="token-context">The capital of France is</span> ___</p>
+        <div id="token-options" class="token-options" aria-label="Choose the most plausible next token">
+          <button class="token-choice" type="button" data-choice="0">Paris</button>
+          <button class="token-choice" type="button" data-choice="1">blue</button>
+          <button class="token-choice" type="button" data-choice="2">seven</button>
+        </div>
+        <p id="token-feedback" class="activity-output" aria-live="polite">Choose a candidate token.</p>
+        <button id="next-token-example" class="control secondary" type="button">Try another context</button>
+      </div>
       <pre class="code"><code>from transformers import AutoModelForCausalLM, Trainer, TrainingArguments
 
 trainer = Trainer(
@@ -190,7 +275,8 @@ trainer.train()</code></pre>
 
     <section class="lesson" id="finetune" aria-labelledby="finetune-title">
       <div class="lesson-heading"><span class="number" aria-hidden="true">4</span><div><p class="level">Intermediate · Fine-tuning</p><h2 id="finetune-title">Fine-tune with supervised examples</h2></div></div>
-      <p>Supervised fine-tuning teaches a base model to follow examples. Collect instruction and response pairs, format them into token sequences, and fine-tune with the Hugging Face Trainer. Small parameter-efficient methods such as LoRA or QLoRA train a small adapter on top of the base model instead of updating all weights, which greatly reduces cost and memory.</p>
+      <p>Supervised fine-tuning (SFT) teaches a base model using examples of desired behavior. Format each example with the model's expected chat template, and mask loss on prompt tokens when the goal is to train only on the answer. Use representative examples, remove conflicting or low-quality answers, and make sure the evaluation set uses the same format as production.</p>
+      <p>LoRA (Low-Rank Adaptation) freezes the base weights and learns small matrices that approximate an update to selected layers. QLoRA additionally loads a quantized base model to reduce memory use. These techniques can make fine-tuning accessible on smaller hardware, but they do not guarantee better results: compare against a baseline and watch for forgotten general abilities, memorization, and overfitting.</p>
       <pre class="code"><code>from peft import LoraConfig, get_peft_model
 
 model = AutoModelForCausalLM.from_pretrained("base-model")
@@ -215,18 +301,30 @@ trainer = Trainer(
     train_dataset=instruction_dataset,
 )
 trainer.train()</code></pre>
-      <div class="tip"><p><strong>LoRA with a rank of 8 and dropout around 0.05</strong> is a common starting point; verify whether full fine-tuning is needed for your task.</p></div>
+      <div class="tip"><p><strong>LoRA rank is a tradeoff, not a quality dial.</strong> Larger rank permits a more expressive adapter and uses more trainable parameters. Choose it with validation experiments; suitable values depend on the model, task, and target layers.</p></div>
       <h3>Suggested starting hyperparameters</h3>
       <ul>
-        <li>Fine-tuning learning rate: around 2e-5.</li>
-        <li>Training epochs: 2 to 3 over the instruction dataset.</li>
-        <li>Batch size: as large as memory allows, with gradient accumulation if needed.</li>
+        <li>Start with a small, representative dataset and a short run; inspect generated outputs before scaling up.</li>
+        <li>Set learning rate and epochs based on model size, data size, and validation behavior rather than copying a recipe blindly.</li>
+        <li>Save checkpoints and compare the base model with the fine-tuned model on the same held-out prompts.</li>
       </ul>
+      <div class="interactive">
+        <h3>Try it: see how LoRA rank changes parameter count</h3>
+        <p>For one 4096 × 4096 linear layer, LoRA adds two low-rank matrices with approximately <code>rank × (input size + output size)</code> trainable values, instead of updating all the layer's weights.</p>
+        <div class="slider-row">
+          <label for="lora-rank">Adapter rank</label>
+          <span id="rank-value" class="rank-value">8</span>
+          <input id="lora-rank" type="range" min="1" max="64" value="8" aria-label="LoRA rank">
+        </div>
+        <p id="lora-math" class="math-output" aria-live="polite">Rank 8: 65,536 adapter parameters vs. 16,777,216 base layer weights (about 0.39%).</p>
+        <p class="demo-note">This count is for one example layer only. Real adapters target multiple layers and may use different dimensions; parameter count alone does not predict quality or total memory use.</p>
+      </div>
     </section>
 
     <section class="lesson" id="align" aria-labelledby="align-title">
       <div class="lesson-heading"><span class="number" aria-hidden="true">5</span><div><p class="level">Advanced · Alignment</p><h2 id="align-title">Align with preference data</h2></div></div>
-      <p>Alignment makes a chat model helpful and safe. Reinforcement learning from human feedback (RLHF) trains a reward model from human preference comparisons, then optimizes the policy with PPO. Direct preference optimization (DPO) skips the reward model and directly optimizes preference pairs, which is simpler and more stable.</p>
+      <p>Preference tuning uses comparisons between candidate responses to teach a model which behavior people prefer. In a common RLHF pipeline, human comparisons train a reward model, then an optimization algorithm such as PPO updates the language model. Direct preference optimization (DPO) instead trains from preferred and dispreferred response pairs without a separate reward-model training stage.</p>
+      <p>Preference labels can encode annotator assumptions and biases. Write clear rubrics, include diverse reviewers, protect reviewers from harmful material, and check for disagreement. Preference optimization is not a substitute for safety testing, policy design, or monitoring.</p>
       <pre class="code"><code>from transformers import DPOConfig, DPOTrainer
 
 trainer = DPOTrainer(
@@ -240,16 +338,135 @@ trainer = DPOTrainer(
     train_dataset=preferences,
 )
 trainer.train()</code></pre>
-      <div class="tip"><p><strong>Start with a small preference set</strong> of a few thousand pairs; adding more preference data usually helps less than expected.</p></div>
+      <div class="interactive">
+        <h3>Try it: choose a response using a rubric</h3>
+        <p><strong>Prompt:</strong> “I forgot my account password. What should I do?” Prefer a response that is helpful, accurate, and does not ask for sensitive information.</p>
+        <div class="preference-options">
+          <button class="preference-choice" type="button" aria-pressed="false" data-preference="a"><strong>Response A</strong>Use the official password-reset page. I can guide you through the steps, but never share your password or verification code here.</button>
+          <button class="preference-choice" type="button" aria-pressed="false" data-preference="b"><strong>Response B</strong>Send me your password and verification code and I will reset it for you.</button>
+        </div>
+        <p id="preference-feedback" class="activity-output" aria-live="polite">Select a response to see how a preference label can reinforce the rubric.</p>
+      </div>
+      <div class="tip"><p><strong>Preference data is only as good as its rubric.</strong> Sample quality, reviewer agreement, and coverage of edge cases matter more than a universal target number of pairs.</p></div>
     </section>
 
     <section class="lesson" id="evaluate" aria-labelledby="evaluate-title">
       <div class="lesson-heading"><span class="number" aria-hidden="true">6</span><div><p class="level">Advanced · Evaluation</p><h2 id="evaluate-title">Evaluate and iterate</h2></div></div>
-      <p>Evaluate before and after training. Measure perplexity on held-out data, run task benchmarks, compare responses side-by-side with the base model, and use human preference judgments. Iterate in small loops: change the data, change one hyperparameter, measure, repeat. Error analysis should drive the next round of data or training changes.</p>
+      <p>Evaluate before and after training with a fixed, held-out test set. <strong>Loss</strong> measures prediction error on the chosen tokens; <strong>perplexity</strong> is an exponentiated form of average token loss and is meaningful mainly when tokenization and evaluation data are comparable. Neither metric alone tells you whether a model follows instructions, gives correct facts, or behaves safely.</p>
+      <p>Use task-specific tests, side-by-side comparisons with the base model, and human review. Include normal cases, edge cases, refusals, and prompts that probe memorization or leakage. Record the model and dataset versions, template, decoding settings, and evaluation date so results can be reproduced. Iterate in small loops: change one factor, measure, inspect failures, and repeat.</p>
+      <div class="interactive">
+        <h3>Try it: build a small evaluation checklist</h3>
+        <p>Mark what you have checked. A complete-looking checklist does not prove a model is safe or reliable; it helps expose missing evaluation work.</p>
+        <ul class="check-list">
+          <li><label><input type="checkbox" class="eval-check"> Compare the fine-tuned model with the base model on the same prompts.</label></li>
+          <li><label><input type="checkbox" class="eval-check"> Use held-out examples with no duplicate documents in training data.</label></li>
+          <li><label><input type="checkbox" class="eval-check"> Review factual errors, unsafe outputs, and sensitive-data leakage.</label></li>
+          <li><label><input type="checkbox" class="eval-check"> Record dataset, model, template, and evaluation versions.</label></li>
+        </ul>
+        <p id="evaluation-feedback" class="activity-output" aria-live="polite">0 of 4 checks marked.</p>
+      </div>
       <p>For deeper reading, see the <a href="https://huggingface.co/docs/transformers/training">Hugging Face training guide</a>, <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a>, and the <a href="https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard">Open LLM Leaderboard</a>.</p>
       <div class="tip"><p><strong>Ablations beat blind scaling:</strong> change one variable at a time and keep the rest of the recipe stable.</p></div>
     </section>
   </main>
   <footer>Keep iterating: small, measured changes to data and training usually beat blind scaling.</footer>
+  <script>
+    const goalPicker = document.querySelector('#goal-picker');
+    const goalFeedback = document.querySelector('#goal-feedback');
+    const goalAdvice = {
+      facts: 'Start with retrieval or tools: keep changing facts outside the model so they can be updated and cited.',
+      format: 'Start with a small supervised fine-tuning set after checking that prompting and a clear template are not enough.',
+      knowledge: 'First validate the need, data rights, and compute budget. A continued-pretraining experiment may be more realistic than training a foundation model from scratch.'
+    };
+    goalPicker.addEventListener('change', () => {
+      goalFeedback.textContent = goalAdvice[goalPicker.value];
+    });
+
+    document.querySelector('#data-review').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const answers = new FormData(event.currentTarget);
+      const expected = { 'sample-1': 'include', 'sample-2': 'exclude', 'sample-3': 'include' };
+      const unanswered = Object.keys(expected).filter((name) => !answers.get(name));
+      const correct = Object.keys(expected).filter((name) => answers.get(name) === expected[name]).length;
+      const feedback = document.querySelector('#data-feedback');
+      if (unanswered.length > 0) {
+        feedback.textContent = 'Review all three records before checking your choices.';
+        return;
+      }
+      feedback.textContent = `${correct} of 3 choices match this example review. Keep the unique, relevant records; remove the exact duplicate. In real projects, define deduplication and quality rules for your task.`;
+    });
+
+    const tokenExamples = [
+      { context: 'The capital of France is', answer: 'Paris', options: ['Paris', 'blue', 'seven'] },
+      { context: 'Water freezes at', answer: '0°C', options: ['quickly', '0°C', 'music'] },
+      { context: 'A recipe needs flour, sugar, and', answer: 'eggs', options: ['airport', 'eggs', 'yesterday'] }
+    ];
+    let tokenExampleIndex = 0;
+    const tokenContext = document.querySelector('#token-context');
+    const tokenFeedback = document.querySelector('#token-feedback');
+    const tokenOptions = document.querySelector('#token-options');
+    function showTokenExample() {
+      const example = tokenExamples[tokenExampleIndex];
+      tokenContext.textContent = example.context;
+      tokenOptions.replaceChildren(...example.options.map((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'token-choice';
+        button.type = 'button';
+        button.dataset.choice = String(index);
+        button.textContent = option;
+        return button;
+      }));
+      tokenFeedback.textContent = 'Choose a candidate token.';
+    }
+    tokenOptions.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-choice]');
+      if (!button) return;
+      const example = tokenExamples[tokenExampleIndex];
+      const selected = example.options[Number(button.dataset.choice)];
+      const isPlausible = selected === example.answer;
+      tokenFeedback.textContent = isPlausible
+        ? `Good choice for this context: “${selected}”. A real model assigns scores to many possible tokens; it does not reason from a fixed answer key.`
+        : `“${selected}” is a possible token, but ${example.answer} fits this context better. A model learns these patterns from its training data.`;
+    });
+    document.querySelector('#next-token-example').addEventListener('click', () => {
+      tokenExampleIndex = (tokenExampleIndex + 1) % tokenExamples.length;
+      showTokenExample();
+    });
+
+    const rankSlider = document.querySelector('#lora-rank');
+    const rankValue = document.querySelector('#rank-value');
+    const loraMath = document.querySelector('#lora-math');
+    function updateLoraExample() {
+      const rank = Number(rankSlider.value);
+      const adapterParameters = rank * (4096 + 4096);
+      const baseParameters = 4096 * 4096;
+      const percentage = (adapterParameters / baseParameters * 100).toFixed(2);
+      rankValue.textContent = String(rank);
+      loraMath.textContent = `Rank ${rank}: ${adapterParameters.toLocaleString()} adapter parameters vs. ${baseParameters.toLocaleString()} base layer weights (about ${percentage}%).`;
+    }
+    rankSlider.addEventListener('input', updateLoraExample);
+
+    const preferenceFeedback = document.querySelector('#preference-feedback');
+    document.querySelectorAll('.preference-choice').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.preference-choice').forEach((choice) => {
+          choice.setAttribute('aria-pressed', String(choice === button));
+        });
+        preferenceFeedback.textContent = button.dataset.preference === 'a'
+          ? 'Response A better follows the rubric: it gives a safe next step and does not request secrets. A preference label teaches this relative choice, not a complete safety policy.'
+          : 'Response B requests credentials and verification codes. According to the rubric, it should be rejected; preference labels need clear criteria to avoid reinforcing unsafe behavior.';
+      });
+    });
+
+    const evaluationChecks = [...document.querySelectorAll('.eval-check')];
+    const evaluationFeedback = document.querySelector('#evaluation-feedback');
+    evaluationChecks.forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        const checkedCount = evaluationChecks.filter((item) => item.checked).length;
+        evaluationFeedback.textContent = `${checkedCount} of ${evaluationChecks.length} checks marked.`;
+      });
+    });
+    updateLoraExample();
+  </script>
 </body>
 </html>
