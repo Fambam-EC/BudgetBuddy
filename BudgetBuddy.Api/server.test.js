@@ -63,6 +63,12 @@ test('startup initialization creates every application table', async () => {
     ),
     'startup should add total_budget to existing history entries',
   );
+  assert.ok(
+    statements.some((statement) =>
+      statement.includes('notify_budget_change') && statement.includes('CREATE TRIGGER budgets_budget_change_notify'),
+    ),
+    'startup should create the budget change notification trigger and function',
+  );
 });
 
 test('startServer initializes the database before binding the API to loopback', async () => {

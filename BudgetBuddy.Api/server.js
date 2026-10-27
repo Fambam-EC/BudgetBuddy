@@ -8,6 +8,9 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
+const budgetEventChannel = 'budget_updates';
+const budgetEventSubscribers = new Map();
+let budgetEventListener = null;
 
 const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -178,6 +181,38 @@ async function ensureBudgetTables() {
   `);
   await pool.query(`
     ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION notify_budget_change() RETURNS TRIGGER AS $$
+    BEGIN
+      IF TG_OP = 'DELETE' THEN
+        PERFORM pg_notify('budget_updates', json_build_object(
+          'action', 'delete',
+          'budgetId', OLD.budget_id,
+          'ownerEmail', OLD.owner_email,
+          'updatedAt', to_json(OLD.updated_at)
+        )::text);
+        RETURN OLD;
+      END IF;
+
+      PERFORM pg_notify('budget_updates', json_build_object(
+        'action', TG_OP,
+        'budgetId', NEW.budget_id,
+        'ownerEmail', NEW.owner_email,
+        'name', NEW.name,
+        'updatedAt', to_json(NEW.updated_at)
+      )::text);
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  `);
+  await pool.query(`
+    DROP TRIGGER IF EXISTS budgets_budget_change_notify ON budgets;
+    CREATE TRIGGER budgets_budget_change_notify
+    AFTER INSERT OR UPDATE OF name, budget_items, total_income, is_archived, updated_at OR DELETE
+    ON budgets
+    FOR EACH ROW
+    EXECUTE FUNCTION notify_budget_change();
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budget_invitations (
@@ -377,6 +412,9 @@ app.get('/auth/me', async (req, res) => {
 function requireAuthentication(req, res, next) {
   const authorization = req.get('Authorization') || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token && typeof req.query?.token === 'string' && req.query.token) {
+    token = req.query.token;
+  }
   if (!token || !process.env.JWT_SECRET) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -396,6 +434,82 @@ function requireAuthentication(req, res, next) {
     return res.status(500).json({ error: 'Unable to authenticate request' });
   }
 }
+
+function broadcastBudgetEvent(payload) {
+  const event = {
+    type: 'budget-update',
+    ...payload,
+  };
+  const data = `event: budget-update\ndata: ${JSON.stringify(event)}\n\n`;
+
+  for (const subscribers of budgetEventSubscribers.values()) {
+    for (const socket of subscribers) {
+      if (!socket.writableEnded) {
+        socket.write(data);
+      }
+    }
+  }
+}
+
+async function ensureBudgetEventListener() {
+  if (budgetEventListener) {
+    return;
+  }
+
+  try {
+    budgetEventListener = await pool.connect();
+    await budgetEventListener.query(`LISTEN ${budgetEventChannel}`);
+    budgetEventListener.on('notification', (message) => {
+      if (!message || message.channel !== budgetEventChannel || !message.payload) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(message.payload);
+        broadcastBudgetEvent(payload);
+      } catch (err) {
+        console.error('Unable to parse budget notification payload', err);
+      }
+    });
+  } catch (err) {
+    budgetEventListener = null;
+    console.warn('Budget change listener unavailable; continuing without database notifications.', err.message || err);
+  }
+}
+
+app.get('/api/budgets/stream', requireAuthentication, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+
+  const userEmail = req.user.email;
+  const subscribers = budgetEventSubscribers.get(userEmail) ?? new Set();
+  subscribers.add(res);
+  budgetEventSubscribers.set(userEmail, subscribers);
+
+  res.write('retry: 1000\n\n');
+  res.write(`event: connected\ndata: ${JSON.stringify({ type: 'connected', userEmail })}\n\n`);
+
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': heartbeat\n\n');
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const activeSubscribers = budgetEventSubscribers.get(userEmail);
+    if (!activeSubscribers) {
+      return;
+    }
+    activeSubscribers.delete(res);
+    if (activeSubscribers.size === 0) {
+      budgetEventSubscribers.delete(userEmail);
+    }
+  });
+});
 
 app.post('/forgot-password', async (req, res) => {
   const { email } = req.body || {};
@@ -1015,6 +1129,7 @@ async function initializeDatabase() {
   await ensureUsersTable();
   await ensurePasswordResetTokensTable();
   await ensureBudgetTables();
+  await ensureBudgetEventListener();
 }
 
 async function startServer(port = Number(process.env.PORT) || 3000) {
