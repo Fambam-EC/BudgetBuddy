@@ -129,8 +129,17 @@ async function sendEmail({ to, subject, text, html }) {
 const hashResetToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
+const normalizeEmail = (value) =>
+  typeof value === 'string' ? value.trim().toLowerCase() : '';
+
 const isValidEmail = (email) =>
   typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const getJwtUserEmail = (payload) => {
+  const candidate = typeof payload?.sub === 'string' ? payload.sub : payload?.email;
+  const normalized = normalizeEmail(candidate);
+  return isValidEmail(normalized) ? normalized : '';
+};
 
 const escapeHtml = (value) =>
   value.replace(/[&<>"']/g, (character) => ({
@@ -351,7 +360,8 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
-  if (!isValidEmail(email) || typeof password !== 'string' || !password) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!isValidEmail(normalizedEmail) || typeof password !== 'string' || !password) {
     return res.status(400).json({ error: 'A valid email and password are required' });
   }
   if (!process.env.JWT_SECRET) {
@@ -360,7 +370,6 @@ app.post('/login', async (req, res) => {
 
   try {
     await ensureUsersTable();
-    const normalizedEmail = email.trim().toLowerCase();
     const result = await pool.query(
       'SELECT email, password_hash FROM users WHERE LOWER(email) = $1 LIMIT 1',
       [normalizedEmail],
@@ -370,10 +379,10 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ sub: user.email.toLowerCase() }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ sub: normalizeEmail(user.email) }, process.env.JWT_SECRET, {
       expiresIn: '30d',
     });
-    return res.status(200).json({ token, user: { email: user.email } });
+    return res.status(200).json({ token, user: { email: normalizeEmail(user.email) } });
   } catch (err) {
     console.error('Login failed', err);
     return res.status(500).json({ error: 'Unable to log in' });
@@ -389,17 +398,18 @@ app.get('/auth/me', async (req, res) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    if (typeof payload.sub !== 'string') {
+    const userEmail = getJwtUserEmail(payload);
+    if (!userEmail) {
       return res.status(401).json({ error: 'Invalid session' });
     }
     const result = await pool.query(
       'SELECT email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-      [payload.sub],
+      [userEmail],
     );
     if (result.rowCount === 0) {
       return res.status(401).json({ error: 'Invalid session' });
     }
-    return res.status(200).json({ user: { email: result.rows[0].email } });
+    return res.status(200).json({ user: { email: normalizeEmail(result.rows[0].email) } });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Invalid or expired session' });
@@ -411,7 +421,7 @@ app.get('/auth/me', async (req, res) => {
 
 function requireAuthentication(req, res, next) {
   const authorization = req.get('Authorization') || '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  let token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   if (!token && typeof req.query?.token === 'string' && req.query.token) {
     token = req.query.token;
   }
@@ -421,10 +431,11 @@ function requireAuthentication(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    if (typeof payload.sub !== 'string' || !isValidEmail(payload.sub)) {
+    const userEmail = getJwtUserEmail(payload);
+    if (!userEmail) {
       return res.status(401).json({ error: 'Invalid session' });
     }
-    req.user = { email: payload.sub.trim().toLowerCase() };
+    req.user = { email: userEmail };
     return next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
