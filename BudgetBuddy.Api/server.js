@@ -20,7 +20,24 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
 const defaultCorsOrigins = [
   'https://api.budgetbuddy.me',
   'https://budgetbuddy.me',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
 ];
+
+const isAllowedCorsOrigin = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  const allowedOrigins = [...defaultCorsOrigins, ...configuredCorsOrigins];
+  return allowedOrigins.includes(origin) ||
+    /^https?:\/\/localhost(?::\d+)?$/i.test(origin) ||
+    /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
+    /^https?:\/\/192\.168\.(?:\d{1,3}\.)?\d{1,3}(?::\d+)?$/i.test(origin) ||
+    /^https?:\/\/.*\.budgetbuddy\.me(?::\d+)?$/i.test(origin);
+};
 
 const corsOptions = {
   origin(origin, callback) {
@@ -29,13 +46,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    const isAllowed =
-      [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
-      /^http:\/\/localhost(?::\d+)?$/i.test(origin) ||
-      /^http:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
-      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin);
-
-    return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
+    return callback(
+      isAllowedCorsOrigin(origin) ? null : new Error('Origin is not allowed by CORS'),
+      isAllowedCorsOrigin(origin),
+    );
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -75,6 +89,7 @@ function getPasswordError(password) {
 }
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool
