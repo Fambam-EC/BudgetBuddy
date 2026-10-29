@@ -5,7 +5,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const outputDirectory = path.join(projectRoot, 'dist');
 const fontDirectory = path.join(outputDirectory, 'assets', 'fonts');
 
-const pages = ['policy.html', 'support.html', 'jsonvalidator.html', 'requestlab.html', 'crontab.html', 'learncss.html', 'trainllm.html'];
+const pages = ['policy.html', 'support.html', 'jsonvalidator.html', 'crontab.html', 'learncss.html', 'trainllm.html'];
 
 fs.mkdirSync(fontDirectory, { recursive: true });
 fs.copyFileSync(

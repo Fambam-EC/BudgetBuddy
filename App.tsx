@@ -57,8 +57,6 @@ declare const window: {
   removeEventListener: (type: 'popstate', listener: () => void) => void;
 };
 
-declare const EventSource: any;
-
 function RightAction({drag, itemId, callDelete}: {
   drag: SharedValue<number>;
   itemId: string;
@@ -2046,55 +2044,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       }
     };
 
-    useEffect(() => {
-      if (isLocalOnlyMode || !userEmail) {
-        return undefined;
-      }
-
-      let cancelled = false;
-      const refreshBudgetViews = () => {
-        void loadAvailableBudgets();
-        if (budgetId) {
-          void getCurrentBudget();
-        }
-      };
-
-      if (typeof EventSource !== 'undefined') {
-        const token = storage.getString(authTokenKey) || '';
-        const stream = new EventSource(
-          `${apiUrl}/api/budgets/stream?token=${encodeURIComponent(token)}`,
-        );
-
-        stream.addEventListener('budget-update', () => {
-          if (!cancelled) {
-            refreshBudgetViews();
-          }
-        });
-
-        stream.onerror = () => {
-          if (!cancelled) {
-            refreshBudgetViews();
-          }
-        };
-
-        return () => {
-          cancelled = true;
-          stream.close();
-        };
-      }
-
-      const interval = setInterval(() => {
-        if (!cancelled) {
-          refreshBudgetViews();
-        }
-      }, 15000);
-
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-      };
-    }, [userEmail, budgetId, isLocalOnlyMode]);
-
     const switchBudget = async (selectedBudget: Budget) => {
       if (isLocalOnlyMode) {
         const localBudget = GetLocalBudgets(userEmail).find(
@@ -2339,35 +2288,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   } 
   checkIfShowCloseButton();
 }, [budgetTitle, budgetData, budgetOwnerEmail, userEmail])
-
-  const createNextMonthBudgetTemplate = () => {
-    if (budgetData.length === 0) {
-      Alert.alert('No budget items', 'Add at least one budget item before creating a next-month template.');
-      return;
-    }
-
-    const nextMonthBudgetData: BudgetData[] = budgetData.map((item) => {
-      const itemDate = new Date(item.date);
-      const laterDate = new Date(itemDate);
-      laterDate.setMonth(laterDate.getMonth() + 1);
-      return {
-        ...item,
-        id: UUID(),
-        amount: 0,
-        date: laterDate.toISOString().split('T')[0],
-      };
-    });
-
-    const nextBudgetId = UUID();
-    const nextBudgetTitle = `${budgetTitle.trim() || 'Budget'} - Next Month`;
-
-    SaveBudgetItems(nextMonthBudgetData, userEmail);
-    setBudgetData(nextMonthBudgetData);
-    setBudgetId(nextBudgetId);
-    setBudgetTitle(nextBudgetTitle);
-    setTotalIncome(totalIncome);
-    Alert.alert('Budget created', 'A new budget template was created with next-month due dates and zero paid amounts.');
-  };
 
   const clearBudgetItems = () => {
     const emptyBudgetData: BudgetData[] = budgetData.map(item => {
@@ -2654,29 +2574,23 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
             }
             { showCloseButton && (
               <View style={[styles.rowPadding, styles.rowBorder, styles.center]}>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <Pressable
-                    onPress={async () => {
-                      const archived = await SaveBudgetItemToHistoryPage(getBudgetForSave());
-                      if (!archived) return;
-                      const remainingBudgets = GetLocalBudgets(userEmail).filter(
-                        (savedBudget) => savedBudget.budgetId !== budget.budgetId,
-                      );
-                      SaveLocalBudgets(remainingBudgets, userEmail);
-                      setAvailableBudgets(remainingBudgets);
-                      clearBudgetItems();
-                      await clearCurrentTransactions();
-                      await loadAvailableBudgets();
-                    }}>
-                    <Text>Close and Move to History</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={createNextMonthBudgetTemplate}>
-                    <Text>Create Next Month Template</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
+                <Pressable
+                  onPress={async () => {
+                    const archived = await SaveBudgetItemToHistoryPage(getBudgetForSave());
+                    if (!archived) return;
+                    const remainingBudgets = GetLocalBudgets(userEmail).filter(
+                      (savedBudget) => savedBudget.budgetId !== budget.budgetId,
+                    );
+                    SaveLocalBudgets(remainingBudgets, userEmail);
+                    setAvailableBudgets(remainingBudgets);
+                    clearBudgetItems();
+                    await clearCurrentTransactions();
+                    await loadAvailableBudgets();
+                  }}>
+
+                <Text>Close and Move to History</Text>
+              </Pressable>
+            </View>)}
             {showMenuButtons && (
             <Pressable
               style={styles.menuBackdrop}

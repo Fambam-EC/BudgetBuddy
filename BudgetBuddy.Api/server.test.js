@@ -63,12 +63,6 @@ test('startup initialization creates every application table', async () => {
     ),
     'startup should add total_budget to existing history entries',
   );
-  assert.ok(
-    statements.some((statement) =>
-      statement.includes('notify_budget_change') && statement.includes('CREATE TRIGGER budgets_budget_change_notify'),
-    ),
-    'startup should create the budget change notification trigger and function',
-  );
 });
 
 test('startServer initializes the database before binding the API to loopback', async () => {
@@ -139,29 +133,6 @@ test('support and privacy pages are no longer served by the API', async () => {
 test('budget endpoints reject requests without a JWT', async () => {
   const response = await fetch(`${baseUrl}/budgets`);
   assert.equal(response.status, 401);
-});
-
-test('legacy email-based JWTs remain valid for session restore', async () => {
-  const originalQuery = pool.query;
-  pool.query = async (statement) => {
-    const query = String(statement);
-    if (query.includes('SELECT email FROM users')) {
-      return { rows: [{ email: 'Legacy.User@Example.com' }], rowCount: 1 };
-    }
-    return { rows: [], rowCount: 0 };
-  };
-
-  try {
-    const legacyToken = jwt.sign({ email: 'Legacy.User@Example.com' }, process.env.JWT_SECRET);
-    const response = await fetch(`${baseUrl}/auth/me`, {
-      headers: { Authorization: `Bearer ${legacyToken}` },
-    });
-
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { user: { email: 'legacy.user@example.com' } });
-  } finally {
-    pool.query = originalQuery;
-  }
 });
 
 test('budget save persists total income with the budget record', async () => {

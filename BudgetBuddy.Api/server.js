@@ -8,9 +8,6 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const budgetEventChannel = 'budget_updates';
-const budgetEventSubscribers = new Map();
-let budgetEventListener = null;
 
 const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -20,24 +17,7 @@ const configuredCorsOrigins = (process.env.CORS_ORIGINS || '')
 const defaultCorsOrigins = [
   'https://api.budgetbuddy.me',
   'https://budgetbuddy.me',
-  'http://localhost:8080',
-  'http://127.0.0.1:8080',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
 ];
-
-const isAllowedCorsOrigin = (origin) => {
-  if (!origin) {
-    return true;
-  }
-
-  const allowedOrigins = [...defaultCorsOrigins, ...configuredCorsOrigins];
-  return allowedOrigins.includes(origin) ||
-    /^https?:\/\/localhost(?::\d+)?$/i.test(origin) ||
-    /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
-    /^https?:\/\/192\.168\.(?:\d{1,3}\.)?\d{1,3}(?::\d+)?$/i.test(origin) ||
-    /^https?:\/\/.*\.budgetbuddy\.me(?::\d+)?$/i.test(origin);
-};
 
 const corsOptions = {
   origin(origin, callback) {
@@ -46,10 +26,13 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(
-      isAllowedCorsOrigin(origin) ? null : new Error('Origin is not allowed by CORS'),
-      isAllowedCorsOrigin(origin),
-    );
+    const isAllowed =
+      [...defaultCorsOrigins, ...configuredCorsOrigins].includes(origin) ||
+      /^http:\/\/localhost(?::\d+)?$/i.test(origin) ||
+      /^http:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin) ||
+      /^http:\/\/192\.168\.0\.146(?::\d+)?$/i.test(origin);
+
+    return callback(isAllowed ? null : new Error('Origin is not allowed by CORS'), isAllowed);
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -89,7 +72,6 @@ function getPasswordError(password) {
 }
 
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
 app.use(express.json()); // Parses incoming JSON payloads
 
 // Configure PostgreSQL client pool
@@ -144,17 +126,8 @@ async function sendEmail({ to, subject, text, html }) {
 const hashResetToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
-const normalizeEmail = (value) =>
-  typeof value === 'string' ? value.trim().toLowerCase() : '';
-
 const isValidEmail = (email) =>
   typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-const getJwtUserEmail = (payload) => {
-  const candidate = typeof payload?.sub === 'string' ? payload.sub : payload?.email;
-  const normalized = normalizeEmail(candidate);
-  return isValidEmail(normalized) ? normalized : '';
-};
 
 const escapeHtml = (value) =>
   value.replace(/[&<>"']/g, (character) => ({
@@ -205,38 +178,6 @@ async function ensureBudgetTables() {
   `);
   await pool.query(`
     ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-  await pool.query(`
-    CREATE OR REPLACE FUNCTION notify_budget_change() RETURNS TRIGGER AS $$
-    BEGIN
-      IF TG_OP = 'DELETE' THEN
-        PERFORM pg_notify('budget_updates', json_build_object(
-          'action', 'delete',
-          'budgetId', OLD.budget_id,
-          'ownerEmail', OLD.owner_email,
-          'updatedAt', to_json(OLD.updated_at)
-        )::text);
-        RETURN OLD;
-      END IF;
-
-      PERFORM pg_notify('budget_updates', json_build_object(
-        'action', TG_OP,
-        'budgetId', NEW.budget_id,
-        'ownerEmail', NEW.owner_email,
-        'name', NEW.name,
-        'updatedAt', to_json(NEW.updated_at)
-      )::text);
-      RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-  `);
-  await pool.query(`
-    DROP TRIGGER IF EXISTS budgets_budget_change_notify ON budgets;
-    CREATE TRIGGER budgets_budget_change_notify
-    AFTER INSERT OR UPDATE OF name, budget_items, total_income, is_archived, updated_at OR DELETE
-    ON budgets
-    FOR EACH ROW
-    EXECUTE FUNCTION notify_budget_change();
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budget_invitations (
@@ -375,8 +316,7 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
-  const normalizedEmail = normalizeEmail(email);
-  if (!isValidEmail(normalizedEmail) || typeof password !== 'string' || !password) {
+  if (!isValidEmail(email) || typeof password !== 'string' || !password) {
     return res.status(400).json({ error: 'A valid email and password are required' });
   }
   if (!process.env.JWT_SECRET) {
@@ -385,6 +325,7 @@ app.post('/login', async (req, res) => {
 
   try {
     await ensureUsersTable();
+    const normalizedEmail = email.trim().toLowerCase();
     const result = await pool.query(
       'SELECT email, password_hash FROM users WHERE LOWER(email) = $1 LIMIT 1',
       [normalizedEmail],
@@ -394,10 +335,10 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ sub: normalizeEmail(user.email) }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ sub: user.email.toLowerCase() }, process.env.JWT_SECRET, {
       expiresIn: '30d',
     });
-    return res.status(200).json({ token, user: { email: normalizeEmail(user.email) } });
+    return res.status(200).json({ token, user: { email: user.email } });
   } catch (err) {
     console.error('Login failed', err);
     return res.status(500).json({ error: 'Unable to log in' });
@@ -413,18 +354,17 @@ app.get('/auth/me', async (req, res) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const userEmail = getJwtUserEmail(payload);
-    if (!userEmail) {
+    if (typeof payload.sub !== 'string') {
       return res.status(401).json({ error: 'Invalid session' });
     }
     const result = await pool.query(
       'SELECT email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-      [userEmail],
+      [payload.sub],
     );
     if (result.rowCount === 0) {
       return res.status(401).json({ error: 'Invalid session' });
     }
-    return res.status(200).json({ user: { email: normalizeEmail(result.rows[0].email) } });
+    return res.status(200).json({ user: { email: result.rows[0].email } });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Invalid or expired session' });
@@ -436,21 +376,17 @@ app.get('/auth/me', async (req, res) => {
 
 function requireAuthentication(req, res, next) {
   const authorization = req.get('Authorization') || '';
-  let token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  if (!token && typeof req.query?.token === 'string' && req.query.token) {
-    token = req.query.token;
-  }
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   if (!token || !process.env.JWT_SECRET) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const userEmail = getJwtUserEmail(payload);
-    if (!userEmail) {
+    if (typeof payload.sub !== 'string' || !isValidEmail(payload.sub)) {
       return res.status(401).json({ error: 'Invalid session' });
     }
-    req.user = { email: userEmail };
+    req.user = { email: payload.sub.trim().toLowerCase() };
     return next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
@@ -460,82 +396,6 @@ function requireAuthentication(req, res, next) {
     return res.status(500).json({ error: 'Unable to authenticate request' });
   }
 }
-
-function broadcastBudgetEvent(payload) {
-  const event = {
-    type: 'budget-update',
-    ...payload,
-  };
-  const data = `event: budget-update\ndata: ${JSON.stringify(event)}\n\n`;
-
-  for (const subscribers of budgetEventSubscribers.values()) {
-    for (const socket of subscribers) {
-      if (!socket.writableEnded) {
-        socket.write(data);
-      }
-    }
-  }
-}
-
-async function ensureBudgetEventListener() {
-  if (budgetEventListener) {
-    return;
-  }
-
-  try {
-    budgetEventListener = await pool.connect();
-    await budgetEventListener.query(`LISTEN ${budgetEventChannel}`);
-    budgetEventListener.on('notification', (message) => {
-      if (!message || message.channel !== budgetEventChannel || !message.payload) {
-        return;
-      }
-
-      try {
-        const payload = JSON.parse(message.payload);
-        broadcastBudgetEvent(payload);
-      } catch (err) {
-        console.error('Unable to parse budget notification payload', err);
-      }
-    });
-  } catch (err) {
-    budgetEventListener = null;
-    console.warn('Budget change listener unavailable; continuing without database notifications.', err.message || err);
-  }
-}
-
-app.get('/api/budgets/stream', requireAuthentication, (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders?.();
-
-  const userEmail = req.user.email;
-  const subscribers = budgetEventSubscribers.get(userEmail) ?? new Set();
-  subscribers.add(res);
-  budgetEventSubscribers.set(userEmail, subscribers);
-
-  res.write('retry: 1000\n\n');
-  res.write(`event: connected\ndata: ${JSON.stringify({ type: 'connected', userEmail })}\n\n`);
-
-  const heartbeat = setInterval(() => {
-    if (!res.writableEnded) {
-      res.write(': heartbeat\n\n');
-    }
-  }, 25000);
-
-  req.on('close', () => {
-    clearInterval(heartbeat);
-    const activeSubscribers = budgetEventSubscribers.get(userEmail);
-    if (!activeSubscribers) {
-      return;
-    }
-    activeSubscribers.delete(res);
-    if (activeSubscribers.size === 0) {
-      budgetEventSubscribers.delete(userEmail);
-    }
-  });
-});
 
 app.post('/forgot-password', async (req, res) => {
   const { email } = req.body || {};
@@ -1155,7 +1015,6 @@ async function initializeDatabase() {
   await ensureUsersTable();
   await ensurePasswordResetTokensTable();
   await ensureBudgetTables();
-  await ensureBudgetEventListener();
 }
 
 async function startServer(port = Number(process.env.PORT) || 3000) {
