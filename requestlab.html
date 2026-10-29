@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>RequestLab â€” API Client</title>
+<title>RequestLab API Client</title>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8689860288402776"
   crossorigin="anonymous"></script>
 <style>
@@ -55,7 +55,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{max-width
     <section class="panel" aria-labelledby="response-heading">
       <div class="panel-head response-head">
         <div class="response-title"><div><div class="eyebrow">Result</div><h2 id="response-heading">Response</h2></div><span class="status" id="responseStatus">Waiting</span></div>
-        <div class="metrics"><span>Time<strong id="responseTime">â€”</strong></span><span>Size<strong id="responseSize">â€”</strong></span></div>
+        <div class="metrics"><span>Time<strong id="responseTime"></strong></span><span>Size<strong id="responseSize"></strong></span></div>
         <div class="response-tools"><button class="tool-btn" id="copyResponse" type="button">Copy response</button><button class="tool-btn" id="clearResponse" type="button">Clear output</button></div>
       </div>
       <div class="response-tabs" role="tablist" aria-label="Response view">
@@ -191,7 +191,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{max-width
       const duration = Math.round(performance.now() - start);
       responseText = `Request failed: ${error.message}\n\nCommon causes:\nâ€¢ CORS: the API must allow requests from this page's origin.\nâ€¢ Network or DNS issue, or the server is unavailable.\nâ€¢ Mixed content: an HTTPS page cannot call an insecure HTTP endpoint.\n\nTip: check the browser developer console and the API server logs. A browser CORS failure usually does not reveal the underlying HTTP status.`;
       outputEl.textContent = responseText; outputEl.classList.add('error');
-      setStatus('Network error','bad'); $('responseTime').textContent = `${duration} ms`; $('responseSize').textContent = 'â€”';
+      setStatus('Network error','bad'); $('responseTime').textContent = `${duration} ms`; $('responseSize').textContent = '';
       responseHeaders = []; renderHeaders(); setResponseTab('body');
     } finally { sendBtn.disabled = false; sendBtn.classList.remove('loading'); }
   }
@@ -217,7 +217,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{max-width
   $('clearRequest').addEventListener('click', () => { urlEl.value = ''; headersEl.value = ''; bodyEl.value = ''; urlEl.focus(); });
   $('clearResponse').addEventListener('click', () => {
     responseText = ''; responseHeaders = []; outputEl.textContent = 'Your response will appear here. Send a request to get started.';
-    outputEl.classList.remove('error'); setStatus('Waiting'); $('responseTime').textContent = 'â€”'; $('responseSize').textContent = 'â€”'; renderHeaders(); setResponseTab('body');
+    outputEl.classList.remove('error'); setStatus('Waiting'); $('responseTime').textContent = ''; $('responseSize').textContent = ''; renderHeaders(); setResponseTab('body');
   });
   $('copyResponse').addEventListener('click', async () => {
     if (!responseText) { toast('There is no response to copy yet.'); return; }
