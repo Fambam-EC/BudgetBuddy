@@ -77,7 +77,7 @@ npm run build:worker
 npx wrangler@4 deploy --config .\wrangler.jsonc
 ```
 
-Or run both steps with `npm run deploy:worker`. Wrangler serves `dist` as static assets and falls back to the app entry for unmatched paths. The policy and support pages are available at `/policy` and `/support`; browser utilities include `/jsonvalidator.html` and `/crontab.html`, and learning guides include `/learncss.html` and `/trainllm.html`. The API allows browser requests from `https://budgetbuddy.me`; add any additional production website origins to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare.
+Or run both steps with `npm run deploy:worker`. Wrangler serves `dist` as static assets and falls back to the app entry for unmatched paths. The policy and support pages are available at `/policy` and `/support`; browser utilities include `/jsonvalidator.html`, `/requestlab.html`, and `/crontab.html`, and learning guides include `/learncss.html` and `/trainllm.html`. The API allows browser requests from `https://budgetbuddy.me`; add any additional production website origins to `CORS_ORIGINS` in `BudgetBuddy.Api/.env`. Confirm the `budgetbuddy` Worker is connected to `budgetbuddy.me` in Cloudflare.
 
 ### Public account deletion, support, and privacy pages
 

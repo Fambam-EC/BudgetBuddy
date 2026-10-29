@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>RequestLab — API Client</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8689860288402776"
+  crossorigin="anonymous"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#11182b;--panel2:#151e33;--line:#29344d;--muted:#9aa8c2;--text:#edf2ff;--accent:#8b7cff;--accent2:#6b5ce7;--green:#5de0a0;--red:#ff7f91;--amber:#f5c76b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top left,#182142 0,transparent 42%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{max-width:1180px;margin:0 auto;padding:32px 22px 48px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}.brand{display:flex;align-items:center;gap:13px}.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,#a89cff,#6355dd);box-shadow:0 8px 28px #7567ff35;font-size:22px}.brand h1{font-size:20px;letter-spacing:-.5px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}.pill{border:1px solid var(--line);background:#151d30;color:#aab7d1;padding:6px 10px;border-radius:999px;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}.panel{background:linear-gradient(180deg,#131b2e,#101729);border:1px solid var(--line);border-radius:17px;overflow:hidden;box-shadow:0 18px 50px #0002}.panel-head{padding:17px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-head h2{font-size:14px;margin:0;font-weight:650}.eyebrow{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em}.request-area{padding:20px}.request-row{display:grid;grid-template-columns:125px minmax(0,1fr) auto;gap:10px}.field,select,textarea{width:100%;border:1px solid #34415d;background:#0b1222;color:var(--text);border-radius:10px;outline:none;transition:border-color .15s,box-shadow .15s}.field,select{height:46px;padding:0 13px}.field:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #8b7cff20}.url{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}.send{border:0;border-radius:10px;background:linear-gradient(135deg,#9486ff,#6959e8);color:white;font-weight:700;padding:0 23px;min-width:112px;box-shadow:0 8px 22px #7768ef30}.send:hover{filter:brightness(1.08)}.send:disabled{opacity:.6;cursor:wait}.send .spinner{display:none;width:13px;height:13px;border:2px solid #ffffff70;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}.send.loading .spinner{display:inline-block}.send.loading .send-label{display:none}@keyframes spin{to{transform:rotate(360deg)}}.hint{color:var(--muted);font-size:12px;margin:10px 1px 0}.tabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--line)}.tab{padding:13px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-weight:600;font-size:13px;margin-bottom:-1px}.tab.active{color:#c4bdff;border-bottom-color:var(--accent)}.tab .count{font-size:10px;background:#26304a;border-radius:5px;padding:2px 5px;margin-left:5px}.tab-content{display:none;padding:18px 20px 20px}.tab-content.active{display:block}.editor-label{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:9px;color:#c5cee0;font-size:12px}.editor-label span{color:var(--muted)}textarea{display:block;min-height:126px;padding:13px 14px;resize:vertical;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}.small-btn,.tool-btn{background:#19233a;color:#d0d9ed;border:1px solid #34415d;border-radius:8px;padding:7px 10px;font-size:12px}.small-btn:hover,.tool-btn:hover{background:#222f4b}.response-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.response-title{display:flex;align-items:center;gap:10px}.response-title h2{margin:0;font-size:15px}.status{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;border-radius:7px;padding:4px 8px;background:#222b40;color:var(--muted)}.status.ok{background:#12352b;color:var(--green)}.status.bad{background:#3c202d;color:var(--red)}.status.pending{background:#3a3020;color:var(--amber)}.metrics{display:flex;gap:15px;color:var(--muted);font-size:12px}.metrics strong{color:#dce5f7;font-weight:600;margin-left:4px}.response-tools{display:flex;gap:8px}.response-tabs{display:flex;gap:3px;padding:0 20px;border-bottom:1px solid var(--line)}.response-tabs button{background:transparent;border:0;color:var(--muted);padding:12px 11px;border-bottom:2px solid transparent;font-size:12px}.response-tabs button.active{color:#c4bdff;border-bottom-color:var(--accent)}.response-body{padding:18px 20px 20px}.output{margin:0;min-height:220px;max-height:560px;overflow:auto;background:#080d18;border:1px solid #263149;border-radius:11px;padding:17px;color:#c5f7db;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.output.error{color:#ffabb5}.empty{color:#71809c}.response-meta{display:none}.response-meta.active{display:block}.meta-grid{display:grid;grid-template-columns:130px 1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}.meta-grid div{padding:9px 12px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.meta-grid div:nth-last-child(-n+2){border-bottom:0}.meta-key{color:var(--muted);background:#0e1525}.meta-value{font:12px ui-monospace,SFMono-Regular,Consolas,monospace}.footer{color:#7785a0;text-align:center;font-size:11px;margin-top:18px}.toast{position:fixed;right:22px;bottom:22px;background:#202b43;border:1px solid #405071;color:var(--text);padding:11px 15px;border-radius:10px;box-shadow:0 10px 30px #0005;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:translateY(0)}
+@media(max-width:650px){.shell{padding:20px 12px 30px}.topbar{align-items:flex-start}.pill{display:none}.request-area{padding:14px}.request-row{grid-template-columns:105px minmax(0,1fr)}.send{grid-column:1/-1;height:44px}.panel-head{padding:15px}.tabs,.response-tabs{padding:0 10px}.tab-content,.response-body{padding:14px 12px}.metrics{width:100%;justify-content:space-between}.response-head{align-items:flex-start}.response-tools{width:100%}.response-tools button{flex:1}.output{min-height:190px}.meta-grid{grid-template-columns:100px 1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="logo" aria-hidden="true">⌁</div><div><h1>RequestLab</h1><p>A clean, lightweight API client for your browser</p></div></div>
+    <span class="pill">Browser native · v2.0</span>
+  </header>
+  <main class="layout">
+    <section class="panel" aria-labelledby="request-heading">
+      <div class="panel-head"><div><div class="eyebrow">Compose</div><h2 id="request-heading">HTTP request</h2></div><button class="small-btn" id="clearRequest" type="button">Clear request</button></div>
+      <div class="request-area">
+        <div class="request-row">
+          <label class="sr-only" for="requestMethod" style="position:absolute;left:-9999px">HTTP method</label>
+          <select id="requestMethod" aria-label="HTTP method"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select>
+          <input class="field url" id="requestUrl" type="url" placeholder="https://api.example.com/v1/resource" spellcheck="false" autocomplete="url" aria-label="Request URL">
+          <button class="send" id="sendBtn" type="button"><span class="send-label">Send request ↗</span><span class="spinner" aria-hidden="true"></span></button>
+        </div>
+        <p class="hint">Enter a full URL, including <code>https://</code>. Requests may be blocked by the target server’s CORS policy.</p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Request options">
+        <button class="tab active" id="headersTab" role="tab" aria-selected="true" aria-controls="headersContent" type="button">Headers <span class="count">JSON</span></button>
+        <button class="tab" id="bodyTab" role="tab" aria-selected="false" aria-controls="bodyContent" type="button">Body <span class="count">JSON</span></button>
+      </div>
+      <div class="tab-content active" id="headersContent" role="tabpanel" aria-labelledby="headersTab">
+        <div class="editor-label"><label for="requestHeaders">Request headers</label><span>JSON object</span></div>
+        <textarea id="requestHeaders" spellcheck="false" aria-label="Request headers JSON" placeholder='{\n  "Authorization": "Bearer your-token",\n  "Content-Type": "application/json"\n}'></textarea>
+      </div>
+      <div class="tab-content" id="bodyContent" role="tabpanel" aria-labelledby="bodyTab">
+        <div class="editor-label"><label for="requestBody">Request body</label><span>JSON · ignored for GET/HEAD</span></div>
+        <textarea id="requestBody" spellcheck="false" aria-label="Request body JSON" placeholder='{\n  "name": "Jane Doe",\n  "role": "developer"\n}'></textarea>
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="response-heading">
+      <div class="panel-head response-head">
+        <div class="response-title"><div><div class="eyebrow">Result</div><h2 id="response-heading">Response</h2></div><span class="status" id="responseStatus">Waiting</span></div>
+        <div class="metrics"><span>Time<strong id="responseTime">—</strong></span><span>Size<strong id="responseSize">—</strong></span></div>
+        <div class="response-tools"><button class="tool-btn" id="copyResponse" type="button">Copy response</button><button class="tool-btn" id="clearResponse" type="button">Clear output</button></div>
+      </div>
+      <div class="response-tabs" role="tablist" aria-label="Response view">
+        <button class="active" id="bodyViewTab" role="tab" aria-selected="true" type="button">Body</button>
+        <button id="headersViewTab" role="tab" aria-selected="false" type="button">Response headers</button>
+      </div>
+      <div class="response-body">
+        <pre class="output" id="responseOutput"><span class="empty">Your response will appear here. Send a request to get started.</span></pre>
+        <div class="response-meta" id="responseMeta"><div class="meta-grid" id="responseHeadersList"></div></div>
+      </div>
+    </section>
+  </main>
+  <p class="footer">RequestLab runs in your browser. Credentials and requests are sent directly to the URL you specify.</p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const methodEl = $('requestMethod'), urlEl = $('requestUrl'), headersEl = $('requestHeaders'), bodyEl = $('requestBody');
+  const sendBtn = $('sendBtn'), outputEl = $('responseOutput'), statusEl = $('responseStatus');
+  let responseText = '', responseHeaders = [];
+  let toastTimer;
+  function toast(message) {
+    const el = $('toast'); el.textContent = message; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+  function setRequestTab(which) {
+    const headersActive = which === 'headers';
+    $('headersTab').classList.toggle('active', headersActive);
+    $('bodyTab').classList.toggle('active', !headersActive);
+    $('headersTab').setAttribute('aria-selected', String(headersActive));
+    $('bodyTab').setAttribute('aria-selected', String(!headersActive));
+    $('headersContent').classList.toggle('active', headersActive);
+    $('bodyContent').classList.toggle('active', !headersActive);
+  }
+  function setResponseTab(which) {
+    const bodyActive = which === 'body';
+    $('bodyViewTab').classList.toggle('active', bodyActive);
+    $('headersViewTab').classList.toggle('active', !bodyActive);
+    $('bodyViewTab').setAttribute('aria-selected', String(bodyActive));
+    $('headersViewTab').setAttribute('aria-selected', String(!bodyActive));
+    outputEl.style.display = bodyActive ? 'block' : 'none';
+    $('responseMeta').classList.toggle('active', !bodyActive);
+  }
+  function setStatus(label, kind='') { statusEl.textContent = label; statusEl.className = 'status' + (kind ? ' ' + kind : ''); }
+  function prettyResponse(text, contentType='') {
+    if (!text) return '(empty response body)';
+    if (contentType.includes('json') || /^[\s]*[{\[]/.test(text)) {
+      try { return JSON.stringify(JSON.parse(text), null, 2); } catch (_) {}
+    }
+    return text;
+  }
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+  async function sendRequest() {
+    const method = methodEl.value;
+    const rawUrl = urlEl.value.trim();
+    if (!rawUrl) { toast('Enter a request URL first.'); urlEl.focus(); return; }
+    let url;
+    try { url = new URL(rawUrl); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); }
+    catch (_) { toast('Enter a valid http:// or https:// URL.'); urlEl.focus(); return; }
+
+    let customHeaders = {};
+    const headersText = headersEl.value.trim();
+    if (headersText) {
+      try {
+        customHeaders = JSON.parse(headersText);
+        if (!customHeaders || Array.isArray(customHeaders) || typeof customHeaders !== 'object') throw new Error();
+        if (Object.values(customHeaders).some(v => typeof v === 'object' && v !== null)) throw new Error();
+      } catch (_) { toast('Headers must be a valid JSON object with string or number values.'); setRequestTab('headers'); headersEl.focus(); return; }
+    }
+    const bodyText = bodyEl.value.trim();
+    if (bodyText && !['GET','HEAD'].includes(method)) {
+      try { JSON.parse(bodyText); } catch (_) { toast('Request body is not valid JSON.'); setRequestTab('body'); bodyEl.focus(); return; }
+    }
+    const options = { method, headers: customHeaders };
+    if (bodyText && !['GET','HEAD'].includes(method)) {
+      if (!Object.keys(customHeaders).some(k => k.toLowerCase() === 'content-type')) options.headers['Content-Type'] = 'application/json';
+      options.body = bodyText;
+    }
+    sendBtn.disabled = true; sendBtn.classList.add('loading');
+    setStatus('Sending…','pending'); $('responseTime').textContent = '…'; $('responseSize').textContent = '…';
+    outputEl.classList.remove('error'); outputEl.textContent = 'Sending request…';
+    const start = performance.now();
+    try {
+      const response = await fetch(url.href, options);
+      const duration = Math.round(performance.now() - start);
+      const raw = await response.text();
+      responseText = prettyResponse(raw, response.headers.get('content-type') || '');
+      responseHeaders = [...response.headers.entries()].sort(([a],[b]) => a.localeCompare(b));
+      outputEl.textContent = responseText;
+      setStatus(`${response.status} ${response.statusText || ''}`.trim(), response.ok ? 'ok' : 'bad');
+      $('responseTime').textContent = `${duration} ms`;
+      $('responseSize').textContent = formatBytes(new TextEncoder().encode(raw).length);
+      renderHeaders();
+      setResponseTab('body');
+    } catch (error) {
+      const duration = Math.round(performance.now() - start);
+      responseText = `Request failed: ${error.message}\n\nCommon causes:\n• CORS: the API must allow requests from this page's origin.\n• Network or DNS issue, or the server is unavailable.\n• Mixed content: an HTTPS page cannot call an insecure HTTP endpoint.\n\nTip: check the browser developer console and the API server logs. A browser CORS failure usually does not reveal the underlying HTTP status.`;
+      outputEl.textContent = responseText; outputEl.classList.add('error');
+      setStatus('Network error','bad'); $('responseTime').textContent = `${duration} ms`; $('responseSize').textContent = '—';
+      responseHeaders = []; renderHeaders(); setResponseTab('body');
+    } finally { sendBtn.disabled = false; sendBtn.classList.remove('loading'); }
+  }
+  function renderHeaders() {
+    const list = $('responseHeadersList'); list.replaceChildren();
+    if (!responseHeaders.length) {
+      const a = document.createElement('div'); a.className = 'meta-key'; a.textContent = 'Info';
+      const b = document.createElement('div'); b.className = 'meta-value'; b.textContent = 'No response headers available. Browsers only expose headers allowed by CORS.';
+      list.append(a,b); return;
+    }
+    responseHeaders.forEach(([key,value]) => {
+      const k = document.createElement('div'); k.className = 'meta-key'; k.textContent = key;
+      const v = document.createElement('div'); v.className = 'meta-value'; v.textContent = value;
+      list.append(k,v);
+    });
+  }
+  $('headersTab').addEventListener('click', () => setRequestTab('headers'));
+  $('bodyTab').addEventListener('click', () => setRequestTab('body'));
+  $('bodyViewTab').addEventListener('click', () => setResponseTab('body'));
+  $('headersViewTab').addEventListener('click', () => setResponseTab('headers'));
+  sendBtn.addEventListener('click', sendRequest);
+  urlEl.addEventListener('keydown', e => { if (e.key === 'Enter') sendRequest(); });
+  $('clearRequest').addEventListener('click', () => { urlEl.value = ''; headersEl.value = ''; bodyEl.value = ''; urlEl.focus(); });
+  $('clearResponse').addEventListener('click', () => {
+    responseText = ''; responseHeaders = []; outputEl.textContent = 'Your response will appear here. Send a request to get started.';
+    outputEl.classList.remove('error'); setStatus('Waiting'); $('responseTime').textContent = '—'; $('responseSize').textContent = '—'; renderHeaders(); setResponseTab('body');
+  });
+  $('copyResponse').addEventListener('click', async () => {
+    if (!responseText) { toast('There is no response to copy yet.'); return; }
+    try { await navigator.clipboard.writeText(responseText); toast('Response copied to clipboard.'); }
+    catch (_) {
+      const area = document.createElement('textarea'); area.value = responseText; document.body.append(area); area.select();
+      const ok = document.execCommand('copy'); area.remove(); toast(ok ? 'Response copied to clipboard.' : 'Copy failed. Select the response and copy it manually.');
+    }
+  });
+  renderHeaders();
+})();
+</script>
+</body>
+</html>
