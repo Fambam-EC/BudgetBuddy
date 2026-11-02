@@ -1625,6 +1625,36 @@ function budgetTransactionStorageKey(budgetId: string): string {
   return `${transaction_items_key}:${encodeURIComponent((budgetId || '').trim())}`;
 }
 
+function backfillBudgetTransactionsForUser(userEmail: string): void {
+  const legacyKey = accountStorageKey(transaction_items_key, userEmail);
+  const legacyTransactions = parseStoredTransactions(storage.getString(legacyKey));
+  if (legacyTransactions.length === 0) return;
+
+  const budgetGroups = new Map<string, TransactionData[]>();
+  for (const transaction of legacyTransactions) {
+    const budgetId = transaction.budgetId?.trim() || '';
+    if (!budgetId) continue;
+    const sharedTransactions = budgetGroups.get(budgetId) ?? [];
+    sharedTransactions.push({
+      ...transaction,
+      userEmail: transaction.userEmail || userEmail,
+      budgetId,
+    });
+    budgetGroups.set(budgetId, sharedTransactions);
+  }
+
+  for (const [budgetId, transactions] of budgetGroups.entries()) {
+    const sharedKey = budgetTransactionStorageKey(budgetId);
+    const existingSharedTransactions = parseStoredTransactions(storage.getString(sharedKey));
+    const mergedTransactions = [...existingSharedTransactions, ...transactions]
+      .filter((transaction, index, allTransactions) =>
+        allTransactions.findIndex((candidate) => candidate.id === transaction.id) === index,
+      )
+      .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+    storage.set(sharedKey, JSON.stringify(mergedTransactions));
+  }
+}
+
 function parseStoredTransactions(rawValue: string | null | undefined): TransactionData[] {
   if (!rawValue) return [];
   try {
@@ -2212,6 +2242,12 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       console.log(error)
     }
   }
+
+  useEffect(() => {
+    if (userEmail && budgetId) {
+      backfillBudgetTransactionsForUser(userEmail);
+    }
+  }, [userEmail, budgetId]);
 
   const clearCurrentTransactions = async () => {
     try {
