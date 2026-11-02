@@ -1621,22 +1621,44 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
   }
 }
 
-async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string): Promise<boolean> {
+function budgetTransactionStorageKey(budgetId: string): string {
+  return `${transaction_items_key}:${encodeURIComponent((budgetId || '').trim())}`;
+}
+
+function parseStoredTransactions(rawValue: string | null | undefined): TransactionData[] {
+  if (!rawValue) return [];
   try {
+    const parsed = JSON.parse(rawValue) as Partial<TransactionData>[];
+    return parsed.map((transaction) => ({
+      ...transaction,
+      userEmail: transaction.userEmail || 'Unknown user',
+      budgetId: transaction.budgetId || '',
+    } as TransactionData));
+  } catch (error) {
+    console.error('Unable to parse stored transactions', error);
+    return [];
+  }
+}
+
+async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string, budgetId?: string): Promise<boolean> {
+  try {
+    const normalizedTransaction: TransactionData = {
+      ...newTransaction,
+      budgetId: newTransaction.budgetId || budgetId || '',
+      userEmail: newTransaction.userEmail || userEmail || 'Unknown user',
+    };
+
     const scopedTransactionKey = accountStorageKey(transaction_items_key, userEmail);
-    const currentTransactions = await storage.getString(scopedTransactionKey)
-    let transactions: TransactionData[] = [];
-    if (currentTransactions){
-      transactions = (JSON.parse(currentTransactions) as Partial<TransactionData>[]).map(
-        (transaction) => ({
-          ...transaction,
-          userEmail: transaction.userEmail || 'Unknown user',
-        } as TransactionData),
-      );
-    }
-    // Assuming newTransaction is the transaction you want to add
-    transactions.push(newTransaction);
-    await storage.set(scopedTransactionKey, JSON.stringify(transactions));
+    const sharedTransactionKey = normalizedTransaction.budgetId ? budgetTransactionStorageKey(normalizedTransaction.budgetId) : scopedTransactionKey;
+
+    const currentSharedTransactions = parseStoredTransactions(storage.getString(sharedTransactionKey));
+    const currentLegacyTransactions = parseStoredTransactions(storage.getString(scopedTransactionKey));
+
+    const nextSharedTransactions = [...currentSharedTransactions, normalizedTransaction];
+    const nextLegacyTransactions = [...currentLegacyTransactions.filter((transaction) => transaction.budgetId !== normalizedTransaction.budgetId), normalizedTransaction];
+
+    await storage.set(sharedTransactionKey, JSON.stringify(nextSharedTransactions));
+    await storage.set(scopedTransactionKey, JSON.stringify(nextLegacyTransactions));
     return true;
   } catch (error) {
     console.error(error);
@@ -1645,8 +1667,11 @@ async function SaveTransactionItem(newTransaction: TransactionData, userEmail: s
   }
 }
 
-async function ClearTransactionData(userEmail: string){
+async function ClearTransactionData(userEmail: string, budgetId?: string){
   try {
+    if (budgetId) {
+      storage.remove(budgetTransactionStorageKey(budgetId));
+    }
     storage.remove(accountStorageKey(transaction_items_key, userEmail));
     return true;
   } catch (error) {
@@ -1911,8 +1936,8 @@ type TransactionData = {
   date: string;
   info: string;
   userEmail: string;
-}
-
+  budgetId?: string;
+};
 function BudgetComponent({navigation, onLogout, userEmail} : {
   navigation: any;
   onLogout: () => void;
@@ -2050,7 +2075,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (!localBudget) return;
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2065,7 +2089,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       );
       if (localBudget?.pendingSync) {
         await SaveBudget(localBudget, userEmail);
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2084,7 +2107,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         if (!response.ok) {
           throw new Error(result.error || 'Unable to switch budgets.');
         }
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2096,7 +2118,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (localBudget) {
-          await ClearTransactionData(userEmail);
           setTransactionData([]);
           setBudgetId(localBudget.budgetId);
           setBudgetTitle(localBudget.name);
@@ -2116,7 +2137,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       if (isLocalOnlyMode) {
         const result = getAcceptedLocalBudget(userEmail, invitation.budgetId);
         if (!result) throw new Error('Unable to load the shared budget.');
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2141,7 +2161,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         throw new Error(result.error || 'Unable to load the shared budget.');
       }
 
-      await ClearTransactionData(userEmail);
       setTransactionData([]);
       setBudgetId(result.budgetId);
       setBudgetTitle(result.name);
@@ -2174,24 +2193,29 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   const getCurrentTransactions = async () => {
     try {
-      const result = storage.getString(accountStorageKey(transaction_items_key, userEmail))
-      if (result){
-        setTransactionData(
-          (JSON.parse(result) as Partial<TransactionData>[]).map((transaction) => ({
-            ...transaction,
-            userEmail: transaction.userEmail || 'Unknown user',
-          } as TransactionData)),
+      const scopedTransactions = parseStoredTransactions(storage.getString(accountStorageKey(transaction_items_key, userEmail)));
+      const budgetTransactions = parseStoredTransactions(storage.getString(budgetTransactionStorageKey(budgetId)));
+      const sharedBudgetTransactions = storage
+        .getAllKeys()
+        .filter((key) => key.startsWith(`${transaction_items_key}:`))
+        .flatMap((key) => parseStoredTransactions(storage.getString(key)))
+        .filter((transaction) => transaction.budgetId === budgetId);
+
+      const mergedTransactions = [...scopedTransactions, ...budgetTransactions, ...sharedBudgetTransactions]
+        .filter((transaction, index, allTransactions) =>
+          allTransactions.findIndex((candidate) => candidate.id === transaction.id) === index,
         )
-      }
-    }
-    catch (error) {
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+
+      setTransactionData(mergedTransactions);
+    } catch (error) {
       console.log(error)
     }
   }
 
   const clearCurrentTransactions = async () => {
     try {
-      await ClearTransactionData(userEmail);
+      await ClearTransactionData(userEmail, budgetId);
       setTransactionData([]);
     }
     catch (error) {
@@ -2201,8 +2225,13 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   
   const saveCurrentTransaction = async (newTransaction: TransactionData) => {
     try {
-      await SaveTransactionItem(newTransaction, userEmail);
-      getCurrentTransactions();
+      const transaction = {
+        ...newTransaction,
+        budgetId: newTransaction.budgetId || budgetId,
+        userEmail: newTransaction.userEmail || userEmail,
+      };
+      await SaveTransactionItem(transaction, userEmail, budgetId);
+      await getCurrentTransactions();
     } catch (error) {
       console.log(error)
     }
@@ -2259,9 +2288,13 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   useEffect(() => {
     getCurrentBudget();
-    getCurrentTransactions();
     void loadAvailableBudgets();
   }, []);
+
+  useEffect(() => {
+    if (!budgetId) return;
+    void getCurrentTransactions();
+  }, [budgetId, userEmail]);
 
   useEffect(() => {
     if (isLoadingBudget) return;
