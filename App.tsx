@@ -218,6 +218,7 @@ function SignUpScreen({isActiveToggle, isDarkMode}: {isActiveToggle: () => void;
         borderWidth: 1,
         borderRadius: 20,
         paddingVertical: 28,
+        paddingHorizontal: 20,
         shadowColor: theme.primary,
         shadowOpacity: isDarkMode ? 0.24 : 0.12,
         shadowRadius: 18,
@@ -245,6 +246,9 @@ function SignUpScreen({isActiveToggle, isDarkMode}: {isActiveToggle: () => void;
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          accessibilityLabel="Email address"
           value={email}
           onChangeText={setEmail}
         />
@@ -262,6 +266,9 @@ function SignUpScreen({isActiveToggle, isDarkMode}: {isActiveToggle: () => void;
             placeholder="Create a strong password"
             placeholderTextColor={theme.muted}
             secureTextEntry={!showPassword}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            accessibilityLabel="New password"
             value={password}
             onChangeText={setPassword}
           />
@@ -585,6 +592,9 @@ function LoginScreen({ authorized, isDarkMode }: { authorized: (token: string, e
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              accessibilityLabel="Email address"
               value={email}
               onChangeText={setEmail}
             />
@@ -606,6 +616,9 @@ function LoginScreen({ authorized, isDarkMode }: { authorized: (token: string, e
                 secureTextEntry={secureTextEntry}
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="current-password"
+                textContentType="password"
+                accessibilityLabel="Password"
                 value={password}
                 onChangeText={setPassword}
               />
@@ -2952,8 +2965,9 @@ const styles = StyleSheet.create({
 
   innerContainer: {
     flex: 1,
-    justifyContent: 'space-around',
-    paddingHorizontal: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   sessionLoading: {
     alignItems: 'center',
@@ -3034,18 +3048,19 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   title: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '700',
     color: '#1A1A1A',
     marginBottom: 8,
     marginTop: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#666666',
+    marginBottom: 18,
   },
   formContainer: {
-    marginVertical: 20,
+    marginVertical: 14,
   },
   inputWrapper: {
     marginBottom: 20,
@@ -3062,26 +3077,34 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    height: 50,
+    height: 52,
     backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#1A1A1A',
     borderWidth: 1,
     borderColor: '#EAEAEA',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EAEAEA',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
   },
   passwordInput: {
     flex: 1,
-    height: 50,
+    height: 52,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#1A1A1A',
@@ -3107,7 +3130,7 @@ const styles = StyleSheet.create({
   loginButton: {
     height: 52,
     backgroundColor: '#007AFF',
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#007AFF',
@@ -3144,7 +3167,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
     justifyContent: 'center',
   },
   logo: {
@@ -3177,7 +3203,9 @@ const styles = StyleSheet.create({
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    alignItems: 'center',
+    marginTop: 18,
+    flexWrap: 'wrap',
   },
   loginText: {
     color: '#6B7280',
