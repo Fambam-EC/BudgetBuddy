@@ -19,6 +19,14 @@ import {
   TouchableOpacity
 } from "react-native";
 
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import {
+  Wallet02Icon,
+  Mail01Icon,
+  LockPasswordIcon,
+  CheckCheckIcon,
+} from '@hugeicons/core-free-icons';
+
 import { storage } from './Helpers/storage';
 import {
   PASSWORD_MIN_LENGTH,
@@ -89,6 +97,20 @@ const isLocalOnlyMode = false;
 const DEFAULT_TOTAL_INCOME = 2000;
 const budgetSaveRequests = new Map<string, Promise<void>>();
 
+const getLoginTheme = (isDarkMode: boolean) => ({
+  background: isDarkMode ? '#08131d' : '#F0F8FF',
+  backgroundAlt: isDarkMode ? '#0f1d2b' : '#EAF3FF',
+  panel: isDarkMode ? '#102535' : '#FFFFFF',
+  border: isDarkMode ? '#244968' : '#D8E8FF',
+  primary: isDarkMode ? '#7dd3fc' : '#2563EB',
+  primaryDark: isDarkMode ? '#38bdf8' : '#1D4ED8',
+  text: isDarkMode ? '#EAF7FF' : '#1A1A1A',
+  muted: isDarkMode ? '#A9C3D8' : '#666666',
+  inputBackground: isDarkMode ? '#0d1b29' : '#F5F5F5',
+  inputText: isDarkMode ? '#EAF7FF' : '#1A1A1A',
+  overlay: isDarkMode ? 'rgba(8, 19, 29, 0.82)' : 'rgba(240, 248, 255, 0.92)',
+});
+
 function isForgotPasswordRoute(): boolean {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
     return false;
@@ -132,11 +154,29 @@ function RootStack({logout, userEmail}: {logout: () => void; userEmail: string})
     </Stack.Navigator>)
 }
 
-function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
+function BrandHeader({isDarkMode}: {isDarkMode: boolean}) {
+  const theme = getLoginTheme(isDarkMode);
+
+  return (
+    <View style={styles.brandHeader}>
+      <View style={[styles.brandBadge, { backgroundColor: theme.primary }]}>
+        <HugeiconsIcon icon={Wallet02Icon} size={28} color="#FFFFFF" strokeWidth={1.8} />
+      </View>
+      <Text style={[styles.brandTitle, { color: theme.text }]}>Budget Buddy</Text>
+      <View style={[styles.brandTag, { backgroundColor: theme.backgroundAlt, borderColor: theme.border }]}>
+        <HugeiconsIcon icon={CheckCheckIcon} size={12} color={theme.primary} strokeWidth={1.8} />
+        <Text style={[styles.brandSubtitle, { color: theme.muted }]}>Smarter budgeting for real life</Text>
+      </View>
+    </View>
+  );
+}
+
+function SignUpScreen({isActiveToggle, isDarkMode}: {isActiveToggle: () => void; isDarkMode: boolean}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = getLoginTheme(isDarkMode);
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -149,7 +189,6 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
       Alert.alert('Invalid password', passwordError);
       return;
     }
-
 
     setIsSubmitting(true);
     try {
@@ -172,22 +211,37 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>A</Text>
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.content, {
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        borderWidth: 1,
+        borderRadius: 20,
+        paddingVertical: 28,
+        shadowColor: theme.primary,
+        shadowOpacity: isDarkMode ? 0.24 : 0.12,
+        shadowRadius: 18,
+        elevation: 4,
+      }]}>
+        <BrandHeader isDarkMode={isDarkMode} />
 
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, { color: theme.text, fontSize: 28, marginBottom: 8, marginTop: 0 }]}>Create account</Text>
+        <Text style={[styles.subtitle, { color: theme.muted, marginBottom: 20, fontSize: 14 }]}>
           Sign up to get started with your account.
         </Text>
 
-        <Text style={styles.label}>Email</Text>
+        <View style={styles.fieldLabelRow}>
+          <HugeiconsIcon icon={Mail01Icon} size={16} color={theme.primary} strokeWidth={1.8} />
+          <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+        </View>
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+            backgroundColor: theme.inputBackground,
+            borderColor: theme.border,
+            color: theme.inputText,
+          }]}
           placeholder="you@example.com"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={theme.muted}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -195,29 +249,33 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
           onChangeText={setEmail}
         />
 
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.passwordContainer}>
+        <View style={styles.fieldLabelRow}>
+          <HugeiconsIcon icon={LockPasswordIcon} size={16} color={theme.primary} strokeWidth={1.8} />
+          <Text style={[styles.label, { color: theme.text }]}>Password</Text>
+        </View>
+        <View style={[styles.passwordContainer, {
+          backgroundColor: theme.inputBackground,
+          borderColor: theme.border,
+        }]}>
           <TextInput
-            style={styles.passwordInput}
+            style={[styles.passwordInput, { color: theme.inputText }]}
             placeholder="Create a strong password"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={theme.muted}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
           />
 
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Text style={styles.showButton}>
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Text style={[styles.showButton, { color: theme.primary }]}>
               {showPassword ? 'Hide' : 'Show'}
             </Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.passwordHint}>{PASSWORD_REQUIREMENTS}</Text>
+        <Text style={[styles.passwordHint, { color: theme.muted }]}>{PASSWORD_REQUIREMENTS}</Text>
 
         <TouchableOpacity
-          style={styles.signUpButton}
+          style={[styles.signUpButton, { backgroundColor: theme.primary }]}
           onPress={handleSignUp}
           disabled={isSubmitting}
           activeOpacity={0.8}
@@ -226,9 +284,9 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
         </TouchableOpacity>
 
         <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
+          <Text style={[styles.loginText, { color: theme.muted }]}>Already have an account? </Text>
           <TouchableOpacity onPress={isActiveToggle}>
-            <Text style={styles.loginLink}>Log in</Text>
+            <Text style={[styles.loginLink, { color: theme.primary }]}>Log in</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -236,9 +294,10 @@ function SignUpScreen({isActiveToggle}: {isActiveToggle:  () => void}) {
   );
 }
 
-function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
+function ForgotPasswordScreen({onBack, isDarkMode}: {onBack: () => void; isDarkMode: boolean}) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = getLoginTheme(isDarkMode);
 
   const handleForgotPassword = async () => {
     const normalizedEmail = email.trim();
@@ -280,22 +339,24 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.innerContainer}
+      style={[styles.innerContainer, { backgroundColor: theme.background }]}
     >
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Reset password</Text>
-        <Text style={styles.subtitle}>
-          Enter your email and we&apos;ll send you a reset link.
-        </Text>
+        <Text style={[styles.title, { color: theme.text }]}>Reset password</Text>
+        <Text style={[styles.subtitle, { color: theme.muted }]}>Enter your email and we&apos;ll send you a reset link.</Text>
       </View>
 
       <View style={styles.formContainer}>
         <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Email Address</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+              color: theme.inputText,
+            }]}
             placeholder="Enter your email"
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.muted}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -307,18 +368,16 @@ function ForgotPasswordScreen({onBack}: {onBack: () => void}) {
 
       <View style={styles.actionContainer}>
         <TouchableOpacity
-          style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+          style={[styles.loginButton, { backgroundColor: theme.primary }, isSubmitting && styles.disabledButton]}
           onPress={handleForgotPassword}
           disabled={isSubmitting}
         >
           {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
-          <Text style={styles.loginButtonText}>
-            {isSubmitting ? 'Sending...' : 'Send reset link'}
-          </Text>
+          <Text style={styles.loginButtonText}>{isSubmitting ? 'Sending...' : 'Send reset link'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.backToLoginButton} onPress={onBack}>
-          <Text style={styles.forgotText}>Back to login</Text>
+          <Text style={[styles.forgotText, { color: theme.primary }]}>Back to login</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -329,14 +388,17 @@ function ResetPasswordScreen({
   email,
   token,
   onComplete,
+  isDarkMode,
 }: {
   email: string;
   token: string;
   onComplete: () => void;
+  isDarkMode: boolean;
 }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = getLoginTheme(isDarkMode);
 
   const handleResetPassword = async () => {
     const passwordError = validatePassword(password);
@@ -377,36 +439,42 @@ function ResetPasswordScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.innerContainer}
+      style={[styles.innerContainer, { backgroundColor: theme.background }]}
     >
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Choose a new password</Text>
-        <Text style={styles.subtitle}>
-          Enter and confirm a password for {email}.
-        </Text>
+        <Text style={[styles.title, { color: theme.text }]}>Choose a new password</Text>
+        <Text style={[styles.subtitle, { color: theme.muted }]}>Enter and confirm a password for {email}.</Text>
       </View>
 
       <View style={styles.formContainer}>
         <View style={styles.inputWrapper}>
-          <Text style={styles.label}>New password</Text>
+          <Text style={[styles.label, { color: theme.text }]}>New password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+              color: theme.inputText,
+            }]}
             placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.muted}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
             value={password}
             onChangeText={setPassword}
           />
-          <Text style={styles.passwordHint}>{PASSWORD_REQUIREMENTS}</Text>
+          <Text style={[styles.passwordHint, { color: theme.muted }]}>{PASSWORD_REQUIREMENTS}</Text>
         </View>
         <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Confirm password</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Confirm password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+              color: theme.inputText,
+            }]}
             placeholder="Re-enter your new password"
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.muted}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -418,27 +486,26 @@ function ResetPasswordScreen({
 
       <View style={styles.actionContainer}>
         <TouchableOpacity
-          style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+          style={[styles.loginButton, { backgroundColor: theme.primary }, isSubmitting && styles.disabledButton]}
           onPress={handleResetPassword}
           disabled={isSubmitting}
         >
           {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
-          <Text style={styles.loginButtonText}>
-            {isSubmitting ? 'Updating...' : 'Update password'}
-          </Text>
+          <Text style={styles.loginButtonText}>{isSubmitting ? 'Updating...' : 'Update password'}</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function LoginScreen({ authorized }: { authorized: (token: string, email: string) => Promise<void> }) {
+function LoginScreen({ authorized, isDarkMode }: { authorized: (token: string, email: string) => Promise<void>; isDarkMode: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [signUpScreenActive, setSignUpScreenActive] = useState(false);
   const [forgotPasswordScreenActive, setForgotPasswordScreenActive] = useState(isForgotPasswordRoute);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = getLoginTheme(isDarkMode);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -491,26 +558,30 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       { !signUpScreenActive && !forgotPasswordScreenActive &&
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.innerContainer}
+        style={[styles.innerContainer, { backgroundColor: theme.background }]}
       >
-
-        {/* Header Section */}
         <View style={styles.headerContainer}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+          <BrandHeader isDarkMode={isDarkMode} />
         </View>
-        {/* Form Inputs */}
+
         <View style={styles.formContainer}>
           <View style={styles.inputWrapper}>
-            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.fieldLabelRow}>
+              <HugeiconsIcon icon={Mail01Icon} size={16} color={theme.primary} strokeWidth={1.8} />
+              <Text style={[styles.label, { color: theme.text }]}>Email Address</Text>
+            </View>
             <TextInput
-              style={styles.input}
+              style={[styles.input, {
+                backgroundColor: theme.inputBackground,
+                borderColor: theme.border,
+                color: theme.inputText,
+              }]}
               placeholder="Enter your email"
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.muted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -520,41 +591,38 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
           </View>
 
           <View style={styles.inputWrapper}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+            <View style={styles.fieldLabelRow}>
+              <HugeiconsIcon icon={LockPasswordIcon} size={16} color={theme.primary} strokeWidth={1.8} />
+              <Text style={[styles.label, { color: theme.text }]}>Password</Text>
+            </View>
+            <View style={[styles.passwordContainer, {
+              backgroundColor: theme.inputBackground,
+              borderColor: theme.border,
+            }]}>
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { color: theme.inputText }]}
                 placeholder="Enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={theme.muted}
                 secureTextEntry={secureTextEntry}
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={password}
                 onChangeText={setPassword}
               />
-              <TouchableOpacity
-                onPress={() => setSecureTextEntry(!secureTextEntry)}
-                style={styles.eyeButton}
-              >
-                <Text style={styles.eyeText}>
-                  {secureTextEntry ? 'Show' : 'Hide'}
-                </Text>
+              <TouchableOpacity onPress={() => setSecureTextEntry(!secureTextEntry)} style={styles.eyeButton}>
+                <Text style={[styles.eyeText, { color: theme.primary }]}>{secureTextEntry ? 'Show' : 'Hide'}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={openForgotPassword}
-          >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
+          <TouchableOpacity style={styles.forgotPassword} onPress={openForgotPassword}>
+            <Text style={[styles.forgotText, { color: theme.primary }]}>Forgot Password?</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Action Buttons */}
         <View style={styles.actionContainer}>
           <TouchableOpacity
-            style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+            style={[styles.loginButton, { backgroundColor: theme.primary }, isSubmitting && styles.disabledButton]}
             onPress={handleLogin}
             disabled={isSubmitting}
           >
@@ -562,18 +630,16 @@ function LoginScreen({ authorized }: { authorized: (token: string, email: string
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={[styles.footerText, { color: theme.muted }]}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => setSignUpScreenActive(true)}>
-              <Text style={styles.signUpText}>Sign Up</Text>
+              <Text style={[styles.signUpText, { color: theme.primary }]}>Sign Up</Text>
             </TouchableOpacity>
-            
           </View>
-        </View>    
-        
+        </View>
       </KeyboardAvoidingView>}
-      {signUpScreenActive  && <SignUpScreen isActiveToggle={() => setSignUpScreenActive(false)}/>}
+      {signUpScreenActive && <SignUpScreen isActiveToggle={() => setSignUpScreenActive(false)} isDarkMode={isDarkMode} />}
       {forgotPasswordScreenActive && (
-        <ForgotPasswordScreen onBack={closeForgotPassword} />
+        <ForgotPasswordScreen onBack={closeForgotPassword} isDarkMode={isDarkMode} />
       )}
     </SafeAreaView>
   );
@@ -677,16 +743,17 @@ function App() {
             email={passwordResetLink.email}
             token={passwordResetLink.token}
             onComplete={() => setPasswordResetLink(null)}
+            isDarkMode={isDarkMode}
           />
         ) : (
           <>
         { !isAuthenticated && isRestoringSession && (
-          <View style={styles.sessionLoading}>
+          <View style={[styles.sessionLoading, { backgroundColor: isDarkMode ? '#08131d' : '#F0F8FF' }]}> 
             <ActivityIndicator size="large" />
-            <Text style={styles.sessionLoadingText}>Restoring your session...</Text>
+            <Text style={[styles.sessionLoadingText, { color: isDarkMode ? '#A9C3D8' : '#666666' }]}>Restoring your session...</Text>
           </View>
         )}
-        { !isAuthenticated && !isRestoringSession && <LoginScreen authorized={handleAuthenticated} /> }
+        { !isAuthenticated && !isRestoringSession && <LoginScreen authorized={handleAuthenticated} isDarkMode={isDarkMode} /> }
        { isAuthenticated && (
          <RootStack
            userEmail={userEmail}
@@ -1621,74 +1688,22 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
   }
 }
 
-function budgetTransactionStorageKey(budgetId: string): string {
-  return `${transaction_items_key}:${encodeURIComponent((budgetId || '').trim())}`;
-}
-
-function backfillBudgetTransactionsForUser(userEmail: string): void {
-  const legacyKey = accountStorageKey(transaction_items_key, userEmail);
-  const legacyTransactions = parseStoredTransactions(storage.getString(legacyKey));
-  if (legacyTransactions.length === 0) return;
-
-  const budgetGroups = new Map<string, TransactionData[]>();
-  for (const transaction of legacyTransactions) {
-    const budgetId = transaction.budgetId?.trim() || '';
-    if (!budgetId) continue;
-    const sharedTransactions = budgetGroups.get(budgetId) ?? [];
-    sharedTransactions.push({
-      ...transaction,
-      userEmail: transaction.userEmail || userEmail,
-      budgetId,
-    });
-    budgetGroups.set(budgetId, sharedTransactions);
-  }
-
-  for (const [budgetId, transactions] of budgetGroups.entries()) {
-    const sharedKey = budgetTransactionStorageKey(budgetId);
-    const existingSharedTransactions = parseStoredTransactions(storage.getString(sharedKey));
-    const mergedTransactions = [...existingSharedTransactions, ...transactions]
-      .filter((transaction, index, allTransactions) =>
-        allTransactions.findIndex((candidate) => candidate.id === transaction.id) === index,
-      )
-      .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-    storage.set(sharedKey, JSON.stringify(mergedTransactions));
-  }
-}
-
-function parseStoredTransactions(rawValue: string | null | undefined): TransactionData[] {
-  if (!rawValue) return [];
+async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string): Promise<boolean> {
   try {
-    const parsed = JSON.parse(rawValue) as Partial<TransactionData>[];
-    return parsed.map((transaction) => ({
-      ...transaction,
-      userEmail: transaction.userEmail || 'Unknown user',
-      budgetId: transaction.budgetId || '',
-    } as TransactionData));
-  } catch (error) {
-    console.error('Unable to parse stored transactions', error);
-    return [];
-  }
-}
-
-async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string, budgetId?: string): Promise<boolean> {
-  try {
-    const normalizedTransaction: TransactionData = {
-      ...newTransaction,
-      budgetId: newTransaction.budgetId || budgetId || '',
-      userEmail: newTransaction.userEmail || userEmail || 'Unknown user',
-    };
-
     const scopedTransactionKey = accountStorageKey(transaction_items_key, userEmail);
-    const sharedTransactionKey = normalizedTransaction.budgetId ? budgetTransactionStorageKey(normalizedTransaction.budgetId) : scopedTransactionKey;
-
-    const currentSharedTransactions = parseStoredTransactions(storage.getString(sharedTransactionKey));
-    const currentLegacyTransactions = parseStoredTransactions(storage.getString(scopedTransactionKey));
-
-    const nextSharedTransactions = [...currentSharedTransactions, normalizedTransaction];
-    const nextLegacyTransactions = [...currentLegacyTransactions.filter((transaction) => transaction.budgetId !== normalizedTransaction.budgetId), normalizedTransaction];
-
-    await storage.set(sharedTransactionKey, JSON.stringify(nextSharedTransactions));
-    await storage.set(scopedTransactionKey, JSON.stringify(nextLegacyTransactions));
+    const currentTransactions = await storage.getString(scopedTransactionKey)
+    let transactions: TransactionData[] = [];
+    if (currentTransactions){
+      transactions = (JSON.parse(currentTransactions) as Partial<TransactionData>[]).map(
+        (transaction) => ({
+          ...transaction,
+          userEmail: transaction.userEmail || 'Unknown user',
+        } as TransactionData),
+      );
+    }
+    // Assuming newTransaction is the transaction you want to add
+    transactions.push(newTransaction);
+    await storage.set(scopedTransactionKey, JSON.stringify(transactions));
     return true;
   } catch (error) {
     console.error(error);
@@ -1697,11 +1712,8 @@ async function SaveTransactionItem(newTransaction: TransactionData, userEmail: s
   }
 }
 
-async function ClearTransactionData(userEmail: string, budgetId?: string){
+async function ClearTransactionData(userEmail: string){
   try {
-    if (budgetId) {
-      storage.remove(budgetTransactionStorageKey(budgetId));
-    }
     storage.remove(accountStorageKey(transaction_items_key, userEmail));
     return true;
   } catch (error) {
@@ -1966,8 +1978,8 @@ type TransactionData = {
   date: string;
   info: string;
   userEmail: string;
-  budgetId?: string;
-};
+}
+
 function BudgetComponent({navigation, onLogout, userEmail} : {
   navigation: any;
   onLogout: () => void;
@@ -2105,6 +2117,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (!localBudget) return;
+        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2119,6 +2132,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       );
       if (localBudget?.pendingSync) {
         await SaveBudget(localBudget, userEmail);
+        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2137,6 +2151,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         if (!response.ok) {
           throw new Error(result.error || 'Unable to switch budgets.');
         }
+        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2148,6 +2163,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (localBudget) {
+          await ClearTransactionData(userEmail);
           setTransactionData([]);
           setBudgetId(localBudget.budgetId);
           setBudgetTitle(localBudget.name);
@@ -2167,6 +2183,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       if (isLocalOnlyMode) {
         const result = getAcceptedLocalBudget(userEmail, invitation.budgetId);
         if (!result) throw new Error('Unable to load the shared budget.');
+        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2191,6 +2208,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         throw new Error(result.error || 'Unable to load the shared budget.');
       }
 
+      await ClearTransactionData(userEmail);
       setTransactionData([]);
       setBudgetId(result.budgetId);
       setBudgetTitle(result.name);
@@ -2223,35 +2241,24 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   const getCurrentTransactions = async () => {
     try {
-      const scopedTransactions = parseStoredTransactions(storage.getString(accountStorageKey(transaction_items_key, userEmail)));
-      const budgetTransactions = parseStoredTransactions(storage.getString(budgetTransactionStorageKey(budgetId)));
-      const sharedBudgetTransactions = storage
-        .getAllKeys()
-        .filter((key) => key.startsWith(`${transaction_items_key}:`))
-        .flatMap((key) => parseStoredTransactions(storage.getString(key)))
-        .filter((transaction) => transaction.budgetId === budgetId);
-
-      const mergedTransactions = [...scopedTransactions, ...budgetTransactions, ...sharedBudgetTransactions]
-        .filter((transaction, index, allTransactions) =>
-          allTransactions.findIndex((candidate) => candidate.id === transaction.id) === index,
+      const result = storage.getString(accountStorageKey(transaction_items_key, userEmail))
+      if (result){
+        setTransactionData(
+          (JSON.parse(result) as Partial<TransactionData>[]).map((transaction) => ({
+            ...transaction,
+            userEmail: transaction.userEmail || 'Unknown user',
+          } as TransactionData)),
         )
-        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-
-      setTransactionData(mergedTransactions);
-    } catch (error) {
+      }
+    }
+    catch (error) {
       console.log(error)
     }
   }
 
-  useEffect(() => {
-    if (userEmail && budgetId) {
-      backfillBudgetTransactionsForUser(userEmail);
-    }
-  }, [userEmail, budgetId]);
-
   const clearCurrentTransactions = async () => {
     try {
-      await ClearTransactionData(userEmail, budgetId);
+      await ClearTransactionData(userEmail);
       setTransactionData([]);
     }
     catch (error) {
@@ -2261,13 +2268,8 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   
   const saveCurrentTransaction = async (newTransaction: TransactionData) => {
     try {
-      const transaction = {
-        ...newTransaction,
-        budgetId: newTransaction.budgetId || budgetId,
-        userEmail: newTransaction.userEmail || userEmail,
-      };
-      await SaveTransactionItem(transaction, userEmail, budgetId);
-      await getCurrentTransactions();
+      await SaveTransactionItem(newTransaction, userEmail);
+      getCurrentTransactions();
     } catch (error) {
       console.log(error)
     }
@@ -2324,13 +2326,9 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   useEffect(() => {
     getCurrentBudget();
+    getCurrentTransactions();
     void loadAvailableBudgets();
   }, []);
-
-  useEffect(() => {
-    if (!budgetId) return;
-    void getCurrentTransactions();
-  }, [budgetId, userEmail]);
 
   useEffect(() => {
     if (isLoadingBudget) return;
@@ -2989,15 +2987,58 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 10,
   },
+  brandHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  brandBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
+    marginBottom: 12,
+  },
+  brandTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.35,
+  },
+  brandTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 6,
+  },
+  brandSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   headerContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 24,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
     color: '#1A1A1A',
     marginBottom: 8,
+    marginTop: 8,
   },
   subtitle: {
     fontSize: 16,
