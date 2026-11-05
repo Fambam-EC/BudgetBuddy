@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Ethan Cook is a software engineer building thoughtful web and cloud applications with Vue, React, SQL, Azure, and more."
+    >
+    <meta name="theme-color" content="#10120f">
+    <title>Ethan Cook — Software Engineer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f4f2e9;
+        --muted: #aaa99e;
+        --paper: #10120f;
+        --panel: #181a16;
+        --line: #30322b;
+        --lime: #d7fb69;
+        --orange: #ff9b70;
+        --serif: Georgia, "Times New Roman", serif;
+        --sans: "Segoe UI", Arial, sans-serif;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 6rem;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background:
+          radial-gradient(ellipse at 89% 8%, rgb(215 251 105 / 6%), transparent 30rem),
+          var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 1rem;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      a:focus-visible {
+        outline: 2px solid var(--lime);
+        outline-offset: 5px;
+      }
+
+      .shell {
+        width: min(1120px, calc(100% - 3rem));
+        margin-inline: auto;
+      }
+
+      .topbar {
+        display: flex;
+        min-height: 82px;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 650;
+        letter-spacing: -0.025em;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 35px;
+        height: 35px;
+        place-items: center;
+        border: 1px solid var(--lime);
+        border-radius: 50%;
+        color: var(--lime);
+        font-family: var(--serif);
+        font-size: 0.9rem;
+        font-weight: 400;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: clamp(1rem, 3vw, 2.25rem);
+      }
+
+      .nav a,
+      .eyebrow,
+      .section-index,
+      .card-label,
+      .footer-note {
+        font-size: 0.72rem;
+        font-weight: 650;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .nav a {
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-decoration: none;
+        transition: color 160ms ease;
+      }
+
+      .nav a:hover {
+        color: var(--lime);
+      }
+
+      .nav .nav-contact {
+        padding: 0.65rem 1rem;
+        border: 1px solid #626449;
+        border-radius: 999px;
+        color: var(--lime);
+      }
+
+      .hero {
+        display: grid;
+        min-height: 585px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(290px, 0.8fr);
+        align-items: center;
+        gap: clamp(2rem, 7vw, 7rem);
+        padding-block: 5rem 5.5rem;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 0 0 1.4rem;
+        color: var(--lime);
+      }
+
+      .eyebrow::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--lime);
+        content: "";
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 700px;
+        margin-bottom: 1.5rem;
+        font-family: var(--serif);
+        font-size: clamp(3.8rem, 8vw, 7.25rem);
+        font-weight: 400;
+        letter-spacing: -0.075em;
+        line-height: 0.94;
+      }
+
+      h1 span {
+        color: var(--lime);
+        font-style: italic;
+      }
+
+      .hero-copy {
+        max-width: 535px;
+        margin-bottom: 2rem;
+        color: #c4c3b9;
+        font-size: clamp(1.02rem, 1.5vw, 1.15rem);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.25rem;
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        gap: 0.65rem;
+        padding: 0.7rem 1.1rem;
+        border: 1px solid var(--lime);
+        border-radius: 999px;
+        background: var(--lime);
+        color: var(--paper);
+        font-size: 0.88rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+        background: transparent;
+        color: var(--lime);
+      }
+
+      .text-link {
+        color: var(--muted);
+        font-size: 0.88rem;
+        text-decoration-color: #66665d;
+        text-underline-offset: 5px;
+      }
+
+      .text-link:hover {
+        color: var(--ink);
+      }
+
+      .hero-art {
+        position: relative;
+        display: grid;
+        min-height: 348px;
+        align-content: end;
+        overflow: hidden;
+        padding: 1.6rem;
+        border: 1px solid #414437;
+        border-radius: 3px;
+        background:
+          linear-gradient(135deg, transparent 49.8%, rgb(215 251 105 / 12%) 50%, transparent 50.2%),
+          linear-gradient(45deg, transparent 49.8%, rgb(215 251 105 / 9%) 50%, transparent 50.2%),
+          radial-gradient(ellipse at 50% 38%, rgb(215 251 105 / 10%), transparent 53%),
+          #171a14;
+        background-size: 100% 100%, 100% 100%, 100% 100%, auto;
+      }
+
+      .hero-art::before,
+      .hero-art::after {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(76%, 270px);
+        aspect-ratio: 1;
+        border: 1px solid rgb(215 251 105 / 27%);
+        border-radius: 50%;
+        content: "";
+        transform: translate(-50%, -50%);
+      }
+
+      .hero-art::after {
+        width: min(54%, 190px);
+        border-color: rgb(215 251 105 / 44%);
+      }
+
+      .orbit-core {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        display: grid;
+        width: 82px;
+        height: 82px;
+        place-items: center;
+        border: 1px solid rgb(215 251 105 / 65%);
+        border-radius: 50%;
+        background: #20251a;
+        color: var(--lime);
+        font-family: var(--serif);
+        font-size: 1.45rem;
+        transform: translate(-50%, -50%);
+      }
+
+      .orbit-dot {
+        position: absolute;
+        z-index: 1;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--orange);
+        box-shadow: 0 0 20px rgb(255 155 112 / 55%);
+      }
+
+      .orbit-dot.one {
+        top: 22%;
+        left: 33%;
+      }
+
+      .orbit-dot.two {
+        top: 49%;
+        right: 18%;
+        width: 7px;
+        height: 7px;
+        background: var(--lime);
+      }
+
+      .orbit-dot.three {
+        bottom: 34%;
+        left: 17%;
+        width: 6px;
+        height: 6px;
+        background: var(--lime);
+      }
+
+      .art-caption {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 1rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .art-caption strong {
+        color: var(--ink);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+
+      .section {
+        padding-block: 5rem;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-heading {
+        display: grid;
+        grid-template-columns: 0.72fr 1.28fr;
+        gap: 2rem;
+        align-items: start;
+        margin-bottom: 2.5rem;
+      }
+
+      .section-index {
+        margin: 0.5rem 0 0;
+        color: var(--lime);
+      }
+
+      h2 {
+        max-width: 690px;
+        margin-bottom: 0;
+        font-family: var(--serif);
+        font-size: clamp(2.35rem, 5vw, 4rem);
+        font-weight: 400;
+        letter-spacing: -0.055em;
+        line-height: 1.06;
+      }
+
+      .highlights {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+      }
+
+      .highlight-card,
+      .experience-card,
+      .education-card {
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .highlight-card {
+        min-height: 215px;
+        padding: 1.45rem;
+      }
+
+      .card-label {
+        display: block;
+        margin-bottom: 2rem;
+        color: var(--muted);
+        font-size: 0.65rem;
+      }
+
+      .highlight-value {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--lime);
+        font-family: var(--serif);
+        font-size: clamp(2rem, 4vw, 3rem);
+        letter-spacing: -0.055em;
+        line-height: 1.08;
+      }
+
+      .highlight-detail {
+        margin: 0;
+        color: #c4c3b9;
+        font-size: 0.9rem;
+      }
+
+      .career-grid {
+        display: grid;
+        grid-template-columns: 1fr 0.77fr;
+        gap: 1rem;
+      }
+
+      .experience-card,
+      .education-card {
+        padding: clamp(1.4rem, 3vw, 2rem);
+      }
+
+      .card-topline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .card-topline .card-label {
+        margin-bottom: 0.6rem;
+      }
+
+      .card-topline h3,
+      .education-card h3 {
+        margin-bottom: 0.25rem;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+
+      .company,
+      .education-place,
+      .date {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .date {
+        white-space: nowrap;
+      }
+
+      .role-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 1.5rem;
+        color: var(--lime);
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .role-note::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--lime);
+        content: "";
+      }
+
+      .impact-list {
+        display: grid;
+        gap: 0.85rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .impact-list li {
+        position: relative;
+        padding-left: 1.1rem;
+        color: #c4c3b9;
+        font-size: 0.92rem;
+      }
+
+      .impact-list li::before {
+        position: absolute;
+        top: 0.65rem;
+        left: 0;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--orange);
+        content: "";
+      }
+
+      .education-card {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .education-card .card-label {
+        margin-bottom: auto;
+      }
+
+      .education-card h3 {
+        margin-top: 2.5rem;
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-weight: 400;
+        letter-spacing: -0.045em;
+        line-height: 1.2;
+      }
+
+      .honors {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #626449;
+        border-radius: 999px;
+        color: var(--lime);
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+
+      .honors::before {
+        color: var(--orange);
+        content: "✳";
+      }
+
+      .skills-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .skill {
+        padding: 0.65rem 0.9rem;
+        border: 1px solid #41433a;
+        border-radius: 999px;
+        color: #deddd3;
+        font-size: 0.85rem;
+      }
+
+      .skill.featured {
+        border-color: #626449;
+        color: var(--lime);
+      }
+
+      .skills-note {
+        max-width: 530px;
+        margin: 1.5rem 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .contact-section {
+        padding-block: 5rem 4.5rem;
+        border-top: 1px solid var(--line);
+      }
+
+      .contact-layout {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 2rem;
+      }
+
+      .contact-layout h2 {
+        max-width: 590px;
+      }
+
+      .contact-layout .eyebrow {
+        margin-bottom: 1rem;
+      }
+
+      .contact-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+      }
+
+      .contact-links a {
+        color: var(--lime);
+        font-size: 0.88rem;
+        text-decoration-color: #626449;
+        text-underline-offset: 5px;
+      }
+
+      .footer {
+        display: flex;
+        min-height: 70px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .footer p {
+        margin: 0;
+      }
+
+      .footer-note {
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+      }
+
+      @media (max-width: 760px) {
+        .hero {
+          min-height: auto;
+          grid-template-columns: 1fr;
+          gap: 3rem;
+          padding-block: 4.5rem;
+        }
+
+        .hero-art {
+          min-height: 300px;
+        }
+
+        .section-heading {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+
+        .highlights {
+          grid-template-columns: 1fr;
+        }
+
+        .highlight-card {
+          min-height: 0;
+        }
+
+        .card-label {
+          margin-bottom: 1.2rem;
+        }
+
+        .career-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .education-card {
+          min-height: 250px;
+        }
+
+        .contact-layout {
+          align-items: start;
+          flex-direction: column;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .shell {
+          width: min(100% - 2rem, 1120px);
+        }
+
+        .topbar {
+          min-height: 70px;
+        }
+
+        .nav {
+          gap: 0.85rem;
+        }
+
+        .nav a {
+          font-size: 0.69rem;
+        }
+
+        .nav .nav-contact {
+          padding: 0.5rem 0.7rem;
+        }
+
+        .hero {
+          padding-block: 3.5rem;
+        }
+
+        h1 {
+          font-size: clamp(3.5rem, 17vw, 5rem);
+        }
+
+        .section,
+        .contact-section {
+          padding-block: 3.75rem;
+        }
+
+        .footer {
+          align-items: start;
+          flex-direction: column;
+          justify-content: center;
+          padding-block: 1rem;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="shell topbar">
+      <a class="brand" href="#home" aria-label="Ethan Cook, home">
+        <span class="brand-mark" aria-hidden="true">EC</span>
+        <span>Ethan Cook</span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#career">Career</a>
+        <a href="#toolkit">Toolkit</a>
+        <a class="nav-contact" href="#contact">Get in touch <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="shell hero" id="home" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow">Software engineer · Wisconsin</p>
+          <h1 id="hero-title">Ethan<br><span>Cook.</span></h1>
+          <p class="hero-copy">
+            I design and build dependable web and cloud experiences that connect product intent,
+            engineering execution, and measurable business value. With five years of hands-on experience,
+            I focus on systems that are thoughtful, scalable, and built to last.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#career">Explore my career <span aria-hidden="true">↓</span></a>
+            <a class="text-link" href="mailto:ethan.cook12@outlook.com">Let’s connect</a>
+          </div>
+        </div>
+
+        <div class="hero-art" aria-label="Abstract orbital illustration representing connected technology">
+          <span class="orbit-dot one" aria-hidden="true"></span>
+          <span class="orbit-dot two" aria-hidden="true"></span>
+          <span class="orbit-dot three" aria-hidden="true"></span>
+          <span class="orbit-core" aria-hidden="true">EC</span>
+          <div class="art-caption">
+            <strong>Curious by nature.</strong>
+            <span>Building with purpose.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="shell section" id="career" aria-labelledby="highlights-title">
+        <div class="section-heading">
+          <p class="section-index">01 / The highlights</p>
+          <h2 id="highlights-title">A career shaped by product thinking, technical depth, and execution.</h2>
+        </div>
+        <div class="highlights">
+          <article class="highlight-card">
+            <span class="card-label">Experience</span>
+            <strong class="highlight-value">5+ years</strong>
+            <p class="highlight-detail">Professional software engineering</p>
+          </article>
+          <article class="highlight-card">
+            <span class="card-label">Career growth</span>
+            <strong class="highlight-value">Developer II</strong>
+            <p class="highlight-detail">Recognized with a promotion to Dev 2</p>
+          </article>
+          <article class="highlight-card">
+            <span class="card-label">Product impact</span>
+            <strong class="highlight-value">20% lower</strong>
+            <p class="highlight-detail">User rejection rates after delivering Vue.js features</p>
+          </article>
+        </div>
+        <div class="highlights" style="margin-top: 1rem;">
+          <article class="highlight-card">
+            <span class="card-label">Personal project</span>
+            <strong class="highlight-value">40K+</strong>
+            <p class="highlight-detail">Page views in the first month from developer-focused product work</p>
+          </article>
+          <article class="highlight-card">
+            <span class="card-label">Self-hosted AI</span>
+            <strong class="highlight-value">Qwen3.8</strong>
+            <p class="highlight-detail">A private coding server over a Cloudflare tunnel</p>
+          </article>
+          <article class="highlight-card">
+            <span class="card-label">Why it matters</span>
+            <strong class="highlight-value">Private + fast</strong>
+            <p class="highlight-detail">Better control, lower latency, and more flexible experimentation</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="shell section" aria-labelledby="journey-title">
+        <div class="section-heading">
+          <p class="section-index">02 / The journey</p>
+          <h2 id="journey-title">Engineering decisions that improve reliability, usability, and outcomes.</h2>
+        </div>
+        <div class="career-grid">
+          <article class="experience-card">
+            <div class="card-topline">
+              <div>
+                <span class="card-label">Professional experience</span>
+                <h3>Software Engineer II</h3>
+                <span class="company">Generac Power Systems</span>
+              </div>
+              <span class="date">March 2025 — Present</span>
+            </div>
+            <p class="role-note">Promoted to Developer II</p>
+            <ul class="impact-list">
+              <li>Delivered Vue.js features that reduced user rejection rates by 20%.</li>
+              <li>Designed and maintained CI/CD pipelines with Azure Pipelines and GitHub Actions.</li>
+              <li>Built unit, integration, and end-to-end tests to improve release stability.</li>
+              <li>Collaborated in Agile teams, mentored junior engineers, and reviewed code.</li>
+            </ul>
+          </article>
+          <article class="education-card">
+            <span class="card-label">Education</span>
+            <h3>B.S. in Computer Science</h3>
+            <p class="education-place">Southern New Hampshire University<br>Manchester, New Hampshire</p>
+            <span class="honors">Graduated with Honors</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="shell section" id="toolkit" aria-labelledby="toolkit-title">
+        <div class="section-heading">
+          <p class="section-index">03 / The toolkit</p>
+          <h2 id="toolkit-title">A pragmatic engineering toolkit built for scalable product delivery.</h2>
+        </div>
+        <div class="skills-wrap" aria-label="Technologies and tools">
+          <span class="skill featured">Vue</span>
+          <span class="skill featured">React</span>
+          <span class="skill featured">SQL</span>
+          <span class="skill">Cosmos DB</span>
+          <span class="skill featured">Azure</span>
+          <span class="skill">Cloudflare</span>
+          <span class="skill">AI</span>
+          <span class="skill">C#</span>
+          <span class="skill">TypeScript</span>
+          <span class="skill">JavaScript</span>
+          <span class="skill">Node.js</span>
+          <span class="skill">AWS</span>
+          <span class="skill">Docker</span>
+          <span class="skill">CI/CD</span>
+          <span class="skill">Automated testing</span>
+          <span class="skill">Agile / Scrum</span>
+        </div>
+        <p class="skills-note">
+          I work across the full product stack—building polished user experiences, dependable cloud-backed services,
+          and the engineering systems that keep delivery moving. My focus is on creating software that is not only
+          technically sound, but also operationally reliable and valuable in real use.
+        </p>
+        <p class="skills-note">
+          I also run a self-hosted AI server behind a Cloudflare tunnel using Qwen3.8-Flash-Next Coder.
+          This creates a private, always-available engineering assistant for prototyping, automation,
+          research, and experimentation while preserving control over security, performance, and cost.
+          The result is stronger privacy, lower latency, greater infrastructure flexibility, and a workflow
+          tailored to high-velocity product and engineering work.
+        </p>
+        <p class="skills-note">
+          Within the first month, a personal project surpassed 40,000 page views after publishing
+          developer-focused experiences including learning content, coding playgrounds, and cron scheduler tools.
+          It reinforced the value of building practical, user-centered products that solve real developer problems.
+        </p>
+        <p class="skills-note">
+          One of those learning pages includes an automated code playground that refreshes daily with new challenges,
+          using an OpenCode workflow in GitHub Actions to generate fresh exercises and deploy them automatically.
+          That combination of product thinking, automation, and developer experience reflects the kind of systems I
+          enjoy building: useful, repeatable, and designed to scale over time.
+        </p>
+      </section>
+
+      <section class="shell contact-section" id="contact" aria-labelledby="contact-title">
+        <div class="contact-layout">
+          <div>
+            <p class="eyebrow">Have a good problem to solve?</p>
+            <h2 id="contact-title">Let’s make something useful.</h2>
+          </div>
+          <div class="contact-links" aria-label="Contact and professional profiles">
+            <a href="mailto:ethan.cook12@outlook.com">Email Ethan ↗</a>
+            <a href="https://www.linkedin.com/in/ethan-cook-07b0891b4" target="_blank" rel="noreferrer">LinkedIn ↗</a>
+            <a href="https://github.com/Fambam-EC" target="_blank" rel="noreferrer">GitHub ↗</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell footer">
+      <p>© Ethan Cook</p>
+      <p class="footer-note">Built with care · Wisconsin, USA</p>
+    </footer>
+  </body>
+</html>
