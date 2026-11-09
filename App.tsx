@@ -7,7 +7,6 @@ import {
   View,
   TextInput,
   Dimensions,
-  useWindowDimensions,
   FlatList,
   useColorScheme,
   StatusBar,
@@ -880,72 +879,26 @@ type RootStackParamList = {
 }
 
 const HistoryItem = ({description, budget, amount, date, budgetType}: HistoryItemModel) => {
-  const {width} = useWindowDimensions();
-  const isCompact = width < 600;
-
-  const budgetField = (
-    <View style={isCompact ? styles.mobileBudgetField : styles.flex}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Budget</Text>}
-      <Text style={styles.customFont}>{budget.toFixed(2)}</Text>
-    </View>
-  );
-  const paidField = (
-    <View style={[
-      styles.flex,
-      styles.categoryDescription,
-      isCompact ? styles.mobileBudgetField : null,
-    ]}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Paid</Text>}
-      <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
-        {amount.toFixed(2)}
-      </Text>
-      {budgetType === 'variable' && budget > amount && (
-        <Text style={[styles.customFont, styles.savingsText]}>
-          {normalizeCurrencyAmount(budget - amount).toFixed(2)}
-        </Text>
-      )}
-    </View>
-  );
-  const dueDateField = (
-    <View style={isCompact ? styles.mobileBudgetField : styles.flex}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Due date</Text>}
-      <Text style={styles.customFont}>
-        {new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}
-      </Text>
-    </View>
-  );
-
   return (
-    <View style={[
-      styles.rowContainer,
-      styles.rowPadding,
-      styles.rowBorder,
-      styles.flex,
-      isCompact ? styles.mobileBudgetContainer : null,
-    ]}>
-      <View style={[
-        styles.flex,
-        styles.categoryDescription,
-        isCompact ? styles.mobileBudgetDescription : null,
-      ]}>
+    <View style={[styles.rowContainer, styles.rowPadding, styles.rowBorder, styles.flex]}>
+      <View style={[styles.flex, styles.categoryDescription]}>
         <Text style={styles.customFont}>{description}</Text>
         <Text style={[styles.customFont, styles.categoryType]}>
           {budgetType === 'variable' ? 'Variable' : 'Fixed'}
         </Text>
       </View>
-      {isCompact ? (
-        <View style={styles.mobileBudgetFields}>
-          {budgetField}
-          {paidField}
-          {dueDateField}
-        </View>
-      ) : (
-        <>
-          {budgetField}
-          {paidField}
-          {dueDateField}
-        </>
-      )}
+      <Text style={[styles.flex, styles.customFont]}>{budget.toFixed(2)}</Text>
+      <View style={[styles.flex, styles.categoryDescription]}>
+        <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
+          {amount.toFixed(2)}
+        </Text>
+        {budgetType === 'variable' && budget > amount && (
+          <Text style={[styles.customFont, styles.savingsText]}>
+            {normalizeCurrencyAmount(budget - amount).toFixed(2)}
+          </Text>
+        )}
+      </View>
+      <Text style={[styles.flex, styles.customFont]}>{new Date(date)?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date()}</Text>
     </View>
   );
 }
@@ -955,8 +908,6 @@ let budgetRemaining = Number(0);
 let totalBudgetAmount = Number(0);
 
 const BudgetItem = ({id, description, budget, amount, date, budgetType, onDeleteConfirm, addAmount, adjustBudgetAmount, updateBudgetDescription, updateBudgetType, updateDueDate}: BudgetData) => {
-  const {width} = useWindowDimensions();
-  const isCompact = width < 600;
   const isPaidInFull = budget === amount;
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [amountAdded, setAmountAdded] = useState<string>('');
@@ -1028,145 +979,18 @@ const BudgetItem = ({id, description, budget, amount, date, budgetType, onDelete
     }
   };
 
-  const budgetField = (
-    <View style={isCompact ? styles.mobileBudgetField : styles.rowContent}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Budget</Text>}
-      <TextInput
-        style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
-        value={editableBudget.toString()}
-        placeholder={editableBudget.toString()}
-        keyboardType="decimal-pad"
-        onChangeText={(text) => {
-          lastCommittedBudget.current = null;
-          setEditableBudgetAmount(text)
-        }}
-        onBlur={commitBudgetAmount}
-        onSubmitEditing={commitBudgetAmount}
-      />
-    </View>
-  );
-
-  const paidField = (
-    <View style={[
-      styles.flex,
-      styles.center,
-      styles.zeroWidthForPadding,
-      isCompact ? styles.mobileBudgetField : null,
-    ]}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Paid</Text>}
-      <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
-        {amount.toFixed(2)}
-      </Text>
-      {budgetType === 'variable' && budget > amount && (
-        <Text style={[styles.customFont, styles.savingsText]}>
-          {normalizeCurrencyAmount(budget - amount).toFixed(2)}
-        </Text>
-      )}
-    </View>
-  );
-
-  const dueDateField = (
-    <Pressable
-      style={[
-        styles.rowContent,
-        styles.zeroWidthForPadding,
-        isCompact ? styles.mobileBudgetField : null,
-      ]}
-      onLongPress={() => setIsEditingDueDate(true)}
-    >
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Due date</Text>}
-      {isEditingDueDate ? (
-        <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
-          <DatePicker
-            value={dueDate}
-            selectedDate={dueDate}
-            onChange={(selectedDate: Date) => {
-              const utcDate = selectedDate.toUTCString();
-              setDueDate(new Date(utcDate));
-              callAdjustDueDate(selectedDate);
-              setIsEditingDueDate(false);
-            }}
-          />
-        </View>
-      ) : (
-        <View style={styles.rowContent}>
-          <Text style={[styles.rowContent, styles.customFont]}>
-            {dueDate?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date().toDateString()}
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  );
-
-  const addAmountField = (
-    <View style={isCompact ? styles.mobileBudgetField : styles.rowContent}>
-      {isCompact && <Text style={styles.mobileBudgetLabel}>Add</Text>}
-      {!isEditing ? (
-        <Pressable
-          style={styles.rowContent}
-          accessibilityRole="button"
-          accessibilityLabel="Add amount"
-          onPress={toggleEdit}
-        >
-          <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>
-        </Pressable>
-      ) : (
-        <View style={[
-          styles.rowContent,
-          styles.row,
-          Platform.OS === 'web' ? styles.webAmountEditor : null,
-        ]}>
-          <TextInput
-            style={[
-              styles.rowContent,
-              {textAlign: 'center'},
-              Platform.OS === 'web' ? styles.webAmountInput : null,
-            ]}
-            keyboardType={
-              Platform.OS === 'web'
-                ? 'default'
-                : Platform.OS === 'ios'
-                  ? 'numbers-and-punctuation'
-                  : 'numeric'
-            }
-            autoFocus={true}
-            value={amountAdded}
-            onChangeText={(value) => {
-              setAmountAdded(value);
-              setIsAmountInvalid(false);
-            }}
-            onSubmitEditing={submitAddedAmount}
-          />
-          <Pressable
-            style={Platform.OS === 'web' ? styles.webAmountSubmit : undefined}
-            accessibilityRole="button"
-            accessibilityLabel="Submit amount"
-            onPress={submitAddedAmount}
-          >
-            <Text style={[styles.customFont, styles.bigCross]}>✓</Text>
-          </Pressable>
-        </View>
-      )}
-    </View>
-  );
-  
   const itemContent = (
   <View style={[
     styles.budgetContainer,
     styles.rowBorder,
     styles.rowPadding,
     styles.rowContainer,
-    isCompact ? styles.mobileBudgetContainer : null,
     {alignSelf: 'stretch'},
     isPaidInFull ? styles.paidInFullBudgetRow : null,
     Platform.OS === 'web' ? styles.webBudgetContent : null,
   ]}>
     {/* <Text style={[styles.budgetHeader, styles.rowContent, styles.customFont]}>{description}</Text> */}
-    <View style={[
-      styles.rowContent,
-      styles.categoryDescription,
-      isCompact ? styles.mobileBudgetDescription : null,
-    ]}>
+    <View style={[styles.rowContent, styles.categoryDescription]}>
       <TextInput
         style={[styles.customFont, styles.zeroWidthForPadding]}
         value={budgetDescription}
@@ -1188,20 +1012,99 @@ const BudgetItem = ({id, description, budget, amount, date, budgetType, onDelete
         </Text>
       </Pressable>
     </View>
-    {isCompact ? (
-      <View style={styles.mobileBudgetFields}>
-        {budgetField}
-        {paidField}
-        {dueDateField}
-        {addAmountField}
+    {/* <Text style={[styles.rowContent, styles.customFont]}>{editableBudget}</Text> */}
+    <TextInput
+      style={[styles.rowContent, styles.customFont, styles.zeroWidthForPadding]}
+      value={editableBudget.toString()}
+      placeholder={editableBudget.toString()}
+      keyboardType="decimal-pad"
+      onChangeText={(text) => {
+        lastCommittedBudget.current = null;
+        setEditableBudgetAmount(text)
+      }}
+      onBlur={commitBudgetAmount}
+      onSubmitEditing={commitBudgetAmount}
+      />
+    <View style={[styles.flex, styles.center, styles.zeroWidthForPadding]}>
+      <Text style={[styles.customFont, amount > budget ? styles.overBudgetAmount : null]}>
+        {amount.toFixed(2)}
+      </Text>
+      {budgetType === 'variable' && budget > amount && (
+        <Text style={[styles.customFont, styles.savingsText]}>
+          {normalizeCurrencyAmount(budget - amount).toFixed(2)}
+        </Text>
+      )}
+    </View>
+    <Pressable
+      style={[styles.rowContent, styles.zeroWidthForPadding]}
+      onLongPress={() => {
+      setIsEditingDueDate(true)
+      }
+    }>{
+        isEditingDueDate && (
+      <View style={[styles.rowContent, styles.zeroWidthForPadding]}>
+        <DatePicker
+          value={dueDate}
+          selectedDate={dueDate}
+          onChange={(selectedDate: Date) => {
+            let utcDate = selectedDate.toUTCString();
+            setDueDate(new Date(utcDate))
+            callAdjustDueDate(selectedDate)
+            setIsEditingDueDate(false)
+          }}
+        />
       </View>
+    )}{ !isEditingDueDate && (
+      <View style={styles.rowContent}>
+    <Text style={[styles.rowContent, styles.customFont]}>{dueDate?.toISOString().split('T')[0].replace('/', '-').substring(5) ?? new Date().toDateString()}</Text>
+      </View>
+    )}
+    </Pressable>
+    {!isEditing ? (
+      <Pressable
+        style={styles.rowContent}
+        accessibilityRole="button"
+        accessibilityLabel="Add amount"
+        onPress={toggleEdit}
+      >
+        <Text style={[styles.rowContent, styles.customFont, styles.bigCross]}>+</Text>
+      </Pressable>
     ) : (
-      <>
-        {budgetField}
-        {paidField}
-        {dueDateField}
-        {addAmountField}
-      </>
+      <View style={[
+        styles.rowContent,
+        styles.row,
+        Platform.OS === 'web' ? styles.webAmountEditor : null,
+      ]}>
+        <TextInput
+          style={[
+            styles.rowContent,
+            {textAlign: 'center'},
+            Platform.OS === 'web' ? styles.webAmountInput : null,
+          ]}
+          keyboardType={
+            Platform.OS === 'web'
+              ? 'default'
+              : Platform.OS === 'ios'
+                ? 'numbers-and-punctuation'
+                : 'numeric'
+          }
+          autoFocus={true}
+          value={amountAdded}
+          onChangeText={(value) => {
+            setAmountAdded(value);
+            setIsAmountInvalid(false);
+          }}
+          onSubmitEditing={submitAddedAmount}
+        />
+        <Pressable
+          style={Platform.OS === 'web' ? styles.webAmountSubmit : undefined}
+          accessibilityRole="button"
+          accessibilityLabel="Submit amount"
+          onPress={submitAddedAmount}
+        >
+          <Text style={[styles.customFont, styles.bigCross]}>✓</Text>
+        </Pressable>
+      </View>
     )}
   </View>
  );
@@ -1944,9 +1847,6 @@ function BudgetHeader({
 
 
 function TableHeader(){
-  const {width} = useWindowDimensions();
-  if (width < 600) return null;
-
   return (<View style={[styles.rowContainer, styles.rowPadding, styles.tableHeaderPadding]}>
           <Text
           style={[styles.boldText, styles.rowContent, styles.customFont]}>Description / Type</Text>
@@ -2112,7 +2012,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   onLogout: () => void;
   userEmail: string;
 }){
-  const {width} = useWindowDimensions();
   // TODO : Fetch budget data from API or local storage
   let budgetDataItems: BudgetData[] = [], currentBudgetData
   const [budgetData, setBudgetData] = useState<BudgetData[]>(budgetDataItems);
@@ -2698,14 +2597,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 </View>
               )}
             </View>
-            <View style={[
-              width < 600 ? styles.mobileBudgetSummary : styles.flex,
-              {
-                minHeight: 20,
-                marginHorizontal: width < 600 ? 12 : 50,
-                marginVertical: width < 600 ? 8 : 50,
-              },
-            ]}>
+            <View style={{flex: 1, minHeight: 20, margin: 50}}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}
@@ -2876,40 +2768,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'flex-start',
-    },
-    mobileBudgetContainer: {
-      alignItems: 'stretch',
-      flexDirection: 'column',
-      justifyContent: 'flex-start',
-    },
-    mobileBudgetDescription: {
-      flex: 0,
-      width: '100%',
-    },
-    mobileBudgetFields: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      marginTop: 8,
-      width: '100%',
-    },
-    mobileBudgetField: {
-      alignItems: 'stretch',
-      flex: 0,
-      flexBasis: '48%',
-      justifyContent: 'center',
-      marginBottom: 8,
-      minWidth: 0,
-      width: '48%',
-    },
-    mobileBudgetLabel: {
-      color: '#5B6472',
-      fontSize: 10,
-      marginBottom: 2,
-    },
-    mobileBudgetSummary: {
-      alignSelf: 'stretch',
-      flex: 0,
     },
     cell: {
         flex: 1,
