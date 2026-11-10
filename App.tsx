@@ -750,7 +750,7 @@ function App() {
             <SafeAreaView style={[styles.flex, styles.backgroundColor]}>
           <GestureHandlerRootView>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-          <NavigationContainer>
+          <NavigationContainer documentTitle={{formatter: () => 'BudgetBuddy :)'}}>
         {passwordResetLink ? (
           <ResetPasswordScreen
             email={passwordResetLink.email}
