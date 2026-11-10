@@ -149,8 +149,9 @@ module.exports = (_env, argv = {}) => ({
   ],
   devServer: {
     historyApiFallback: true,
-    static: {
-      directory: path.resolve(__dirname, "dist"),
-    },
+    static: [
+      { directory: path.resolve(__dirname, "dist") },
+      { directory: path.resolve(__dirname, "web", "public") },
+    ],
   },
 });
