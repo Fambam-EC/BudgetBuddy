@@ -8,6 +8,7 @@ import {
   TextInput,
   Dimensions,
   FlatList,
+  ScrollView,
   useColorScheme,
   StatusBar,
   Alert,
@@ -1617,6 +1618,12 @@ function BudgetSwitcher({
               </>
             ) : (
               <>
+            <ScrollView
+              style={styles.budgetSwitcherScroll}
+              contentContainerStyle={styles.budgetSwitcherScrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
             <Text style={styles.modalText}>Choose a budget</Text>
             <Pressable
               style={[styles.rowPadding, styles.createBudgetButton]}
@@ -1725,6 +1732,7 @@ function BudgetSwitcher({
                 )}
               </View>
             ))}
+            </ScrollView>
             <Pressable
               style={styles.rowPadding}
               onPress={() => {
@@ -2364,9 +2372,9 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         name,
         ownerEmail: userEmail,
         budgetItems: useCurrentTemplate
-          ? budgetData.map((item, index) => ({
+          ? budgetData.map((item) => ({
               ...item,
-              id: String(index + 1),
+              id: UUID(),
               amount: 0,
               date: moveDueDateOneMonth(item.date),
             }))
@@ -3114,6 +3122,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
+  },
+  budgetSwitcherScroll: {
+    flexShrink: 1,
+  },
+  budgetSwitcherScrollContent: {
+    paddingBottom: 8,
   },
   modalText: {
     fontSize: 18,
