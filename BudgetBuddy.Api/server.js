@@ -760,6 +760,30 @@ app.get('/budgets/:budgetId', requireAuthentication, async (req, res) => {
   }
 });
 
+app.delete('/budgets/:budgetId', requireAuthentication, async (req, res) => {
+  const { budgetId } = req.params;
+  if (!budgetId.trim()) {
+    return res.status(400).json({ error: 'A budgetId is required' });
+  }
+
+  try {
+    await ensureBudgetTables();
+    const result = await pool.query(
+      `DELETE FROM budgets
+       WHERE budget_id = $1 AND LOWER(owner_email) = LOWER($2)
+       RETURNING budget_id AS "budgetId"`,
+      [budgetId.trim(), req.user.email],
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Budget not found or access denied' });
+    }
+    return res.status(200).json({ deleted: true });
+  } catch (err) {
+    console.error('Budget deletion failed', err);
+    return res.status(500).json({ error: 'Unable to delete budget' });
+  }
+});
+
 app.get('/history', requireAuthentication, async (req, res) => {
   try {
     await ensureBudgetTables();

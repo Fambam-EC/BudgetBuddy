@@ -135,6 +135,43 @@ test('budget endpoints reject requests without a JWT', async () => {
   assert.equal(response.status, 401);
 });
 
+test('budget deletion is restricted to the authenticated owner', async () => {
+  const originalQuery = pool.query;
+  let deleteQuery;
+  pool.query = async (statement, parameters = []) => {
+    const query = String(statement);
+    if (query.includes('DELETE FROM budgets')) {
+      deleteQuery = { query, parameters };
+      return parameters[1] === 'owner@example.com'
+        ? { rows: [{ budgetId: parameters[0] }], rowCount: 1 }
+        : { rows: [], rowCount: 0 };
+    }
+    return { rows: [], rowCount: 0 };
+  };
+
+  try {
+    const ownerToken = jwt.sign({ sub: 'owner@example.com' }, process.env.JWT_SECRET);
+    const ownerResponse = await fetch(`${baseUrl}/budgets/budget-1`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${ownerToken}` },
+    });
+
+    assert.equal(ownerResponse.status, 200);
+    assert.deepEqual(await ownerResponse.json(), { deleted: true });
+    assert.match(deleteQuery.query, /WHERE budget_id = \$1 AND LOWER\(owner_email\) = LOWER\(\$2\)/);
+    assert.deepEqual(deleteQuery.parameters, ['budget-1', 'owner@example.com']);
+
+    const otherUserToken = jwt.sign({ sub: 'other@example.com' }, process.env.JWT_SECRET);
+    const otherUserResponse = await fetch(`${baseUrl}/budgets/budget-1`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${otherUserToken}` },
+    });
+    assert.equal(otherUserResponse.status, 404);
+  } finally {
+    pool.query = originalQuery;
+  }
+});
+
 test('budget save persists total income with the budget record', async () => {
   const originalQuery = pool.query;
   let savedBudget;

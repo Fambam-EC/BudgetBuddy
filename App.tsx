@@ -791,6 +791,8 @@ type Budget = {
   pendingSync?: boolean;
 }
 
+type BudgetTemplateMode = 'blank' | 'current';
+
 type BudgetType = 'fixed' | 'variable';
 
 type BudgetData = {
@@ -828,6 +830,12 @@ function sumVariableBudgetSavings(items: BudgetData[]): number {
     ),
     0,
   ));
+}
+
+function moveDueDateOneMonth(date: string): string {
+  const dueDate = new Date(date);
+  dueDate.setMonth(dueDate.getMonth() + 1);
+  return dueDate.toISOString().split('T')[0];
 }
 
 function normalizeBudgetIncome(value: unknown): number {
@@ -1506,22 +1514,29 @@ async function SaveBudget(budget: Budget, userEmail: string): Promise<void> {
 function BudgetSwitcher({
   budgets,
   activeBudgetId,
+  userEmail,
   onSelect,
   onRefresh,
   onCreate,
+  onDelete,
 }: {
   budgets: Budget[];
   activeBudgetId: string;
+  userEmail: string;
   onSelect: (budget: Budget) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
-  onCreate: (name: string) => void | Promise<void>;
+  onCreate: (name: string, templateMode: BudgetTemplateMode) => void | Promise<void>;
+  onDelete: (budget: Budget) => void | Promise<void>;
 }) {
   const [visible, setVisible] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newBudgetName, setNewBudgetName] = useState('');
+  const [templateMode, setTemplateMode] = useState<BudgetTemplateMode>('blank');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatingBudget, setIsCreatingBudget] = useState(false);
   const [switchingBudgetId, setSwitchingBudgetId] = useState<string | null>(null);
+  const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
+  const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
 
   const refreshBudgets = async () => {
     setIsRefreshing(true);
@@ -1542,6 +1557,17 @@ function BudgetSwitcher({
     }
   };
 
+  const deleteSelectedBudget = async () => {
+    if (!budgetToDelete) return;
+    setDeletingBudgetId(budgetToDelete.budgetId);
+    try {
+      await onDelete(budgetToDelete);
+      setBudgetToDelete(null);
+    } finally {
+      setDeletingBudgetId(null);
+    }
+  };
+
   return (
     <View>
       <Pressable
@@ -1553,9 +1579,44 @@ function BudgetSwitcher({
       >
         {isRefreshing ? <ActivityIndicator size="small" /> : <Text style={[styles.customFont, styles.boldText]}>Switch Budget</Text>}
       </Pressable>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={() => setVisible(false)}>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setBudgetToDelete(null);
+          setVisible(false);
+        }}
+      >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
+            {budgetToDelete ? (
+              <>
+                <Text style={styles.modalText}>Delete budget?</Text>
+                <Text style={styles.deleteBudgetConfirmationText}>
+                  This permanently deletes "{budgetToDelete.name}". Its archived history will be kept.
+                </Text>
+                <View style={styles.deleteBudgetActions}>
+                  <Pressable
+                    style={styles.cancelDeleteButton}
+                    onPress={() => setBudgetToDelete(null)}
+                    disabled={deletingBudgetId !== null}
+                  >
+                    <Text style={styles.cancelDeleteText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.confirmDeleteButton}
+                    onPress={() => { void deleteSelectedBudget(); }}
+                    disabled={deletingBudgetId !== null}
+                  >
+                    {deletingBudgetId === budgetToDelete.budgetId
+                      ? <ActivityIndicator size="small" color="#FFFFFF" />
+                      : <Text style={styles.confirmDeleteText}>Delete</Text>}
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
             <Text style={styles.modalText}>Choose a budget</Text>
             <Pressable
               style={[styles.rowPadding, styles.createBudgetButton]}
@@ -1573,6 +1634,29 @@ function BudgetSwitcher({
                   onChangeText={setNewBudgetName}
                   autoFocus
                 />
+                <Text style={styles.templatePrompt}>Start with:</Text>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{selected: templateMode === 'current'}}
+                  style={[
+                    styles.templateOption,
+                    templateMode === 'current' && styles.selectedTemplateOption,
+                  ]}
+                  onPress={() => setTemplateMode('current')}
+                >
+                  <Text style={styles.templateOptionText}>Current budget (reset paid amounts)</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{selected: templateMode === 'blank'}}
+                  style={[
+                    styles.templateOption,
+                    templateMode === 'blank' && styles.selectedTemplateOption,
+                  ]}
+                  onPress={() => setTemplateMode('blank')}
+                >
+                  <Text style={styles.templateOptionText}>Blank template</Text>
+                </Pressable>
                 <Pressable
                   style={styles.loginButton}
                   onPress={async () => {
@@ -1583,9 +1667,10 @@ function BudgetSwitcher({
                     }
                     setIsCreatingBudget(true);
                     try {
-                      await onCreate(name);
+                      await onCreate(name, templateMode);
                       setNewBudgetName('');
                       setIsCreating(false);
+                      setTemplateMode('blank');
                       setVisible(false);
                     } finally {
                       setIsCreatingBudget(false);
@@ -1604,28 +1689,53 @@ function BudgetSwitcher({
               </View>
             ) : budgets.length === 0 ? <Text>No budgets available yet.</Text> : null}
             {!isRefreshing && budgets.map((budget) => (
-              <Pressable
+              <View
                 key={budget.budgetId}
                 style={[
-                  styles.rowPadding,
+                  styles.budgetOptionRow,
                   styles.rowBorder,
                   budget.budgetId === activeBudgetId && styles.activeBudgetOption,
                 ]}
-                onPress={() => selectBudget(budget)}
-                disabled={switchingBudgetId !== null}
               >
-                {switchingBudgetId === budget.budgetId ? (
-                  <View style={styles.inlineLoading}>
-                    <ActivityIndicator size="small" />
-                    <Text style={styles.customFont}>Opening budget...</Text>
-                  </View>
-                ) : <Text style={styles.customFont}>{budget.name}</Text>}
-                <Text style={styles.budgetIdText}>{budget.budgetId}</Text>
-              </Pressable>
+                <Pressable
+                  style={styles.budgetOption}
+                  onPress={() => selectBudget(budget)}
+                  disabled={switchingBudgetId !== null || deletingBudgetId !== null}
+                >
+                  {switchingBudgetId === budget.budgetId ? (
+                    <View style={styles.inlineLoading}>
+                      <ActivityIndicator size="small" />
+                      <Text style={styles.customFont}>Opening budget...</Text>
+                    </View>
+                  ) : <Text style={styles.customFont}>{budget.name}</Text>}
+                  <Text style={styles.budgetIdText}>{budget.budgetId}</Text>
+                </Pressable>
+                {budget.ownerEmail?.trim().toLowerCase() === userEmail.trim().toLowerCase() && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${budget.name}`}
+                    style={styles.deleteBudgetButton}
+                    onPress={() => setBudgetToDelete(budget)}
+                    disabled={deletingBudgetId !== null || switchingBudgetId !== null}
+                  >
+                    {deletingBudgetId === budget.budgetId
+                      ? <ActivityIndicator size="small" color="#B91C1C" />
+                      : <Text style={styles.deleteBudgetText}>Delete</Text>}
+                  </Pressable>
+                )}
+              </View>
             ))}
-            <Pressable style={styles.rowPadding} onPress={() => setVisible(false)}>
+            <Pressable
+              style={styles.rowPadding}
+              onPress={() => {
+                setBudgetToDelete(null);
+                setVisible(false);
+              }}
+            >
               <Text style={styles.forgotText}>Close</Text>
             </Pressable>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -2247,13 +2357,21 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setShowMenuButtons(false);
     };
 
-    const createBudget = async (name: string) => {
+    const createBudget = async (name: string, templateMode: BudgetTemplateMode) => {
+      const useCurrentTemplate = templateMode === 'current';
       const newBudget: Budget = {
         budgetId: UUID(),
         name,
         ownerEmail: userEmail,
-        budgetItems: [],
-        totalIncome: DEFAULT_TOTAL_INCOME,
+        budgetItems: useCurrentTemplate
+          ? budgetData.map((item, index) => ({
+              ...item,
+              id: String(index + 1),
+              amount: 0,
+              date: moveDueDateOneMonth(item.date),
+            }))
+          : [],
+        totalIncome: useCurrentTemplate ? totalIncome : DEFAULT_TOTAL_INCOME,
       };
       setBudgetId(newBudget.budgetId);
       setBudgetOwnerEmail(newBudget.ownerEmail);
@@ -2262,8 +2380,57 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       setTotalIncome(newBudget.totalIncome);
       setTransactionData([]);
       await SaveBudget(newBudget, userEmail);
-      setAvailableBudgets((currentBudgets) => [newBudget, ...currentBudgets]);
-      UpsertLocalBudget(newBudget, userEmail);
+      const locallySavedBudget = GetLocalBudgets(userEmail).find(
+        (savedBudget) => savedBudget.budgetId === newBudget.budgetId,
+      ) ?? newBudget;
+      setAvailableBudgets((currentBudgets) => [locallySavedBudget, ...currentBudgets]);
+    };
+
+    const deleteBudget = async (targetBudget: Budget) => {
+      try {
+        const locallySavedBudget = GetLocalBudgets(userEmail).find(
+          (savedBudget) => savedBudget.budgetId === targetBudget.budgetId,
+        );
+        if (!isLocalOnlyMode && !locallySavedBudget?.pendingSync) {
+          const response = await fetch(
+            `${apiUrl}/budgets/${encodeURIComponent(targetBudget.budgetId)}`,
+            { method: 'DELETE', headers: apiHeaders() },
+          );
+          if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Unable to delete budget.');
+          }
+        }
+
+        const remainingBudgets = GetLocalBudgets(userEmail).filter(
+          (savedBudget) => savedBudget.budgetId !== targetBudget.budgetId,
+        );
+        SaveLocalBudgets(remainingBudgets, userEmail);
+        setAvailableBudgets(remainingBudgets);
+
+        if (targetBudget.budgetId !== budgetId) return;
+
+        storage.remove(accountStorageKey(budget_key, userEmail));
+        storage.remove(accountStorageKey(budget_items_key, userEmail));
+        storage.remove(accountStorageKey(title_key, userEmail));
+        await ClearTransactionData(userEmail);
+        setTransactionData([]);
+
+        if (remainingBudgets.length > 0) {
+          await switchBudget(remainingBudgets[0]);
+        } else {
+          setBudgetId('');
+          setBudgetOwnerEmail(userEmail);
+          setBudgetTitle('');
+          setBudgetData([]);
+          setTotalIncome(DEFAULT_TOTAL_INCOME);
+        }
+      } catch (error) {
+        Alert.alert(
+          'Unable to delete budget',
+          error instanceof Error ? error.message : 'Please try again later.',
+        );
+      }
     };
 
   const getCurrentTransactions = async () => {
@@ -2385,9 +2552,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   const clearBudgetItems = () => {
     const emptyBudgetData: BudgetData[] = budgetData.map(item => {
-      const itemDate = new Date(item.date);
-      const oneMonthLater = new Date(itemDate.setMonth(itemDate.getMonth() + 1));
-      return {...item, amount: 0, date: oneMonthLater.toISOString().split('T')[0]};
+      return {...item, amount: 0, date: moveDueDateOneMonth(item.date)};
     });
     SaveBudgetItems(emptyBudgetData, userEmail);
     setBudgetData(emptyBudgetData);
@@ -2573,9 +2738,11 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                   <BudgetSwitcher
                     budgets={availableBudgets}
                     activeBudgetId={budgetId}
+                    userEmail={userEmail}
                     onRefresh={loadAvailableBudgets}
                     onSelect={switchBudget}
                     onCreate={createBudget}
+                    onDelete={deleteBudget}
                   />
                   {budgetOwnerEmail.toLowerCase() === userEmail.toLowerCase() && (
                     <BudgetProvider budgetId={budget.budgetId} budgetName={budget.name}>
@@ -2956,6 +3123,58 @@ const styles = StyleSheet.create({
   activeBudgetOption: {
     backgroundColor: '#E0F2FE',
   },
+  budgetOptionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginVertical: 4,
+    paddingHorizontal: 10,
+  },
+  budgetOption: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 10,
+  },
+  deleteBudgetButton: {
+    padding: 10,
+  },
+  deleteBudgetText: {
+    color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  deleteBudgetConfirmationText: {
+    color: '#374151',
+    marginBottom: 20,
+  },
+  deleteBudgetActions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  cancelDeleteButton: {
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  cancelDeleteText: {
+    color: '#1F2937',
+    fontWeight: '700',
+  },
+  confirmDeleteButton: {
+    alignItems: 'center',
+    backgroundColor: '#B91C1C',
+    borderRadius: 8,
+    justifyContent: 'center',
+    minWidth: 80,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  confirmDeleteText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   budgetIdText: {
     color: '#6B7280',
     fontSize: 10,
@@ -2975,6 +3194,22 @@ const styles = StyleSheet.create({
   createBudgetForm: {
     gap: 10,
     marginBottom: 10,
+  },
+  templatePrompt: {
+    fontWeight: '700',
+  },
+  templateOption: {
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 10,
+  },
+  selectedTemplateOption: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0369A1',
+  },
+  templateOptionText: {
+    color: '#1F2937',
   },
 
   innerContainer: {
