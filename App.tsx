@@ -1819,39 +1819,24 @@ async function SaveBudgetItemToHistoryPage(budget: Budget): Promise<boolean> {
   }
 }
 
-async function SaveTransactionItem(newTransaction: TransactionData, userEmail: string): Promise<boolean> {
-  try {
-    const scopedTransactionKey = accountStorageKey(transaction_items_key, userEmail);
-    const currentTransactions = await storage.getString(scopedTransactionKey)
-    let transactions: TransactionData[] = [];
-    if (currentTransactions){
-      transactions = (JSON.parse(currentTransactions) as Partial<TransactionData>[]).map(
-        (transaction) => ({
-          ...transaction,
-          userEmail: transaction.userEmail || 'Unknown user',
-        } as TransactionData),
-      );
-    }
-    // Assuming newTransaction is the transaction you want to add
-    transactions.push(newTransaction);
-    await storage.set(scopedTransactionKey, JSON.stringify(transactions));
-    return true;
-  } catch (error) {
-    console.error(error);
-    Alert.alert("Error", "Failed to save transaction item.");
-    return false;
+async function SaveTransactionItem(
+  budgetId: string,
+  newTransaction: TransactionData,
+): Promise<TransactionData> {
+  const {id, description, amount, date, info} = newTransaction;
+  const response = await fetch(
+    `${apiUrl}/budgets/${encodeURIComponent(budgetId)}/transactions`,
+    {
+      method: 'POST',
+      headers: apiHeaders(true),
+      body: JSON.stringify({id, description, amount, date, info}),
+    },
+  );
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.error || 'Unable to save the budget transaction.');
   }
-}
-
-async function ClearTransactionData(userEmail: string){
-  try {
-    storage.remove(accountStorageKey(transaction_items_key, userEmail));
-    return true;
-  } catch (error) {
-    console.error(error);
-    Alert.alert("Error", "Failed to clear transaction data.");
-    return false;
-  }
+  return result as TransactionData;
 }
 
 function BudgetHeader({
@@ -2262,7 +2247,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (!localBudget) return;
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2277,7 +2261,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       );
       if (localBudget?.pendingSync) {
         await SaveBudget(localBudget, userEmail);
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(localBudget.budgetId);
         setBudgetTitle(localBudget.name);
@@ -2296,7 +2279,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         if (!response.ok) {
           throw new Error(result.error || 'Unable to switch budgets.');
         }
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2308,7 +2290,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           (budget) => budget.budgetId === selectedBudget.budgetId,
         );
         if (localBudget) {
-          await ClearTransactionData(userEmail);
           setTransactionData([]);
           setBudgetId(localBudget.budgetId);
           setBudgetTitle(localBudget.name);
@@ -2328,7 +2309,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       if (isLocalOnlyMode) {
         const result = getAcceptedLocalBudget(userEmail, invitation.budgetId);
         if (!result) throw new Error('Unable to load the shared budget.');
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
         setBudgetId(result.budgetId);
         setBudgetTitle(result.name);
@@ -2353,7 +2333,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         throw new Error(result.error || 'Unable to load the shared budget.');
       }
 
-      await ClearTransactionData(userEmail);
       setTransactionData([]);
       setBudgetId(result.budgetId);
       setBudgetTitle(result.name);
@@ -2421,7 +2400,6 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         storage.remove(accountStorageKey(budget_key, userEmail));
         storage.remove(accountStorageKey(budget_items_key, userEmail));
         storage.remove(accountStorageKey(title_key, userEmail));
-        await ClearTransactionData(userEmail);
         setTransactionData([]);
 
         if (remainingBudgets.length > 0) {
@@ -2441,39 +2419,35 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       }
     };
 
-  const getCurrentTransactions = async () => {
-    try {
-      const result = storage.getString(accountStorageKey(transaction_items_key, userEmail))
-      if (result){
-        setTransactionData(
-          (JSON.parse(result) as Partial<TransactionData>[]).map((transaction) => ({
-            ...transaction,
-            userEmail: transaction.userEmail || 'Unknown user',
-          } as TransactionData)),
-        )
-      }
+  const getCurrentTransactions = async (targetBudgetId: string): Promise<TransactionData[]> => {
+    const response = await fetch(
+      `${apiUrl}/budgets/${encodeURIComponent(targetBudgetId)}/transactions`,
+      {headers: apiHeaders()},
+    );
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Unable to load budget transactions.');
     }
-    catch (error) {
-      console.log(error)
+    if (!Array.isArray(result)) {
+      throw new Error('The server returned an invalid transaction list.');
     }
-  }
-
-  const clearCurrentTransactions = async () => {
-    try {
-      await ClearTransactionData(userEmail);
-      setTransactionData([]);
-    }
-    catch (error) {
-      console.log(error)
-    }
+    return result as TransactionData[];
   }
   
   const saveCurrentTransaction = async (newTransaction: TransactionData) => {
     try {
-      await SaveTransactionItem(newTransaction, userEmail);
-      getCurrentTransactions();
+      if (!budgetId) throw new Error('Select a budget before recording changes.');
+      await budgetSaveRequests.get(budgetId);
+      const savedTransaction = await SaveTransactionItem(budgetId, newTransaction);
+      setTransactionData((currentTransactions) => [
+        savedTransaction,
+        ...currentTransactions.filter((transaction) => transaction.id !== savedTransaction.id),
+      ]);
     } catch (error) {
-      console.log(error)
+      Alert.alert(
+        'Unable to save transaction',
+        error instanceof Error ? error.message : 'Please try again later.',
+      );
     }
   }
 
@@ -2481,7 +2455,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
     const trimmedTitle = newTitle.trim();
     if (!trimmedTitle || trimmedTitle === previousTitle.trim()) return;
     saveCurrentTransaction({
-      id: `updateBudgetTitle${Date.now()}`,
+      id: UUID(),
       description: 'Budget title updated',
       amount: 0,
       date: new Date().toISOString(),
@@ -2500,6 +2474,16 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   };
 
   const updateTotalIncome = (amount: number) => {
+    if (amount !== totalIncome) {
+      saveCurrentTransaction({
+        id: UUID(),
+        description: 'Total income updated',
+        amount: 0,
+        date: new Date().toISOString(),
+        info: `Total monthly income changed from $${totalIncome} to $${amount}.`,
+        userEmail,
+      });
+    }
     setTotalIncome(amount);
     void SaveBudget({...budget, totalIncome: amount}, userEmail);
   };
@@ -2528,9 +2512,31 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
 
   useEffect(() => {
     getCurrentBudget();
-    getCurrentTransactions();
     void loadAvailableBudgets();
   }, []);
+
+  useEffect(() => {
+    let isCurrentBudget = true;
+    if (!budgetId || isLoadingBudget) {
+      setTransactionData([]);
+      return;
+    }
+
+    void getCurrentTransactions(budgetId)
+      .then((transactions) => {
+        if (isCurrentBudget) setTransactionData(transactions);
+      })
+      .catch((error: unknown) => {
+        if (!isCurrentBudget) return;
+        Alert.alert(
+          'Unable to load transactions',
+          error instanceof Error ? error.message : 'Please try again later.',
+        );
+      });
+    return () => {
+      isCurrentBudget = false;
+    };
+  }, [budgetId, isLoadingBudget]);
 
   useEffect(() => {
     if (isLoadingBudget) return;
@@ -2578,7 +2584,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           return item;
       });
       saveCurrentTransaction({
-        id: `updateAmount${Date.now()}`,
+        id: UUID(),
         description: `${updatedItem.find(item => item.id === id)?.description} amount updated`,
         amount: newAmount,
         date: new Date().toISOString(),
@@ -2597,7 +2603,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
           return item;
       });
       saveCurrentTransaction({
-        id: `adjustBudgetAmount${Date.now()}`,
+        id: UUID(),
         description: `${updatedItem.find(item => item.id === id)?.description} budget amount updated`,
         amount: 0,
         date: new Date().toISOString(),
@@ -2617,7 +2623,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       return item;
     });
     saveCurrentTransaction({
-      id: `updateDescription${Date.now()}`,
+      id: UUID(),
       description: `${updatedItem.find(item => item.id === id)?.description} description updated`,
       amount: 0,
       date: new Date().toISOString(),
@@ -2629,6 +2635,18 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
   };
 
   const updateBudgetType = (id: string, budgetType: BudgetType) => {
+    const previousType = budgetData.find((item) => item.id === id)?.budgetType;
+    if (previousType && previousType !== budgetType) {
+      const description = budgetData.find((item) => item.id === id)?.description;
+      saveCurrentTransaction({
+        id: UUID(),
+        description: `${description} budget type updated`,
+        amount: 0,
+        date: new Date().toISOString(),
+        info: `"${description}" budget type changed from ${previousType} to ${budgetType}.`,
+        userEmail,
+      });
+    }
     const updatedItems = budgetData.map(item => (
       item.id === id ? {...item, budgetType} : item
     ));
@@ -2644,7 +2662,7 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
     return item;
   });
   saveCurrentTransaction({
-    id: `updateDate${Date.now()}`,
+    id: UUID(),
     description: `${updatedItem.find(item => item.id === id)?.description} due date updated`,
     amount: 0,
     date: new Date().toISOString(),
@@ -2658,7 +2676,7 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
 const removeBudgetItem = (id: string) => {
   const removedItem = budgetData.find(item => item.id === id);
       saveCurrentTransaction({
-      id: `remove${Date.now()}`,
+      id: UUID(),
       description: `${removedItem?.description}`,
       amount: Number(removedItem?.budget),
       date: new Date().toISOString(),
@@ -2680,7 +2698,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
     const itemWithId = { ...budgetItem, id: (largestExistingId + 1).toString() };
               let budgetDataWithAddedItem = budgetData.concat(itemWithId)
               saveCurrentTransaction({
-                id: `${Date.now()}`,
+                id: UUID(),
                 description: `${budgetItem.description}`,
                 amount: budgetItem.budget,
                 date: new Date().toISOString(),
@@ -2853,7 +2871,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                     SaveLocalBudgets(remainingBudgets, userEmail);
                     setAvailableBudgets(remainingBudgets);
                     clearBudgetItems();
-                    await clearCurrentTransactions();
+                    setTransactionData([]);
                     await loadAvailableBudgets();
                   }}>
 

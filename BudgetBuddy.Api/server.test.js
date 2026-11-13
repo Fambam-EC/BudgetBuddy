@@ -44,6 +44,7 @@ test('startup initialization creates every application table', async () => {
     'password_reset_tokens',
     'budgets',
     'budget_invitations',
+    'budget_transactions',
     'budget_history',
   ]) {
     assert.ok(
@@ -210,6 +211,86 @@ test('budget save persists total income with the budget record', async () => {
     assert.equal((await response.json()).totalIncome, 4625.75);
     assert.match(savedBudget.query, /budget_items, total_income, updated_at/);
     assert.equal(savedBudget.parameters[4], 4625.75);
+  } finally {
+    pool.query = originalQuery;
+  }
+});
+
+test('budget transactions are shared and attribute edits to the authenticated user', async () => {
+  const originalQuery = pool.query;
+  const queries = [];
+  pool.query = async (statement, parameters = []) => {
+    const query = String(statement);
+    queries.push({ query, parameters });
+    if (query.includes('SELECT 1') && query.includes('FROM budgets b')) {
+      return { rows: [{}], rowCount: 1 };
+    }
+    if (query.includes('INSERT INTO budget_transactions')) {
+      return {
+        rows: [{
+          id: 'transaction-1',
+          description: 'Rent amount updated',
+          amount: 25,
+          date: '2026-11-13T19:00:00.000Z',
+          info: 'Rent updated by $25.',
+          userEmail: 'collaborator@example.com',
+        }],
+        rowCount: 1,
+      };
+    }
+    if (query.includes('SELECT t.transaction_id')) {
+      return {
+        rows: [{
+          id: 'transaction-1',
+          description: 'Rent amount updated',
+          amount: 25,
+          date: '2026-11-13T19:00:00.000Z',
+          info: 'Rent updated by $25.',
+          userEmail: 'collaborator@example.com',
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  };
+
+  try {
+    const token = jwt.sign({ sub: 'collaborator@example.com' }, process.env.JWT_SECRET);
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    const saveResponse = await fetch(`${baseUrl}/budgets/shared-budget/transactions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        id: 'transaction-1',
+        description: 'Rent amount updated',
+        amount: 25,
+        date: '2026-11-13T19:00:00.000Z',
+        info: 'Rent updated by $25.',
+        userEmail: 'spoofed@example.com',
+      }),
+    });
+
+    assert.equal(saveResponse.status, 201);
+    assert.equal((await saveResponse.json()).userEmail, 'collaborator@example.com');
+    const insert = queries.find(({ query }) => query.includes('INSERT INTO budget_transactions'));
+    assert.equal(insert.parameters[0], 'shared-budget');
+    assert.equal(insert.parameters[6], 'collaborator@example.com');
+    assert.match(insert.query, /user_email/);
+
+    const loadResponse = await fetch(`${baseUrl}/budgets/shared-budget/transactions`, {
+      headers,
+    });
+    assert.equal(loadResponse.status, 200);
+    assert.equal((await loadResponse.json())[0].id, 'transaction-1');
+    assert.ok(
+      queries.some(({ query }) =>
+        query.includes('invitation_status = \'accepted\'') && query.includes('FROM budgets b'),
+      ),
+      'transaction access should include accepted budget collaborators',
+    );
   } finally {
     pool.query = originalQuery;
   }

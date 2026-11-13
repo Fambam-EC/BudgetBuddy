@@ -194,6 +194,22 @@ async function ensureBudgetTables() {
     ON budget_invitations (LOWER(email), invitation_status)
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_transactions (
+      budget_id TEXT NOT NULL REFERENCES budgets(budget_id) ON DELETE CASCADE,
+      transaction_id TEXT NOT NULL,
+      description TEXT NOT NULL,
+      amount NUMERIC NOT NULL,
+      occurred_at TIMESTAMPTZ NOT NULL,
+      info TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      PRIMARY KEY (budget_id, transaction_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS budget_transactions_budget_date_idx
+    ON budget_transactions (budget_id, occurred_at DESC)
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS budget_history (
       history_id TEXT PRIMARY KEY,
       owner_email TEXT NOT NULL,
@@ -757,6 +773,113 @@ app.get('/budgets/:budgetId', requireAuthentication, async (req, res) => {
   } catch (err) {
     console.error('Budget lookup failed', err);
     return res.status(500).json({ error: 'Unable to load budget' });
+  }
+});
+
+app.get('/budgets/:budgetId/transactions', requireAuthentication, async (req, res) => {
+  const { budgetId } = req.params;
+  if (!budgetId.trim()) {
+    return res.status(400).json({ error: 'A budgetId is required' });
+  }
+
+  try {
+    await ensureBudgetTables();
+    const access = await pool.query(
+      `SELECT 1
+       FROM budgets b
+       WHERE b.budget_id = $1
+         AND (
+           LOWER(b.owner_email) = LOWER($2)
+           OR EXISTS (
+             SELECT 1
+             FROM budget_invitations i
+             WHERE i.budget_id = b.budget_id
+               AND LOWER(i.email) = LOWER($2)
+               AND i.invitation_status = 'accepted'
+           )
+         )`,
+      [budgetId.trim(), req.user.email],
+    );
+    if (access.rowCount === 0) {
+      return res.status(404).json({ error: 'Budget not found or access denied' });
+    }
+
+    const result = await pool.query(
+      `SELECT t.transaction_id AS id, t.description, t.amount::float8 AS amount,
+              t.occurred_at AS date, t.info, t.user_email AS "userEmail"
+       FROM budget_transactions t
+       WHERE t.budget_id = $1
+       ORDER BY t.occurred_at DESC`,
+      [budgetId.trim()],
+    );
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Budget transactions load failed', err);
+    return res.status(500).json({ error: 'Unable to load budget transactions' });
+  }
+});
+
+app.post('/budgets/:budgetId/transactions', requireAuthentication, async (req, res) => {
+  const { budgetId } = req.params;
+  const { id, description, amount, date, info } = req.body || {};
+  if (
+    !budgetId.trim() ||
+    typeof id !== 'string' || !id.trim() ||
+    typeof description !== 'string' ||
+    typeof amount !== 'number' || !Number.isFinite(amount) ||
+    typeof date !== 'string' || !Number.isFinite(Date.parse(date)) ||
+    typeof info !== 'string'
+  ) {
+    return res.status(400).json({
+      error: 'A budgetId, id, description, valid amount, date, and info are required',
+    });
+  }
+
+  try {
+    await ensureBudgetTables();
+    const access = await pool.query(
+      `SELECT 1
+       FROM budgets b
+       WHERE b.budget_id = $1
+         AND (
+           LOWER(b.owner_email) = LOWER($2)
+           OR EXISTS (
+             SELECT 1
+             FROM budget_invitations i
+             WHERE i.budget_id = b.budget_id
+               AND LOWER(i.email) = LOWER($2)
+               AND i.invitation_status = 'accepted'
+           )
+         )`,
+      [budgetId.trim(), req.user.email],
+    );
+    if (access.rowCount === 0) {
+      return res.status(404).json({ error: 'Budget not found or access denied' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO budget_transactions
+         (budget_id, transaction_id, description, amount, occurred_at, info, user_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING transaction_id AS id, description, amount::float8 AS amount,
+                 occurred_at AS date, info, user_email AS "userEmail"`,
+      [
+        budgetId.trim(),
+        id.trim(),
+        description,
+        amount,
+        date,
+        info,
+        req.user.email,
+      ],
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Transaction already exists' });
+    }
+    console.error('Budget transaction save failed', err);
+    return res.status(500).json({ error: 'Unable to save budget transaction' });
   }
 });
 
