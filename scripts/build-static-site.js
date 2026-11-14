@@ -16,6 +16,7 @@ const pages = [
   'trainllm.html',
   'ethan.html',
   'lincoln.html',
+  'anica.html',
 ];
 
 fs.mkdirSync(fontDirectory, { recursive: true });
