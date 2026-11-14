@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#fff8e9">
+    <meta name="description" content="Practice fourth-grade math facts with unlimited, friendly flash cards.">
+    <title>Lincoln's Math Cards</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: #23314b;
+        background: #fff8e9;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --blue: #4268c7;
+        --blue-dark: #3152a7;
+        --ink: #23314b;
+        --muted: #64708a;
+        --line: #e6dfd0;
+        --surface: #fff;
+        --yellow: #ffd66b;
+        --green: #27754d;
+        --red: #ad453e;
+      }
+
+      * { box-sizing: border-box; }
+      body { min-width: 320px; min-height: 100vh; margin: 0; }
+      button, input, select { font: inherit; }
+      button:focus-visible, input:focus-visible, select:focus-visible {
+        outline: 3px solid #e09e28;
+        outline-offset: 3px;
+      }
+
+      .page {
+        width: min(100% - 32px, 760px);
+        margin: 0 auto;
+        padding: 32px 0 42px;
+      }
+
+      header { text-align: center; }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 13px;
+        border: 1px solid #f1d992;
+        border-radius: 999px;
+        background: #fff2c9;
+        color: #725312;
+        font-size: .82rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+      }
+      h1 {
+        margin: 15px 0 8px;
+        color: var(--ink);
+        font-size: clamp(2.2rem, 8vw, 3.7rem);
+        letter-spacing: -.055em;
+        line-height: 1;
+      }
+      header p {
+        max-width: 470px;
+        margin: 0 auto;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.6;
+      }
+
+      main { margin-top: 28px; }
+      .settings, .stats {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .settings label { color: var(--muted); font-size: .92rem; font-weight: 700; }
+      select {
+        min-height: 44px;
+        padding: 8px 38px 8px 13px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .stats { gap: 10px; margin: 18px 0; }
+      .stat {
+        min-width: 120px;
+        padding: 9px 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgb(255 255 255 / 70%);
+        text-align: center;
+      }
+      .stat strong { display: block; color: var(--blue); font-size: 1.15rem; }
+      .stat span { color: var(--muted); font-size: .76rem; font-weight: 700; }
+
+      .card {
+        position: relative;
+        overflow: hidden;
+        padding: clamp(24px, 7vw, 48px);
+        border: 2px solid #eee4cf;
+        border-radius: 26px;
+        background: var(--surface);
+        box-shadow: 0 14px 35px rgb(68 59 38 / 8%);
+        text-align: center;
+      }
+      .card::before, .card::after {
+        position: absolute;
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        background: #fff5d8;
+        content: "";
+        pointer-events: none;
+      }
+      .card::before { top: -60px; left: -50px; }
+      .card::after { right: -55px; bottom: -65px; }
+      .card-label {
+        position: relative;
+        margin: 0;
+        color: var(--blue);
+        font-size: .78rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+      .question {
+        position: relative;
+        margin: 17px 0;
+        color: var(--ink);
+        font-size: clamp(3rem, 12vw, 5.4rem);
+        font-weight: 800;
+        letter-spacing: -.06em;
+        line-height: 1.05;
+      }
+      .answer-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      input {
+        width: min(190px, 100%);
+        min-height: 52px;
+        padding: 8px 14px;
+        border: 2px solid #dce2f1;
+        border-radius: 13px;
+        background: #fbfcff;
+        color: var(--ink);
+        font-size: 1.35rem;
+        font-weight: 800;
+        text-align: center;
+      }
+      input::placeholder { color: #9aa4b8; font-size: 1rem; font-weight: 600; }
+      .button {
+        min-height: 48px;
+        padding: 11px 18px;
+        border: 0;
+        border-radius: 13px;
+        background: var(--blue);
+        color: #fff;
+        font-weight: 800;
+        cursor: pointer;
+        transition: background 150ms ease, transform 150ms ease;
+      }
+      .button:hover { background: var(--blue-dark); transform: translateY(-1px); }
+      .button:disabled { background: #9aa7c7; cursor: default; transform: none; }
+      .button.secondary {
+        border: 1px solid #d6deef;
+        background: #f3f6ff;
+        color: var(--blue-dark);
+      }
+      .button.secondary:hover { background: #e8edff; }
+      .button.next { background: #f2bf45; color: #443513; }
+      .button.next:hover { background: #e5ae2e; }
+
+      .feedback {
+        min-height: 1.6em;
+        margin: 16px 0 0;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .feedback.correct { color: var(--green); }
+      .feedback.try-again { color: var(--red); }
+      .revealed {
+        min-height: 1.5em;
+        margin: 8px 0 0;
+        color: var(--blue-dark);
+        font-size: 1.3rem;
+        font-weight: 800;
+      }
+      .card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .encouragement {
+        margin: 20px 0 0;
+        color: var(--muted);
+        font-size: .9rem;
+        text-align: center;
+      }
+
+      @media (max-width: 480px) {
+        .page { padding-top: 24px; }
+        .card { border-radius: 20px; }
+        .answer-row { display: grid; grid-template-columns: 1fr; }
+        input { width: 100%; }
+        .answer-row .button { width: 100%; }
+        .card-actions .button { flex: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="badge" aria-label="Fourth-grade math practice">⭐ Math practice · Grade 4</div>
+        <h1>Lincoln's Math Cards</h1>
+        <p>One card at a time. Take your time, think it through, and keep going for as long as you like!</p>
+      </header>
+
+      <main>
+        <div class="settings">
+          <label for="operation">Practice</label>
+          <select id="operation">
+            <option value="mixed">A little bit of everything</option>
+            <option value="multiplication">Multiplication</option>
+            <option value="division">Division</option>
+            <option value="addition">Addition</option>
+            <option value="subtraction">Subtraction</option>
+          </select>
+        </div>
+
+        <div class="stats" aria-label="Your practice score">
+          <div class="stat"><strong id="correct-count">0</strong><span>correct answers</span></div>
+          <div class="stat"><strong id="streak-count">0</strong><span>in a row</span></div>
+        </div>
+
+        <section class="card" aria-labelledby="question">
+          <p class="card-label" id="card-label">Your next math fact</p>
+          <p class="question" id="question" aria-live="polite"></p>
+          <form id="answer-form">
+            <div class="answer-row">
+              <input
+                id="answer-input"
+                type="number"
+                inputmode="numeric"
+                step="1"
+                autocomplete="off"
+                aria-label="Your answer"
+                placeholder="Your answer"
+                required
+              >
+              <button class="button" id="check-button" type="submit">Check answer</button>
+            </div>
+          </form>
+          <p class="feedback" id="feedback" role="status" aria-live="polite">You can do it!</p>
+          <p class="revealed" id="revealed-answer" aria-live="polite"></p>
+          <div class="card-actions">
+            <button class="button secondary" id="show-answer" type="button">Show answer</button>
+            <button class="button next" id="next-card" type="button">Next card →</button>
+          </div>
+        </section>
+        <p class="encouragement">No timer, no finish line—just keep practicing and getting stronger! 💪</p>
+      </main>
+    </div>
+
+    <script>
+      const operationSelect = document.getElementById("operation");
+      const questionElement = document.getElementById("question");
+      const answerForm = document.getElementById("answer-form");
+      const answerInput = document.getElementById("answer-input");
+      const checkButton = document.getElementById("check-button");
+      const feedbackElement = document.getElementById("feedback");
+      const revealedAnswer = document.getElementById("revealed-answer");
+      const correctCountElement = document.getElementById("correct-count");
+      const streakCountElement = document.getElementById("streak-count");
+      let currentAnswer;
+      let previousQuestion = "";
+      let correctCount = 0;
+      let streakCount = 0;
+      let answeredCorrectly = false;
+
+      function randomWholeNumber(maximum) {
+        return Math.floor(Math.random() * (maximum + 1));
+      }
+
+      function makeProblem(operation) {
+        let first;
+        let second;
+        let answer;
+        let question;
+
+        if (operation === "multiplication") {
+          first = randomWholeNumber(12);
+          second = randomWholeNumber(12);
+          answer = first * second;
+          question = `${first} × ${second}`;
+        } else if (operation === "division") {
+          second = randomWholeNumber(11) + 1;
+          answer = randomWholeNumber(12);
+          first = second * answer;
+          question = `${first} ÷ ${second}`;
+        } else if (operation === "addition") {
+          first = randomWholeNumber(999);
+          second = randomWholeNumber(999);
+          answer = first + second;
+          question = `${first} + ${second}`;
+        } else if (operation === "subtraction") {
+          first = randomWholeNumber(999);
+          second = randomWholeNumber(first);
+          answer = first - second;
+          question = `${first} − ${second}`;
+        } else {
+          const operations = ["multiplication", "division", "addition", "subtraction"];
+          return makeProblem(operations[randomWholeNumber(operations.length - 1)]);
+        }
+
+        return { question, answer };
+      }
+
+      function dealCard() {
+        const selectedOperation = operationSelect.value;
+        let problem = makeProblem(selectedOperation);
+        let attempts = 0;
+
+        while (problem.question === previousQuestion && attempts < 10) {
+          problem = makeProblem(selectedOperation);
+          attempts += 1;
+        }
+
+        previousQuestion = problem.question;
+        currentAnswer = problem.answer;
+        questionElement.textContent = problem.question;
+        answerInput.value = "";
+        answerInput.disabled = false;
+        checkButton.disabled = false;
+        feedbackElement.textContent = "You can do it!";
+        feedbackElement.className = "feedback";
+        revealedAnswer.textContent = "";
+        answeredCorrectly = false;
+        answerInput.focus();
+      }
+
+      answerForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (answeredCorrectly) return;
+
+        const guess = answerInput.valueAsNumber;
+        if (!Number.isInteger(guess)) {
+          feedbackElement.textContent = "Type a whole-number answer first.";
+          feedbackElement.className = "feedback try-again";
+          return;
+        }
+
+        if (guess === currentAnswer) {
+          correctCount += 1;
+          streakCount += 1;
+          correctCountElement.textContent = correctCount;
+          streakCountElement.textContent = streakCount;
+          feedbackElement.textContent = "That's right! Great work! 🎉";
+          feedbackElement.className = "feedback correct";
+          answeredCorrectly = true;
+          answerInput.disabled = true;
+          checkButton.disabled = true;
+        } else {
+          streakCount = 0;
+          streakCountElement.textContent = streakCount;
+          feedbackElement.textContent = "Not quite—try once more, or show the answer.";
+          feedbackElement.className = "feedback try-again";
+        }
+      });
+
+      document.getElementById("show-answer").addEventListener("click", () => {
+        revealedAnswer.textContent = `The answer is ${currentAnswer}.`;
+      });
+      document.getElementById("next-card").addEventListener("click", dealCard);
+      operationSelect.addEventListener("change", dealCard);
+      dealCard();
+    </script>
+  </body>
+</html>

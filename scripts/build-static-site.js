@@ -6,7 +6,17 @@ const outputDirectory = path.join(projectRoot, 'dist');
 const fontDirectory = path.join(outputDirectory, 'assets', 'fonts');
 const webPublicDirectory = path.join(projectRoot, 'web', 'public');
 
-const pages = ['policy.html', 'support.html', 'jsonvalidator.html', 'requestlab.html', 'crontab.html', 'learncss.html', 'trainllm.html', 'ethan.html'];
+const pages = [
+  'policy.html',
+  'support.html',
+  'jsonvalidator.html',
+  'requestlab.html',
+  'crontab.html',
+  'learncss.html',
+  'trainllm.html',
+  'ethan.html',
+  'lincoln.html',
+];
 
 fs.mkdirSync(fontDirectory, { recursive: true });
 fs.cpSync(webPublicDirectory, outputDirectory, { recursive: true });
