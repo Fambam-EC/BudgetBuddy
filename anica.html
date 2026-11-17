@@ -368,7 +368,7 @@
         } else if (operation === "skip-counting") {
           const step = [2, 5, 10][randomWholeNumber(2)];
           first = randomWholeNumber(step === 10 ? 9 : 10) + 1;
-          answer = first * step;
+          answer = (first + 1) * step;
           question = `${first * step - step}, ${first * step} ... what's next? (by ${step}s)`;
         } else if (operation === "equal-groups") {
           first = randomWholeNumber(5) + 2;
