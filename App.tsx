@@ -1823,13 +1823,13 @@ async function SaveTransactionItem(
   budgetId: string,
   newTransaction: TransactionData,
 ): Promise<TransactionData> {
-  const {id, description, amount, date, info} = newTransaction;
+  const {id, description, amount, timestamp, info} = newTransaction;
   const response = await fetch(
     `${apiUrl}/budgets/${encodeURIComponent(budgetId)}/transactions`,
     {
       method: 'POST',
       headers: apiHeaders(true),
-      body: JSON.stringify({id, description, amount, date, info}),
+      body: JSON.stringify({id, description, amount, timestamp, info}),
     },
   );
   const result = await response.json();
@@ -2091,15 +2091,15 @@ type TransactionData = {
   id: string;
   description: string;
   amount: number;
-  date: string;
+  timestamp: string;
   info: string;
   userEmail: string;
 }
 
 function sortTransactionsNewestFirst(transactions: TransactionData[]): TransactionData[] {
   return [...transactions].sort((first, second) => {
-    const firstDate = Date.parse(first.date);
-    const secondDate = Date.parse(second.date);
+    const firstDate = Date.parse(first.timestamp);
+    const secondDate = Date.parse(second.timestamp);
     const firstIsValid = Number.isFinite(firstDate);
     const secondIsValid = Number.isFinite(secondDate);
 
@@ -2458,7 +2458,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       id: UUID(),
       description: 'Budget title updated',
       amount: 0,
-      date: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
       info: `Budget title changed from "${previousTitle}" to "${trimmedTitle}".`,
       userEmail,
     });
@@ -2479,7 +2479,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         id: UUID(),
         description: 'Total income updated',
         amount: 0,
-        date: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         info: `Total monthly income changed from $${totalIncome} to $${amount}.`,
         userEmail,
       });
@@ -2587,7 +2587,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         id: UUID(),
         description: `${updatedItem.find(item => item.id === id)?.description} amount updated`,
         amount: newAmount,
-        date: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         info: `"${updatedItem.find(item => item.id === id)?.description}" amount updated by $${newAmount}.`,
         userEmail,
       })
@@ -2606,7 +2606,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         id: UUID(),
         description: `${updatedItem.find(item => item.id === id)?.description} budget amount updated`,
         amount: 0,
-        date: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         info: `"${updatedItem.find(item => item.id === id)?.description}" budget amount updated to $${newAmount}.`,
         userEmail,
       })
@@ -2626,7 +2626,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
       id: UUID(),
       description: `${updatedItem.find(item => item.id === id)?.description} description updated`,
       amount: 0,
-      date: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
       info: `"${oldDescription}" description updated to "${newDescription}".`,
       userEmail,
     })
@@ -2642,7 +2642,7 @@ function BudgetComponent({navigation, onLogout, userEmail} : {
         id: UUID(),
         description: `${description} budget type updated`,
         amount: 0,
-        date: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         info: `"${description}" budget type changed from ${previousType} to ${budgetType}.`,
         userEmail,
       });
@@ -2665,7 +2665,7 @@ const updateBudgetDueDate = (id: string, newDate: Date) => {
     id: UUID(),
     description: `${updatedItem.find(item => item.id === id)?.description} due date updated`,
     amount: 0,
-    date: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
     info: `"${updatedItem.find(item => item.id === id)?.description}" due date updated to ${newDate.toISOString().split('T')[0]}.`,
     userEmail,
   })
@@ -2679,7 +2679,7 @@ const removeBudgetItem = (id: string) => {
       id: UUID(),
       description: `${removedItem?.description}`,
       amount: Number(removedItem?.budget),
-      date: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
       info: `"${removedItem?.description}" amount $${removedItem?.budget} removed.`,
       userEmail,
     })
@@ -2701,7 +2701,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 id: UUID(),
                 description: `${budgetItem.description}`,
                 amount: budgetItem.budget,
-                date: new Date().toISOString(),
+                timestamp: new Date().toISOString(),
                 info: `"${budgetItem.description}" amount $${budgetItem.budget} added.`,
                 userEmail,
               })
@@ -2849,9 +2849,12 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                       {sortTransactionsNewestFirst(transactionData).map((transaction) => (
                         <View key={transaction.id}>
                           <Text>{transaction.info}</Text>
-                                <Text key={`${transaction.id}-user`} style={styles.transactionUser}>
-                                  By: {transaction.userEmail}
-                                </Text>
+                          <Text style={styles.transactionUser}>
+                            At: {new Date(transaction.timestamp).toLocaleString()}
+                          </Text>
+                          <Text style={styles.transactionUser}>
+                            By: {transaction.userEmail}
+                          </Text>
                         </View>
                       ))}
                     </View>

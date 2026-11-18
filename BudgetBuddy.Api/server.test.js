@@ -232,6 +232,7 @@ test('budget transactions are shared and attribute edits to the authenticated us
           description: 'Rent amount updated',
           amount: 25,
           date: '2026-11-13T19:00:00.000Z',
+          timestamp: '2026-11-13T19:00:00.000Z',
           info: 'Rent updated by $25.',
           userEmail: 'collaborator@example.com',
         }],
@@ -245,6 +246,7 @@ test('budget transactions are shared and attribute edits to the authenticated us
           description: 'Rent amount updated',
           amount: 25,
           date: '2026-11-13T19:00:00.000Z',
+          timestamp: '2026-11-13T19:00:00.000Z',
           info: 'Rent updated by $25.',
           userEmail: 'collaborator@example.com',
         }],
@@ -267,14 +269,17 @@ test('budget transactions are shared and attribute edits to the authenticated us
         id: 'transaction-1',
         description: 'Rent amount updated',
         amount: 25,
-        date: '2026-11-13T19:00:00.000Z',
+        timestamp: '2026-11-13T19:00:00.000Z',
         info: 'Rent updated by $25.',
         userEmail: 'spoofed@example.com',
       }),
     });
 
     assert.equal(saveResponse.status, 201);
-    assert.equal((await saveResponse.json()).userEmail, 'collaborator@example.com');
+    const savedTransaction = await saveResponse.json();
+    assert.equal(savedTransaction.userEmail, 'collaborator@example.com');
+    assert.equal(savedTransaction.timestamp, '2026-11-13T19:00:00.000Z');
+    assert.equal(savedTransaction.date, savedTransaction.timestamp);
     const insert = queries.find(({ query }) => query.includes('INSERT INTO budget_transactions'));
     assert.equal(insert.parameters[0], 'shared-budget');
     assert.equal(insert.parameters[6], 'collaborator@example.com');
@@ -284,7 +289,10 @@ test('budget transactions are shared and attribute edits to the authenticated us
       headers,
     });
     assert.equal(loadResponse.status, 200);
-    assert.equal((await loadResponse.json())[0].id, 'transaction-1');
+    const transactions = await loadResponse.json();
+    assert.equal(transactions[0].id, 'transaction-1');
+    assert.equal(transactions[0].timestamp, '2026-11-13T19:00:00.000Z');
+    assert.equal(transactions[0].date, transactions[0].timestamp);
     assert.ok(
       queries.some(({ query }) =>
         query.includes('invitation_status = \'accepted\'') && query.includes('FROM budgets b'),

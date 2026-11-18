@@ -806,7 +806,8 @@ app.get('/budgets/:budgetId/transactions', requireAuthentication, async (req, re
 
     const result = await pool.query(
       `SELECT t.transaction_id AS id, t.description, t.amount::float8 AS amount,
-              t.occurred_at AS date, t.info, t.user_email AS "userEmail"
+              t.occurred_at AS date, t.occurred_at AS "timestamp",
+              t.info, t.user_email AS "userEmail"
        FROM budget_transactions t
        WHERE t.budget_id = $1
        ORDER BY t.occurred_at DESC`,
@@ -821,17 +822,18 @@ app.get('/budgets/:budgetId/transactions', requireAuthentication, async (req, re
 
 app.post('/budgets/:budgetId/transactions', requireAuthentication, async (req, res) => {
   const { budgetId } = req.params;
-  const { id, description, amount, date, info } = req.body || {};
+  const { id, description, amount, info } = req.body || {};
+  const timestamp = req.body?.timestamp ?? req.body?.date;
   if (
     !budgetId.trim() ||
     typeof id !== 'string' || !id.trim() ||
     typeof description !== 'string' ||
     typeof amount !== 'number' || !Number.isFinite(amount) ||
-    typeof date !== 'string' || !Number.isFinite(Date.parse(date)) ||
+    typeof timestamp !== 'string' || !Number.isFinite(Date.parse(timestamp)) ||
     typeof info !== 'string'
   ) {
     return res.status(400).json({
-      error: 'A budgetId, id, description, valid amount, date, and info are required',
+      error: 'A budgetId, id, description, valid amount, timestamp, and info are required',
     });
   }
 
@@ -862,13 +864,14 @@ app.post('/budgets/:budgetId/transactions', requireAuthentication, async (req, r
          (budget_id, transaction_id, description, amount, occurred_at, info, user_email)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING transaction_id AS id, description, amount::float8 AS amount,
-                 occurred_at AS date, info, user_email AS "userEmail"`,
+                 occurred_at AS date, occurred_at AS "timestamp",
+                 info, user_email AS "userEmail"`,
       [
         budgetId.trim(),
         id.trim(),
         description,
         amount,
-        date,
+        timestamp,
         info,
         req.user.email,
       ],
