@@ -77,13 +77,13 @@ function RightAction({drag, itemId, callDelete}: {
     };
   });
   return (
-    <Reanimated.View style={[styleAnimation, styles.center]}>
-      <Pressable style={[styles.rightAction, styles.center]}
-      onPress={() => {
-        callDelete(itemId)
-        }
-        }>
-        <Text style={[styles.center]}>Delete?</Text></Pressable>
+    <Reanimated.View style={[styleAnimation, styles.rightActionContent]}>
+      <Pressable
+        style={[styles.rightAction, styles.center, styles.rightActionButton]}
+        onPress={() => callDelete(itemId)}
+      >
+        <Text style={styles.center}>Delete?</Text>
+      </Pressable>
     </Reanimated.View>
   );
 }
@@ -146,10 +146,10 @@ function clearLocalAccountData(email: string): void {
 
 function RootStack({logout, userEmail}: {logout: () => void; userEmail: string}) {
   return(<Stack.Navigator initialRouteName="Budget Buddy">
-      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleStyle:{fontFamily: "OpenSans-Bold"}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
+      <Stack.Screen name="Budget Buddy" options={{headerTitle: "Budget Buddy :)", headerTitleAlign: 'center', headerTitleStyle:{fontFamily: Platform.OS === 'web' ? 'OpenSans-Bold' : undefined, fontWeight: '700'}, headerStyle:{backgroundColor: '#F0F8FF'}}}>
         {props => <BudgetComponent {...props} onLogout={logout} userEmail={userEmail} />}
       </Stack.Screen>
-      <Stack.Screen name="History" options={{headerTitle: "History", headerStyle:{backgroundColor: '#F0F8FF'}}}>
+      <Stack.Screen name="History" options={{headerTitle: "History", headerTitleAlign: 'center', headerStyle:{backgroundColor: '#F0F8FF'}}}>
         {props => <HistoryScreen {...props} userEmail={userEmail} />}
       </Stack.Screen>
     </Stack.Navigator>)
@@ -995,6 +995,7 @@ const BudgetItem = ({id, description, budget, amount, date, budgetType, onDelete
     styles.rowPadding,
     styles.rowContainer,
     {alignSelf: 'stretch'},
+    Platform.OS === 'web' ? null : styles.nativeBudgetItemSpacing,
     isPaidInFull ? styles.paidInFullBudgetRow : null,
     Platform.OS === 'web' ? styles.webBudgetContent : null,
   ]}>
@@ -1882,7 +1883,7 @@ function BudgetHeader({
   }, [totalIncome]);
 
     return (
-        <View style={[styles.container, styles.tableHeaderPadding]}>
+        <View style={Platform.OS === 'web' ? [styles.container, styles.tableHeaderPadding] : styles.budgetSummary}>
         <TextInput
         style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}
         value={savedTitle}
@@ -1899,7 +1900,7 @@ function BudgetHeader({
         }
       }
         />
-        <Text style={[styles.customFont, styles.headerFontSize]}>{todaysDate.toDateString()}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.centeredHeaderText]}>{todaysDate.toDateString()}</Text>
         <View style={[styles.row, styles.center, {alignSelf: 'center'}]}>
           <Text style={[styles.customFont, styles.headerFontSize, {textAlign: 'center'}]}>Total Income: $</Text>
           <TextInput
@@ -1935,14 +1936,14 @@ function BudgetHeader({
             }}
           />
         </View>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
-        <Text style={[styles.customFont, styles.headerFontSize, styles.savingsText]}>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.centeredHeaderText]}>Budget Total: $ {budgetedTotal?.toFixed(2)}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.centeredHeaderText]}>Remaining: $ {budgetAmountRemaining?.toFixed(2)}</Text>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.centeredHeaderText, styles.savingsText]}>
           Potential Savings: $ {budgetSavings.toFixed(2)}
         </Text>
-        <View style={[styles.row, styles.center]}>
-        <Text style={[styles.customFont, styles.headerFontSize
-        ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, {color: potentialSurplus >= 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
+        <View style={[styles.row, styles.centeredHeaderRow]}>
+        <Text style={[styles.customFont, styles.headerFontSize, styles.centeredHeaderText
+        ]}>Surplus: $ </Text><Text style={[styles.flexEnd, styles.headerFontSize, styles.centeredHeaderText, {color: potentialSurplus >= 0 ? 'green' : 'red'}]}>{potentialSurplus.toFixed(2)}</Text>
         </View>
       </View>
     );
@@ -2790,7 +2791,7 @@ const addBudgetItem = (budgetItem: BudgetData) =>{
                 </View>
               )}
             </View>
-            <View style={{flex: 1, minHeight: 20, margin: 50}}>
+            <View style={Platform.OS === 'web' ? styles.webBudgetSummaryWrapper : undefined}>
             <BudgetHeader
                 budgetAmountRemaining={budgetRemaining}
                 budgetedTotal={totalBudgetAmount}
@@ -3002,15 +3003,37 @@ const styles = StyleSheet.create({
       alignItems: 'center', justifyContent: 'center'
     },
     customFont:{
-      fontFamily: 'OpenSans-Regular',
+      fontFamily: Platform.OS === 'web' ? 'OpenSans-Regular' : undefined,
       fontSize: 12
     },
     headerFontSize:{
       fontSize: 18
     },
+    centeredHeaderText: {
+      textAlign: 'center',
+    },
+    centeredHeaderRow: {
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+    },
+    nativeBudgetItemSpacing: {
+      paddingVertical: 6,
+      marginVertical: 2,
+    },
     zeroWidthForPadding:{
-      width: 61,
-      flex: 1
+      width: Platform.OS === 'web' ? 61 : undefined,
+      flex: 1,
+      minWidth: Platform.OS === 'web' ? undefined : 0,
+    },
+    budgetSummary: {
+      alignItems: 'stretch',
+      marginHorizontal: 8,
+      marginTop: 15,
+    },
+    webBudgetSummaryWrapper: {
+      flex: 1,
+      minHeight: 20,
+      margin: 50,
     },
     rowColumn:{
       flexDirection: 'column'
@@ -3078,6 +3101,19 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   rightAction: { width: 50, height: 48, backgroundColor: 'red', borderRadius: 10 },
+  rightActionContent: {
+    width: 50,
+    height: 1,
+    overflow: 'visible',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightActionButton: {
+    position: 'absolute',
+    top: -24,
+    right: 0,
+  },
   webSwipeableRow: {
     alignItems: 'center',
     flexDirection: 'row',
